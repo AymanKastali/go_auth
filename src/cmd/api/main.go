@@ -3,7 +3,6 @@ package main
 import (
 	"go_auth/src/infra/persistence/postgres"
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -15,14 +14,7 @@ func main() {
 	// Wait for Postgres to be ready
 	var db *gorm.DB
 	var err error
-	for i := 0; i < 10; i++ {
-		db, err = postgres.NewPostgresConnection()
-		if err == nil {
-			break
-		}
-		log.Println("Waiting for Postgres...", err)
-		time.Sleep(2 * time.Second)
-	}
+	db, err = postgres.NewPostgresConnection()
 
 	if err != nil {
 		log.Fatal("Could not connect to Postgres:", err)

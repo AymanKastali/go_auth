@@ -10,9 +10,9 @@ type Email struct {
 }
 
 func NewEmail(value string) (Email, error) {
-	re := regexp.MustCompile(`^[^@]+@[^@]+\.[^@]+$`)
-	if !re.MatchString(value) {
-		return Email{}, errors.New("invalid email")
+	r := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+$`)
+	if !r.MatchString(value) {
+		return Email{}, errors.New("invalid email format")
 	}
 	return Email{value: value}, nil
 }

@@ -2,39 +2,22 @@ package services
 
 import (
 	"golang.org/x/crypto/bcrypt"
-
-	portservices "go_auth/src/domain/ports/services"
-	valueobjects "go_auth/src/domain/value_objects"
 )
 
-type BcryptPasswordHasher struct {
+type BcryptPasswordService struct {
 	cost int
 }
 
-func NewBcryptPasswordHasher(cost int) portservices.PasswordHasher {
-	if cost == 0 {
-		cost = bcrypt.DefaultCost
-	}
-	return &BcryptPasswordHasher{cost: cost}
+func NewBcryptPasswordService(cost int) *BcryptPasswordService {
+	return &BcryptPasswordService{cost: cost}
 }
 
-func (b *BcryptPasswordHasher) Hash(plain string) (valueobjects.PasswordHash, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(plain), b.cost)
-	if err != nil {
-		return valueobjects.PasswordHash{}, err
-	}
-
-	return valueobjects.NewPasswordHash(string(bytes)), nil
+func (b *BcryptPasswordService) Hash(raw string) (string, error) {
+	h, err := bcrypt.GenerateFromPassword([]byte(raw), b.cost)
+	return string(h), err
 }
 
-func (b *BcryptPasswordHasher) Verify(
-	plain string,
-	hash valueobjects.PasswordHash,
-) bool {
-	err := bcrypt.CompareHashAndPassword(
-		[]byte(hash.Value()),
-		[]byte(plain),
-	)
-
+func (b *BcryptPasswordService) Compare(raw, hashed string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(raw))
 	return err == nil
 }

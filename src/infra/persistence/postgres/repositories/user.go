@@ -18,12 +18,12 @@ func NewUserPostgresRepository(db *gorm.DB) repositories.UserRepository {
 	return &UserPostgresRepository{db: db}
 }
 
-func (r *UserPostgresRepository) Save(user *entities.User) error {
+func (r *UserPostgresRepository) Save(u *entities.User) error {
 	model := models.UserModel{
-		ID:           user.ID,
-		Email:        user.Email.Value(),
-		PasswordHash: user.PasswordHash.Value(),
-		IsActive:     user.IsActive,
+		ID:           u.ID().Value().String(),
+		Email:        u.Email().Value(),
+		PasswordHash: u.PasswordHash().Value(),
+		IsActive:     u.IsActive(),
 	}
 
 	return r.db.Create(&model).Error
@@ -70,20 +70,34 @@ func (r *UserPostgresRepository) GetByID(
 
 	return r.toDomain(model)
 }
-
 func (r *UserPostgresRepository) toDomain(
 	model models.UserModel,
 ) (*entities.User, error) {
+	// Convert string ID to UserID VO
+	uid, err := uuid.Parse(model.ID)
+	if err != nil {
+		return nil, err
+	}
+	userID := valueobjects.UserIDFromUUID(uid)
 
+	// Convert email
 	email, err := valueobjects.NewEmail(model.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	return &entities.User{
-		ID:           model.ID,
-		Email:        email,
-		PasswordHash: valueobjects.NewPasswordHash(model.PasswordHash),
-		IsActive:     model.IsActive,
-	}, nil
+	// Convert password hash
+	pwHash := valueobjects.NewPasswordHash(model.PasswordHash)
+
+	// Reconstruct domain user
+	user := entities.NewUserFromPersistence(
+		userID,
+		email,
+		pwHash,
+		model.IsActive,
+		model.CreatedAt,
+		model.UpdatedAt,
+	)
+
+	return user, nil
 }

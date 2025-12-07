@@ -1,13 +1,11 @@
 package repositories
 
 import (
-	"go_auth/src/domain/entities"
-
-	"github.com/google/uuid"
+	"go_auth/src/domain/aggregates"
 )
 
-type TokenSessionRepository interface {
-	Save(session *entities.TokenSession) error
-	Get(jti uuid.UUID) (*entities.TokenSession, error)
-	Revoke(jti uuid.UUID) error
+type AuthSessionRepository interface {
+	Save(session *aggregates.AuthSession) error
+	// FindByAccessToken(token valueobjects.AccessToken) (*aggregates.AuthSession, error)
+	// Delete(tokenID valueobjects.TokenID) error
 }
