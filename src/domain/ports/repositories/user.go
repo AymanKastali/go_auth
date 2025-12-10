@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type UserRepository interface {
+type UserRepositoryPort interface {
 	Save(user *entities.User) error
 	GetByID(id uuid.UUID) (*entities.User, error)
 	GetByEmail(email valueobjects.Email) (*entities.User, error)

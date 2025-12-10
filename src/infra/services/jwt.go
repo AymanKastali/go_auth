@@ -1,8 +1,7 @@
 package services
 
 import (
-	"context"
-	"errors"
+	"go_auth/src/domain/entities"
 	valueobjects "go_auth/src/domain/value_objects"
 	"time"
 
@@ -13,23 +12,28 @@ type JWTService struct {
 	secret     []byte
 	issuer     string
 	signingAlg jwt.SigningMethod
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
 
-func NewJWTService(secret string, issuer string) *JWTService {
+func NewJWTService(secret, issuer string, accessTTL, refreshTTL time.Duration) *JWTService {
 	return &JWTService{
 		secret:     []byte(secret),
 		issuer:     issuer,
 		signingAlg: jwt.SigningMethodHS256,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
 	}
 }
 
-func (s *JWTService) GenerateAccessToken(userID valueobjects.UserID, ttl time.Duration) (valueobjects.AccessToken, error) {
+// Implement TokenServicePort interface
+func (s *JWTService) IssueAccessToken(user *entities.User) (valueobjects.AccessToken, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"sub": userID.Value().String(),
+		"sub": user.ID().Value().String(),
 		"iss": s.issuer,
 		"iat": now.Unix(),
-		"exp": now.Add(ttl).Unix(),
+		"exp": now.Add(s.accessTTL).Unix(),
 		"typ": "access",
 	}
 	token := jwt.NewWithClaims(s.signingAlg, claims)
@@ -40,13 +44,13 @@ func (s *JWTService) GenerateAccessToken(userID valueobjects.UserID, ttl time.Du
 	return valueobjects.NewAccessToken(signed), nil
 }
 
-func (s *JWTService) GenerateRefreshToken(userID valueobjects.UserID, ttl time.Duration) (valueobjects.RefreshToken, error) {
+func (s *JWTService) IssueRefreshToken(user *entities.User) (valueobjects.RefreshToken, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"sub": userID.Value().String(),
+		"sub": user.ID().Value().String(),
 		"iss": s.issuer,
 		"iat": now.Unix(),
-		"exp": now.Add(ttl).Unix(),
+		"exp": now.Add(s.refreshTTL).Unix(),
 		"typ": "refresh",
 	}
 	token := jwt.NewWithClaims(s.signingAlg, claims)
@@ -55,29 +59,4 @@ func (s *JWTService) GenerateRefreshToken(userID valueobjects.UserID, ttl time.D
 		return valueobjects.RefreshToken{}, err
 	}
 	return valueobjects.NewRefreshToken(signed), nil
-}
-
-func (s *JWTService) ParseAndValidateAccessToken(ctx context.Context, tokenStr string) (valueobjects.UserID, error) {
-	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-		if t.Method.Alg() != s.signingAlg.Alg() {
-			return nil, errors.New("unexpected signing alg")
-		}
-		return s.secret, nil
-	})
-	if err != nil || !token.Valid {
-		return valueobjects.UserID{}, err
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return valueobjects.UserID{}, errors.New("invalid claims")
-	}
-	sub, ok := claims["sub"].(string)
-	if !ok {
-		return valueobjects.UserID{}, errors.New("no sub")
-	}
-	uid, err := valueobjects.UserIDFromString(sub)
-	if err != nil {
-		return valueobjects.UserID{}, err
-	}
-	return uid, nil
 }

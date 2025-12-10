@@ -1,37 +1,52 @@
 package usecases
 
 import (
-	"context"
 	"go_auth/src/application/dto"
+	"go_auth/src/application/ports/services"
 	"go_auth/src/domain/errors"
-	"go_auth/src/domain/services"
+	"go_auth/src/domain/ports/repositories"
 	valueobjects "go_auth/src/domain/value_objects"
 )
 
-type LoginHandler struct {
-	AuthSvc *services.AuthenticateUser
+type LoginUseCase struct {
+	userRepository repositories.UserRepositoryPort
+	passwordHasher services.HashPasswordPort
+	tokenService   services.TokenServicePort
 }
 
-func NewLoginHandler(auth *services.AuthenticateUser) *LoginHandler {
-	return &LoginHandler{AuthSvc: auth}
+func NewLoginUseCase(
+	userRepository repositories.UserRepositoryPort,
+	passwordHasher services.HashPasswordPort,
+	tokenService services.TokenServicePort,
+) *LoginUseCase {
+	return &LoginUseCase{
+		userRepository: userRepository,
+		passwordHasher: passwordHasher,
+		tokenService:   tokenService,
+	}
 }
 
-func (h *LoginHandler) Handle(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
-	// 1️⃣ Validate email
-	emailVO, err := valueobjects.NewEmail(req.Email)
+func (uc *LoginUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
+	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2️⃣ Authenticate user and get stateless JWT
-	token, err := h.AuthSvc.Execute(emailVO, req.Password)
-	if err != nil {
+	user, err := uc.userRepository.GetByEmail(emailVO)
+	if err != nil || user == nil {
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	// 3️⃣ Build response
+	if !uc.passwordHasher.Compare(password, user.PasswordHash().Value()) {
+		return nil, errors.ErrInvalidCredentials
+	}
+
+	accessToken, err := uc.tokenService.IssueAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.AuthResponse{
-		AccessToken: token.Value(),
-		// No refresh token — fully stateless
+		AccessToken: accessToken.Value(),
 	}, nil
 }

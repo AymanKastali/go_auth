@@ -1,8 +1,14 @@
 package main
 
 import (
+	usecases "go_auth/src/application/use_cases"
 	"go_auth/src/infra/persistence/postgres"
+	"go_auth/src/infra/persistence/postgres/repositories"
+	"go_auth/src/infra/services"
+	"go_auth/src/presentation/web/fiber/api/v1/controllers"
+	"go_auth/src/presentation/web/fiber/api/v1/routes"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -11,18 +17,9 @@ import (
 )
 
 func main() {
-	// Wait for Postgres to be ready
-	var db *gorm.DB
-	var err error
-	db, err = postgres.NewPostgresConnection()
-
-	if err != nil {
-		log.Fatal("Could not connect to Postgres:", err)
-	}
-
-	postgres.AutoMigrate(db)
-
+	// ----------------------
 	// Fiber App
+	// ----------------------
 	app := fiber.New()
 
 	// Middleware
@@ -34,6 +31,50 @@ func main() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	// ----------------------
+	// Database
+	// ----------------------
+	var db *gorm.DB
+	var err error
+	db, err = postgres.NewPostgresConnection()
+	if err != nil {
+		log.Fatal("Could not connect to Postgres:", err)
+	}
+
+	// Auto-migrate entities
+	postgres.AutoMigrate(db)
+
+	// ----------------------
+	// Infrastructure
+	// ----------------------
+	userRepo := repositories.NewUserPostgresRepository(db)
+	passwordHasher := services.NewBcryptPasswordHasher(12)
+	jwtSecret := "your-super-secret-key"
+	jwtIssuer := "my-app"
+	accessTTL := time.Hour
+	refreshTTL := 24 * time.Hour
+	jwtService := services.NewJWTService(jwtSecret, jwtIssuer, accessTTL, refreshTTL)
+
+	// ----------------------
+	// Use Cases
+	// ----------------------
+	registerUseCase := usecases.NewRegisterUseCase(userRepo, passwordHasher)
+	loginUseCase := usecases.NewLoginUseCase(userRepo, passwordHasher, jwtService)
+
+	// ----------------------
+	// Controllers
+	// ----------------------
+	registerController := controllers.NewRegisterController(registerUseCase)
+	loginController := controllers.NewLoginController(loginUseCase)
+
+	// ----------------------
+	// Routes
+	// ----------------------
+	routes.RegisterAuthRoutes(app, registerController, loginController)
+
+	// ----------------------
+	// Start server
+	// ----------------------
 	log.Println("Fiber server running on :8080")
 	if err := app.Listen(":8080"); err != nil {
 		log.Fatal(err)
