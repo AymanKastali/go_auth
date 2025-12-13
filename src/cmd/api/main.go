@@ -2,13 +2,14 @@ package main
 
 import (
 	usecases "go_auth/src/application/use_cases"
+	"go_auth/src/infra/config"
 	"go_auth/src/infra/persistence/postgres"
 	"go_auth/src/infra/persistence/postgres/repositories"
-	"go_auth/src/infra/services"
+	"go_auth/src/infra/services/jwt"
+	"go_auth/src/infra/services/password"
 	"go_auth/src/presentation/web/fiber/api/v1/controllers"
 	"go_auth/src/presentation/web/fiber/api/v1/routes"
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -48,12 +49,12 @@ func main() {
 	// Infrastructure
 	// ----------------------
 	userRepo := repositories.NewUserPostgresRepository(db)
-	passwordHasher := services.NewBcryptPasswordHasher(12)
-	jwtSecret := "your-super-secret-key"
-	jwtIssuer := "my-app"
-	accessTTL := time.Hour
-	refreshTTL := 24 * time.Hour
-	jwtService := services.NewJWTService(jwtSecret, jwtIssuer, accessTTL, refreshTTL)
+	passwordHasher := password.NewBcryptPasswordHasher(12)
+	jwt_cfg, err := config.LoadJWTConfigFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	jwtService := jwt.NewJWTService(jwt_cfg)
 
 	// ----------------------
 	// Use Cases

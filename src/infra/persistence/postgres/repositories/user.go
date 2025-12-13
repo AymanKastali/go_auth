@@ -24,6 +24,7 @@ func (r *UserPostgresRepository) Save(u *entities.User) error {
 		Email:        u.Email().Value(),
 		PasswordHash: u.PasswordHash().Value(),
 		IsActive:     u.IsActive(),
+		Roles:        u.Roles().ToStrings(),
 	}
 
 	return r.db.Create(&model).Error
@@ -89,11 +90,17 @@ func (r *UserPostgresRepository) toDomain(
 	// Convert password hash
 	pwHash := valueobjects.NewPasswordHash(model.PasswordHash)
 
+	var roles valueobjects.Roles
+	for _, r := range model.Roles {
+		roles = append(roles, valueobjects.Role(r))
+	}
+
 	// Reconstruct domain user
 	user := entities.NewUserFromPersistence(
 		userID,
 		email,
 		pwHash,
+		roles,
 		model.IsActive,
 		model.CreatedAt,
 		model.UpdatedAt,

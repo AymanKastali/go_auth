@@ -45,7 +45,8 @@ func (uc *RegisterUseCase) Execute(email string, password string) (*dto.AuthResp
 	}
 	pw := valueobjects.NewPasswordHash(hash)
 	uid := valueobjects.NewUserID()
-	user := entities.NewUser(uid, emailVO, pw)
+	defaultRoles := valueobjects.Roles{valueobjects.RoleUser}
+	user := entities.NewUser(uid, emailVO, pw, defaultRoles)
 
 	if err := uc.userRepository.Save(user); err != nil {
 		return nil, err

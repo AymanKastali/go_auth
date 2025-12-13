@@ -9,16 +9,23 @@ type User struct {
 	id           valueobjects.UserID
 	email        valueobjects.Email
 	passwordHash valueobjects.PasswordHash
+	roles        valueobjects.Roles
 	isActive     bool
 	createdAt    time.Time
 	updatedAt    time.Time
 }
 
-func NewUser(id valueobjects.UserID, email valueobjects.Email, hash valueobjects.PasswordHash) *User {
+func NewUser(
+	id valueobjects.UserID,
+	email valueobjects.Email,
+	hash valueobjects.PasswordHash,
+	roles valueobjects.Roles,
+) *User {
 	return &User{
 		id:           id,
 		email:        email,
 		passwordHash: hash,
+		roles:        roles,
 		isActive:     true,
 		createdAt:    time.Now().UTC(),
 		updatedAt:    time.Now().UTC(),
@@ -36,6 +43,10 @@ func (u *User) PasswordHash() valueobjects.PasswordHash {
 	return u.passwordHash
 }
 
+func (u *User) Roles() valueobjects.Roles {
+	return u.roles
+}
+
 func (u *User) IsActive() bool {
 	return u.isActive
 }
@@ -49,6 +60,7 @@ func NewUserFromPersistence(
 	id valueobjects.UserID,
 	email valueobjects.Email,
 	passwordHash valueobjects.PasswordHash,
+	roles valueobjects.Roles,
 	isActive bool,
 	createdAt, updatedAt time.Time,
 ) *User {
@@ -57,6 +69,7 @@ func NewUserFromPersistence(
 		email:        email,
 		passwordHash: passwordHash,
 		isActive:     isActive,
+		roles:        roles,
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 	}

@@ -41,12 +41,17 @@ func (uc *LoginUseCase) Execute(email string, password string) (*dto.AuthRespons
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	accessToken, err := uc.tokenService.IssueAccessToken(user)
+	accessToken, err := uc.tokenService.IssueAccessToken(user.ID().String(), user.Roles().ToStrings())
+	if err != nil {
+		return nil, err
+	}
+	refreshToken, err := uc.tokenService.IssueRefreshToken(user.ID().String())
 	if err != nil {
 		return nil, err
 	}
 
 	return &dto.AuthResponse{
-		AccessToken: accessToken.Value(),
+		AccessToken:  accessToken.Value(),
+		RefreshToken: refreshToken.Value(),
 	}, nil
 }

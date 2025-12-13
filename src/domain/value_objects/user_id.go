@@ -25,3 +25,7 @@ func UserIDFromString(s string) (UserID, error) {
 func (id UserID) Value() uuid.UUID {
 	return id.value
 }
+
+func (id UserID) String() string {
+	return id.value.String()
+}
