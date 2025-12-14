@@ -1,5 +1,5 @@
 package valueobjects
 
-type Email struct {
+type JWTToken struct {
 	Value string
 }

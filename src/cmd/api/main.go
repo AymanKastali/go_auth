@@ -2,7 +2,9 @@ package main
 
 import (
 	usecases "go_auth/src/application/use_cases"
+	"go_auth/src/domain/factories"
 	"go_auth/src/infra/config"
+	"go_auth/src/infra/mappers"
 	"go_auth/src/infra/persistence/postgres"
 	"go_auth/src/infra/persistence/postgres/repositories"
 	"go_auth/src/infra/services/jwt"
@@ -45,10 +47,24 @@ func main() {
 	// Auto-migrate entities
 	postgres.AutoMigrate(db)
 
+	// Domain Factories (Stateless, no dependencies, but good practice to initialize once)
+	emailFactory := factories.EmailFactory{}
+	pwHashFactory := factories.PasswordHashFactory{}
+	roleFactory := factories.RoleFactory{}
+	userFactory := factories.UserFactory{}
+
+	// Infrastructure Mappers (Stateless)
+	// permMapper := mappers.PermissionMapper{}
+	// roleMapper := mappers.RoleMapper{}
+	userMapper := mappers.UserMapper{}
+
 	// ----------------------
 	// Infrastructure
 	// ----------------------
-	userRepo := repositories.NewUserPostgresRepository(db)
+	userRepo := repositories.NewGormUserRepository(db, userMapper)
+	// roleRepo := repositories.NewGormRoleRepository(db, roleMapper)
+	// permRepo := repositories.NewGormPermissionRepository(db, permMapper)
+
 	passwordHasher := password.NewBcryptPasswordHasher(12)
 	jwt_cfg, err := config.LoadJWTConfigFromEnv()
 	if err != nil {
@@ -59,8 +75,21 @@ func main() {
 	// ----------------------
 	// Use Cases
 	// ----------------------
-	registerUseCase := usecases.NewRegisterUseCase(userRepo, passwordHasher)
-	loginUseCase := usecases.NewLoginUseCase(userRepo, passwordHasher, jwtService)
+	registerUseCase := usecases.NewRegisterUseCase(
+		userRepo,
+		passwordHasher,
+		emailFactory,
+		pwHashFactory,
+		roleFactory,
+		userFactory,
+	)
+
+	loginUseCase := usecases.NewLoginUseCase(
+		userRepo,
+		passwordHasher,
+		jwtService,
+		emailFactory, // Required by LoginUC
+	)
 
 	// ----------------------
 	// Controllers

@@ -3,55 +3,75 @@ package usecases
 import (
 	"go_auth/src/application/dto"
 	"go_auth/src/application/ports/services"
+	"go_auth/src/domain/entities"
 	"go_auth/src/domain/errors"
+	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
 )
 
+func mapRolesToNames(roles []entities.Role) []string {
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+	return roleNames
+}
+
 type LoginUseCase struct {
-	userRepository repositories.UserRepositoryPort
-	passwordHasher services.HashPasswordPort
-	tokenService   services.TokenServicePort
+	UserRepository repositories.UserRepositoryPort
+	PasswordHasher services.HashPasswordPort
+	TokenService   services.TokenServicePort
+	EmailFactory   factories.EmailFactory
 }
 
 func NewLoginUseCase(
 	userRepository repositories.UserRepositoryPort,
 	passwordHasher services.HashPasswordPort,
 	tokenService services.TokenServicePort,
+	emailFactory factories.EmailFactory,
 ) *LoginUseCase {
 	return &LoginUseCase{
-		userRepository: userRepository,
-		passwordHasher: passwordHasher,
-		tokenService:   tokenService,
+		UserRepository: userRepository,
+		PasswordHasher: passwordHasher,
+		TokenService:   tokenService,
+		EmailFactory:   emailFactory,
 	}
 }
 
 func (uc *LoginUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
-	emailVO, err := valueobjects.NewEmail(email)
+
+	emailVO, err := uc.EmailFactory.New(email)
 	if err != nil {
-		return nil, err
 	}
 
-	user, err := uc.userRepository.GetByEmail(emailVO)
-	if err != nil || user == nil {
+	user, err := uc.UserRepository.GetByEmail(emailVO)
+
+	if err != nil {
+		return nil, errors.ErrInvalidCredentials
+	}
+	if user == nil {
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	if !uc.passwordHasher.Compare(password, user.PasswordHash().Value()) {
+	if !uc.PasswordHasher.Compare(password, user.PasswordHash.Value) {
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	accessToken, err := uc.tokenService.IssueAccessToken(user.ID().String(), user.Roles().ToStrings())
+	roleNames := mapRolesToNames(user.Roles)
+
+	userIDStr := user.ID.Value.String()
+
+	accessToken, err := uc.TokenService.IssueAccessToken(userIDStr, roleNames)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := uc.tokenService.IssueRefreshToken(user.ID().String())
+	refreshToken, err := uc.TokenService.IssueRefreshToken(userIDStr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &dto.AuthResponse{
-		AccessToken:  accessToken.Value(),
-		RefreshToken: refreshToken.Value(),
+		AccessToken:  accessToken.Value,
+		RefreshToken: refreshToken.Value,
 	}, nil
 }

@@ -32,7 +32,7 @@ func NewJWTService(cfg *config.JWTConfig) *JWTService {
 		signingAlg: SigningMethod,
 	}
 }
-func (s *JWTService) IssueAccessToken(userID string, roles []string) (valueobjects.AccessToken, error) {
+func (s *JWTService) IssueAccessToken(userID string, roles []string) (valueobjects.JWTToken, error) {
 	now := time.Now()
 
 	claims := AccessTokenClaims{
@@ -50,14 +50,14 @@ func (s *JWTService) IssueAccessToken(userID string, roles []string) (valueobjec
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.AccessToken{}, err
+		return valueobjects.JWTToken{}, err
 	}
 
-	return valueobjects.NewAccessToken(signed), nil
+	return valueobjects.JWTToken{Value: signed}, nil
 }
 
 // IssueRefreshToken issues a signed JWT refresh token using typed claims.
-func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.RefreshToken, error) {
+func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.JWTToken, error) {
 	now := time.Now()
 
 	claims := RefreshTokenClaims{
@@ -74,8 +74,8 @@ func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.RefreshToken
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.NewRefreshToken(signed), err
+		return valueobjects.JWTToken{Value: signed}, err
 	}
 
-	return valueobjects.NewRefreshToken(signed), nil
+	return valueobjects.JWTToken{Value: signed}, nil
 }

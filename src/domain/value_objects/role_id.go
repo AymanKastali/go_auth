@@ -2,6 +2,6 @@ package valueobjects
 
 import "github.com/google/uuid"
 
-type TokenID struct {
+type RoleID struct {
 	Value uuid.UUID
 }

@@ -4,15 +4,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserModel struct {
+type User struct {
 	gorm.Model
-	ID           string   `gorm:"primaryKey;type:uuid"`
-	Email        string   `gorm:"uniqueIndex;not null"`
-	PasswordHash string   `gorm:"not null"`
-	Roles        []string `gorm:"serializer:json"`
-	IsActive     bool     `gorm:"not null"`
+	ID           string `gorm:"primaryKey;type:uuid"`
+	Email        string `gorm:"uniqueIndex;not null"`
+	PasswordHash string `gorm:"not null"`
+	IsActive     bool   `gorm:"not null"`
+	Roles        []Role `gorm:"many2many:user_roles;" json:"roles"`
 }
 
-func (UserModel) TableName() string {
+func (User) TableName() string {
 	return "users"
 }
