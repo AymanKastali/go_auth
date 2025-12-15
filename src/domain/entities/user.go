@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"errors"
 	valueobjects "go_auth/src/domain/value_objects"
 	"time"
 )
@@ -9,24 +10,30 @@ type User struct {
 	ID           valueobjects.UserID
 	Email        valueobjects.Email
 	PasswordHash valueobjects.PasswordHash
-	Roles        []Role
-	IsActive     bool
+	Status       valueobjects.UserStatus
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	DeletedAt    time.Time
+	DeletedAt    *time.Time
 }
 
 func (u *User) touch() {
 	u.UpdatedAt = time.Now().UTC()
 }
 
-// raise error in case of is already active
-func (u *User) Activate() {
-	u.IsActive = true
+func (u *User) Activate() error {
+	if u.Status == valueobjects.UserActive {
+		return errors.New("user is already active")
+	}
+	u.Status = valueobjects.UserActive
 	u.touch()
+	return nil
 }
 
-func (u *User) Deactivate() {
-	u.IsActive = false
+func (u *User) Deactivate() error {
+	if u.Status == valueobjects.UserInactive {
+		return errors.New("user is already inactive")
+	}
+	u.Status = valueobjects.UserInactive
 	u.touch()
+	return nil
 }

@@ -1,17 +1,18 @@
 package mappers
 
 import (
+	"fmt"
+
 	"go_auth/src/domain/entities"
 	valueobjects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/persistence/postgres/models"
-
-	"fmt"
 
 	"github.com/google/uuid"
 )
 
 type UserMapper struct{}
 
+// ToDomain maps the GORM model to the domain entity
 func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	if u == nil {
 		return nil, nil
@@ -26,51 +27,38 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	emailVO := valueobjects.Email{Value: u.Email}
 	pwHashVO := valueobjects.PasswordHash{Value: u.PasswordHash}
 
-	roles := make([]entities.Role, 0, len(u.Roles))
-	roleMapper := RoleMapper{}
-
-	for _, rModel := range u.Roles {
-		rEntity, err := roleMapper.ToDomain(&rModel)
-		if err != nil {
-			return nil, fmt.Errorf("user mapper: failed to map nested role: %w", err)
-		}
-		roles = append(roles, *rEntity)
+	// Map string status to UserStatus enum
+	var status valueobjects.UserStatus
+	switch u.Status {
+	case string(valueobjects.UserActive):
+		status = valueobjects.UserActive
+	case string(valueobjects.UserInactive):
+		status = valueobjects.UserInactive
+	default:
+		return nil, fmt.Errorf("user mapper: unknown status '%s'", u.Status)
 	}
 
 	return &entities.User{
 		ID:           userID,
 		Email:        emailVO,
 		PasswordHash: pwHashVO,
-		IsActive:     u.IsActive,
-		Roles:        roles,
+		Status:       status,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
+		DeletedAt:    &u.DeletedAt.Time,
 	}, nil
 }
 
+// ToModel maps the domain entity to the GORM model
 func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
 	if u == nil {
 		return nil, nil
 	}
 
-	userModelID := u.ID.Value.String()
-
-	rolesModel := make([]models.Role, 0, len(u.Roles))
-	roleMapper := RoleMapper{}
-
-	for _, rEntity := range u.Roles {
-		rModel, err := roleMapper.ToModel(&rEntity)
-		if err != nil {
-			return nil, fmt.Errorf("user mapper: failed to map nested role model: %w", err)
-		}
-		rolesModel = append(rolesModel, *rModel)
-	}
-
 	return &models.User{
-		ID:           userModelID,
+		ID:           u.ID.Value.String(),
 		Email:        u.Email.Value,
 		PasswordHash: u.PasswordHash.Value,
-		IsActive:     u.IsActive,
-		Roles:        rolesModel,
+		Status:       string(u.Status), // map enum to string
 	}, nil
 }

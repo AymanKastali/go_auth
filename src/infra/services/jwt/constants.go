@@ -1,6 +1,6 @@
 package jwt
 
 const (
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
+	TokenTypeAccess  = "ACCESS"
+	TokenTypeRefresh = "REFRESH"
 )

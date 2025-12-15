@@ -3,7 +3,7 @@ package controllers
 import (
 	usecases "go_auth/src/application/use_cases"
 	"go_auth/src/domain/errors"
-	"go_auth/src/presentation/web/fiber/dto/requests"
+	"go_auth/src/presentation/web/fiber/dto/request"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,7 +21,7 @@ func NewRegisterController(registerUseCase *usecases.RegisterUseCase) *RegisterC
 
 // POST /register
 func (ac *RegisterController) Execute(c *fiber.Ctx) error {
-	var req requests.RegisterRequest
+	var req request.RegisterRequest
 
 	// Parse and validate JSON body
 	if err := c.BodyParser(&req); err != nil {

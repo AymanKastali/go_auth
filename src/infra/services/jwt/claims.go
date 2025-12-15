@@ -3,9 +3,9 @@ package jwt
 import "github.com/golang-jwt/jwt/v5"
 
 type AccessTokenClaims struct {
-	UserID string   `json:"sub"`
-	Type   string   `json:"typ"`
-	Roles  []string `json:"roles"`
+	UserID string `json:"sub"`
+	Type   string `json:"typ"`
+	// Roles  []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 

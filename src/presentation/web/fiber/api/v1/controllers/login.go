@@ -3,7 +3,7 @@ package controllers
 import (
 	usecases "go_auth/src/application/use_cases"
 	"go_auth/src/domain/errors"
-	"go_auth/src/presentation/web/fiber/dto/requests"
+	"go_auth/src/presentation/web/fiber/dto/request"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,7 +21,7 @@ func NewLoginController(loginUseCase *usecases.LoginUseCase) *LoginController {
 
 // POST /login
 func (lc *LoginController) Execute(c *fiber.Ctx) error {
-	var req requests.LoginRequest
+	var req request.LoginRequest
 
 	// Parse and validate JSON body
 	if err := c.BodyParser(&req); err != nil {

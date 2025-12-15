@@ -3,27 +3,21 @@ package factories
 import (
 	"go_auth/src/domain/entities"
 	valueobjects "go_auth/src/domain/value_objects"
-	"time"
 )
 
 type UserFactory struct{}
 
 func (f *UserFactory) New(
+	id valueobjects.UserID,
 	email valueobjects.Email,
 	passwordHash valueobjects.PasswordHash,
-	roles []entities.Role,
-	isActive bool,
+	status valueobjects.UserStatus,
 ) *entities.User {
-	now := time.Now().UTC()
-	idFactory := IDFactory{}
 	return &entities.User{
-		ID:           idFactory.NewUserID(),
+		ID:           id,
 		Email:        email,
 		PasswordHash: passwordHash,
-		Roles:        roles,
-		IsActive:     isActive,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		Status:       status,
 	}
 
 }

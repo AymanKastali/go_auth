@@ -23,3 +23,7 @@ func (f *IDFactory) NewPermissionID() valueobjects.PermissionID {
 func (f *IDFactory) NewTokenID() valueobjects.TokenID {
 	return valueobjects.TokenID{Value: uuid.New()}
 }
+
+func (f *IDFactory) NewOrganizationID() valueobjects.OrganizationID {
+	return valueobjects.OrganizationID{Value: uuid.New()}
+}

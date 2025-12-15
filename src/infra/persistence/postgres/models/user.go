@@ -6,11 +6,11 @@ import (
 
 type User struct {
 	gorm.Model
-	ID           string `gorm:"primaryKey;type:uuid"`
-	Email        string `gorm:"uniqueIndex;not null"`
-	PasswordHash string `gorm:"not null"`
-	IsActive     bool   `gorm:"not null"`
-	Roles        []Role `gorm:"many2many:user_roles;" json:"roles"`
+	ID           string       `gorm:"primaryKey;type:uuid"`
+	Email        string       `gorm:"uniqueIndex;not null"`
+	PasswordHash string       `gorm:"not null"`
+	Status       string       `gorm:"type:varchar(20);not null"`
+	Memberships  []Membership `gorm:"foreignKey:UserID"`
 }
 
 func (User) TableName() string {

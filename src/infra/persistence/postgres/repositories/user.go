@@ -28,8 +28,6 @@ func NewGormUserRepository(
 	}
 }
 
-const preloadUserAssociations = "Roles.Permissions"
-
 func (r *GormUserRepository) Save(u *entities.User) error {
 
 	model, err := r.Mapper.ToModel(u)
@@ -51,7 +49,6 @@ func (r *GormUserRepository) GetByEmail(
 	var model models.User
 
 	err := r.DB.
-		Preload(preloadUserAssociations).
 		Where("email = ?", email.Value).
 		First(&model).
 		Error
@@ -75,7 +72,6 @@ func (r *GormUserRepository) GetByID(
 	modelID := id.Value.String()
 
 	err := r.DB.
-		Preload(preloadUserAssociations).
 		Where("id = ?", modelID).
 		First(&model).
 		Error

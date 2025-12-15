@@ -1,6 +1,6 @@
-package requests
+package request
 
-type LoginRequest struct {
+type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }

@@ -11,6 +11,7 @@ import (
 	"go_auth/src/infra/services/password"
 	"go_auth/src/presentation/web/fiber/api/v1/controllers"
 	"go_auth/src/presentation/web/fiber/api/v1/routes"
+	"go_auth/src/presentation/web/fiber/middleware"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -48,15 +49,16 @@ func main() {
 	postgres.AutoMigrate(db)
 
 	// Domain Factories (Stateless, no dependencies, but good practice to initialize once)
+	idFactory := factories.IDFactory{}
 	emailFactory := factories.EmailFactory{}
 	pwHashFactory := factories.PasswordHashFactory{}
-	roleFactory := factories.RoleFactory{}
 	userFactory := factories.UserFactory{}
 
 	// Infrastructure Mappers (Stateless)
 	// permMapper := mappers.PermissionMapper{}
 	// roleMapper := mappers.RoleMapper{}
 	userMapper := mappers.UserMapper{}
+	uuidMapper := mappers.UUIDMapper{}
 
 	// ----------------------
 	// Infrastructure
@@ -78,9 +80,9 @@ func main() {
 	registerUseCase := usecases.NewRegisterUseCase(
 		userRepo,
 		passwordHasher,
+		idFactory,
 		emailFactory,
 		pwHashFactory,
-		roleFactory,
 		userFactory,
 	)
 
@@ -91,16 +93,24 @@ func main() {
 		emailFactory, // Required by LoginUC
 	)
 
+	userUseCase := usecases.NewUserUseCase(
+		userRepo,
+		uuidMapper,
+	)
+
 	// ----------------------
 	// Controllers
 	// ----------------------
 	registerController := controllers.NewRegisterController(registerUseCase)
 	loginController := controllers.NewLoginController(loginUseCase)
+	getAuthenticatedUserController := controllers.NewUserController(userUseCase)
 
 	// ----------------------
 	// Routes
 	// ----------------------
 	routes.RegisterAuthRoutes(app, registerController, loginController)
+	authMiddleware := middleware.JWTMiddleware(jwtService)
+	routes.RegisterUserRoutes(app, getAuthenticatedUserController, authMiddleware)
 
 	// ----------------------
 	// Start server

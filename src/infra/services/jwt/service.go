@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"crypto/rsa"
+	"fmt"
 	valueobjects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/config"
 	"time"
@@ -32,13 +33,13 @@ func NewJWTService(cfg *config.JWTConfig) *JWTService {
 		signingAlg: SigningMethod,
 	}
 }
-func (s *JWTService) IssueAccessToken(userID string, roles []string) (valueobjects.JWTToken, error) {
+func (s *JWTService) IssueAccessToken(userID string) (valueobjects.JWTToken, error) {
 	now := time.Now()
 
 	claims := AccessTokenClaims{
 		UserID: userID,
 		Type:   TokenTypeAccess,
-		Roles:  roles,
+		// Roles:  roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
@@ -56,7 +57,6 @@ func (s *JWTService) IssueAccessToken(userID string, roles []string) (valueobjec
 	return valueobjects.JWTToken{Value: signed}, nil
 }
 
-// IssueRefreshToken issues a signed JWT refresh token using typed claims.
 func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.JWTToken, error) {
 	now := time.Now()
 
@@ -78,4 +78,20 @@ func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.JWTToken, er
 	}
 
 	return valueobjects.JWTToken{Value: signed}, nil
+}
+
+func (s *JWTService) ValidateAccessToken(tokenStr string) (*AccessTokenClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &AccessTokenClaims{}, func(t *jwt.Token) (any, error) {
+		return s.publicKey, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: %w", err)
+	}
+
+	claims, ok := token.Claims.(*AccessTokenClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid or expired token")
+	}
+
+	return claims, nil
 }

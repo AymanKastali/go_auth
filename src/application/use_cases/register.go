@@ -2,77 +2,75 @@ package usecases
 
 import (
 	"go_auth/src/application/dto"
-	"go_auth/src/domain/entities"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/events"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
+	valueobjects "go_auth/src/domain/value_objects"
 
 	"go_auth/src/application/ports/services"
 )
 
 type RegisterUseCase struct {
-	UserRepository repositories.UserRepositoryPort
-	PasswordHasher services.HashPasswordPort
+	userRepository repositories.UserRepositoryPort
+	passwordHasher services.HashPasswordPort
 	// factories
-	EmailFactory   factories.EmailFactory
-	PwdHashFactory factories.PasswordHashFactory
-	RoleFactory    factories.RoleFactory
-	UserFactory    factories.UserFactory
+	idFactory      factories.IDFactory
+	emailFactory   factories.EmailFactory
+	pwdHashFactory factories.PasswordHashFactory
+	userFactory    factories.UserFactory
 }
 
 func NewRegisterUseCase(
 	userRepository repositories.UserRepositoryPort,
 	passwordHasher services.HashPasswordPort,
+	idFactory factories.IDFactory,
 	emailFactory factories.EmailFactory,
 	pwHashFactory factories.PasswordHashFactory,
-	roleFactory factories.RoleFactory,
 	userFactory factories.UserFactory,
 ) *RegisterUseCase {
 	return &RegisterUseCase{
-		UserRepository: userRepository,
-		PasswordHasher: passwordHasher,
-		EmailFactory:   emailFactory,
-		PwdHashFactory: pwHashFactory,
-		RoleFactory:    roleFactory,
-		UserFactory:    userFactory,
+		userRepository: userRepository,
+		passwordHasher: passwordHasher,
+		idFactory:      idFactory,
+		emailFactory:   emailFactory,
+		pwdHashFactory: pwHashFactory,
+		userFactory:    userFactory,
 	}
 }
 
 func (uc *RegisterUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
 
 	// Use the injected factory
-	emailVO, err := uc.EmailFactory.New(email)
+	emailVO, err := uc.emailFactory.New(email)
 	if err != nil {
 		return nil, err
 	}
 
 	// check existence
-	existing, _ := uc.UserRepository.GetByEmail(emailVO)
+	existing, _ := uc.userRepository.GetByEmail(emailVO)
 	if existing != nil {
 		return nil, errors.ErrEmailAlreadyRegistered
 	}
 
 	// hash password
-	hash, err := uc.PasswordHasher.Hash(password)
+	hash, err := uc.passwordHasher.Hash(password)
 	if err != nil {
 		return nil, err
 	}
 
 	// Use the injected factory
-	pw := uc.PwdHashFactory.New(hash)
+	pw := uc.pwdHashFactory.New(hash)
 
 	// Use the injected factory
-	defaultRole, err := uc.RoleFactory.NewDefaultUserRole()
-	if err != nil {
-		return nil, err
-	}
-	defaultRoles := []entities.Role{*defaultRole}
+	user := uc.userFactory.New(
+		uc.idFactory.NewUserID(),
+		emailVO,
+		pw,
+		valueobjects.UserActive,
+	)
 
-	// Use the injected factory
-	user := uc.UserFactory.New(emailVO, pw, defaultRoles, true)
-
-	if err := uc.UserRepository.Save(user); err != nil {
+	if err := uc.userRepository.Save(user); err != nil {
 		return nil, err
 	}
 
