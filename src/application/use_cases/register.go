@@ -63,12 +63,16 @@ func (uc *RegisterUseCase) Execute(email string, password string) (*dto.AuthResp
 	pw := uc.pwdHashFactory.New(hash)
 
 	// Use the injected factory
-	user := uc.userFactory.New(
+	user, err := uc.userFactory.New(
 		uc.idFactory.NewUserID(),
 		emailVO,
 		pw,
 		valueobjects.UserActive,
 	)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if err := uc.userRepository.Save(user); err != nil {
 		return nil, err

@@ -12,8 +12,8 @@ import (
 )
 
 type GormUserRepository struct {
-	DB     *gorm.DB
-	Mapper mappers.UserMapper
+	db     *gorm.DB
+	mapper mappers.UserMapper
 }
 
 var _ repositories.UserRepositoryPort = (*GormUserRepository)(nil)
@@ -23,19 +23,19 @@ func NewGormUserRepository(
 	mapper mappers.UserMapper,
 ) repositories.UserRepositoryPort {
 	return &GormUserRepository{
-		DB:     db,
-		Mapper: mapper,
+		db:     db,
+		mapper: mapper,
 	}
 }
 
 func (r *GormUserRepository) Save(u *entities.User) error {
 
-	model, err := r.Mapper.ToModel(u)
+	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return err
 	}
 
-	result := r.DB.
+	result := r.db.
 		Session(&gorm.Session{FullSaveAssociations: true}).
 		Save(model)
 
@@ -48,7 +48,7 @@ func (r *GormUserRepository) GetByEmail(
 
 	var model models.User
 
-	err := r.DB.
+	err := r.db.
 		Where("email = ?", email.Value).
 		First(&model).
 		Error
@@ -60,7 +60,7 @@ func (r *GormUserRepository) GetByEmail(
 		return nil, err
 	}
 
-	return r.Mapper.ToDomain(&model)
+	return r.mapper.ToDomain(&model)
 }
 
 func (r *GormUserRepository) GetByID(
@@ -71,7 +71,7 @@ func (r *GormUserRepository) GetByID(
 
 	modelID := id.Value.String()
 
-	err := r.DB.
+	err := r.db.
 		Where("id = ?", modelID).
 		First(&model).
 		Error
@@ -83,5 +83,5 @@ func (r *GormUserRepository) GetByID(
 		return nil, err
 	}
 
-	return r.Mapper.ToDomain(&model)
+	return r.mapper.ToDomain(&model)
 }

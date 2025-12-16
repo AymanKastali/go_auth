@@ -13,7 +13,7 @@ type Organization struct {
 	Status      valueobjects.OrganizationStatus
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	DeletedAt   time.Time
+	DeletedAt   *time.Time
 }
 
 func (o *Organization) touch() {

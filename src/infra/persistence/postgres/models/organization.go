@@ -7,8 +7,8 @@ import (
 type Organization struct {
 	gorm.Model
 	ID          string       `gorm:"primaryKey;type:uuid"`
-	Name        string       `gorm:"not null"`
-	OwnerUserID string       `gorm:"type:uuid;not null;index"`
+	Name        string       `gorm:"not null;uniqueIndex:idx_owner_name"`
+	OwnerUserID string       `gorm:"type:uuid;not null;index;uniqueIndex:idx_owner_name"`
 	Status      string       `gorm:"type:varchar(20);not null"`
 	Memberships []Membership `gorm:"foreignKey:OrganizationID"`
 	Owner       User         `gorm:"foreignKey:OwnerUserID"`

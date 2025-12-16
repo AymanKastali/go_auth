@@ -18,6 +18,9 @@ services:
     volumes:
       # Update this to wherever you want VS Code to mount the folder of your project
       - ..:/go_auth:cached
+    depends_on:
+      postgres:
+        condition: service_healthy
 
     # Uncomment the next four lines if you will use a ptrace-based debugger like C++, Go, and Rust.
     # cap_add:
@@ -42,6 +45,12 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
     ports: 
       - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_db:

@@ -27,3 +27,7 @@ func (f *IDFactory) NewTokenID() valueobjects.TokenID {
 func (f *IDFactory) NewOrganizationID() valueobjects.OrganizationID {
 	return valueobjects.OrganizationID{Value: uuid.New()}
 }
+
+func (f *IDFactory) NewMembershipID() valueobjects.MembershipID {
+	return valueobjects.MembershipID{Value: uuid.New()}
+}

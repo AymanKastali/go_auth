@@ -53,19 +53,21 @@ func main() {
 	emailFactory := factories.EmailFactory{}
 	pwHashFactory := factories.PasswordHashFactory{}
 	userFactory := factories.UserFactory{}
+	orgFactory := factories.OrganizationFactory{}
+	membershipFactory := factories.MembershipFactory{}
 
 	// Infrastructure Mappers (Stateless)
-	// permMapper := mappers.PermissionMapper{}
-	// roleMapper := mappers.RoleMapper{}
 	userMapper := mappers.UserMapper{}
 	uuidMapper := mappers.UUIDMapper{}
+	orgMapper := mappers.OrganizationMapper{}
+	memMapper := mappers.MembershipMapper{}
 
 	// ----------------------
 	// Infrastructure
 	// ----------------------
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
-	// roleRepo := repositories.NewGormRoleRepository(db, roleMapper)
-	// permRepo := repositories.NewGormPermissionRepository(db, permMapper)
+	orgRepo := repositories.NewGormOrganizationRepository(db, orgMapper)
+	membershipRepo := repositories.NewGormMembershipRepository(db, memMapper)
 
 	passwordHasher := password.NewBcryptPasswordHasher(12)
 	jwt_cfg, err := config.LoadJWTConfigFromEnv()
@@ -98,12 +100,22 @@ func main() {
 		uuidMapper,
 	)
 
+	registerOrgUC := usecases.NewRegisterOrganizationUseCase(
+		userRepo,
+		orgRepo,
+		membershipRepo,
+		idFactory,
+		orgFactory,
+		membershipFactory,
+	)
+
 	// ----------------------
 	// Controllers
 	// ----------------------
 	registerController := controllers.NewRegisterController(registerUseCase)
 	loginController := controllers.NewLoginController(loginUseCase)
 	getAuthenticatedUserController := controllers.NewUserController(userUseCase)
+	registerOrgCtrl := controllers.NewRegisterOrganizationController(registerOrgUC, uuidMapper)
 
 	// ----------------------
 	// Routes
@@ -111,6 +123,7 @@ func main() {
 	routes.RegisterAuthRoutes(app, registerController, loginController)
 	authMiddleware := middleware.JWTMiddleware(jwtService)
 	routes.RegisterUserRoutes(app, getAuthenticatedUserController, authMiddleware)
+	routes.RegisterOrganizationRoutes(app, registerOrgCtrl, authMiddleware)
 
 	// ----------------------
 	// Start server
