@@ -37,3 +37,9 @@ func (u *User) Deactivate() error {
 	u.touch()
 	return nil
 }
+
+func (u *User) MarkDeleted() {
+	now := time.Now().UTC()
+	u.DeletedAt = &now
+	u.touch()
+}

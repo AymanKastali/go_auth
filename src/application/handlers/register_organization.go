@@ -1,4 +1,4 @@
-package usecases
+package handlers
 
 import (
 	"errors"
@@ -6,42 +6,49 @@ import (
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
 	valueobjects "go_auth/src/domain/value_objects"
+	"go_auth/src/infra/mappers"
 )
 
-type RegisterOrganizationUseCase struct {
-	userRepo       repositories.UserRepositoryPort
-	orgRepo        repositories.OrganizationRepositoryPort
-	membershipRepo repositories.MembershipRepositoryPort
-
+type RegisterOrganizationHandler struct {
+	userRepo            repositories.UserRepositoryPort
+	orgRepo             repositories.OrganizationRepositoryPort
+	membershipRepo      repositories.MembershipRepositoryPort
 	idFactory           factories.IDFactory
 	organizationFactory factories.OrganizationFactory
 	membershipFactory   factories.MembershipFactory
+	uuidMapper          mappers.UUIDMapper
 }
 
-func NewRegisterOrganizationUseCase(
+func NewRegisterOrganizationHandler(
 	userRepo repositories.UserRepositoryPort,
 	orgRepo repositories.OrganizationRepositoryPort,
 	membershipRepo repositories.MembershipRepositoryPort,
 	idFactory factories.IDFactory,
 	organizationFactory factories.OrganizationFactory,
 	membershipFactory factories.MembershipFactory,
-) *RegisterOrganizationUseCase {
-	return &RegisterOrganizationUseCase{
+	uuidMapper mappers.UUIDMapper,
+) *RegisterOrganizationHandler {
+	return &RegisterOrganizationHandler{
 		userRepo:            userRepo,
 		orgRepo:             orgRepo,
 		membershipRepo:      membershipRepo,
 		idFactory:           idFactory,
 		organizationFactory: organizationFactory,
 		membershipFactory:   membershipFactory,
+		uuidMapper:          uuidMapper,
 	}
 }
 
-func (uc *RegisterOrganizationUseCase) Execute(
-	ownerUserID valueobjects.UserID,
+func (h *RegisterOrganizationHandler) Execute(
+	ownerUserID string,
 	name string,
 ) (*dto.CreatedOrganizationResponse, error) {
+	userIDVO, err := h.uuidMapper.FromString(ownerUserID)
+	if err != nil {
+		return nil, err
+	}
 
-	owner, err := uc.userRepo.GetByID(ownerUserID)
+	owner, err := h.userRepo.GetByID(userIDVO)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +57,12 @@ func (uc *RegisterOrganizationUseCase) Execute(
 	}
 
 	// 1. Create Organization
-	orgID := uc.idFactory.NewOrganizationID()
+	orgID := h.idFactory.NewOrganizationID()
 
-	org, err := uc.organizationFactory.New(
+	org, err := h.organizationFactory.New(
 		orgID,
 		name,
-		ownerUserID,
+		userIDVO,
 		valueobjects.OrgActive,
 	)
 	if err != nil {
@@ -63,16 +70,16 @@ func (uc *RegisterOrganizationUseCase) Execute(
 	}
 
 	// 2. Persist Organization
-	if err := uc.orgRepo.Save(org); err != nil {
+	if err := h.orgRepo.Save(org); err != nil {
 		return nil, err
 	}
 
 	// 3. Create OWNER membership
-	membershipID := uc.idFactory.NewMembershipID()
+	membershipID := h.idFactory.NewMembershipID()
 
-	membership, err := uc.membershipFactory.New(
+	membership, err := h.membershipFactory.New(
 		membershipID,
-		ownerUserID,
+		userIDVO,
 		org.ID,
 		valueobjects.RoleOwner,
 		valueobjects.MembershipActive,
@@ -82,7 +89,7 @@ func (uc *RegisterOrganizationUseCase) Execute(
 	}
 
 	// 4. Persist Membership
-	if err := uc.membershipRepo.Save(membership); err != nil {
+	if err := h.membershipRepo.Save(membership); err != nil {
 		return nil, err
 	}
 

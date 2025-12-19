@@ -13,6 +13,7 @@ type Membership struct {
 	Status         string       `gorm:"type:varchar(20);not null"`
 	User           User         `gorm:"foreignKey:UserID"`
 	Organization   Organization `gorm:"foreignKey:OrganizationID"`
+	Roles          []string     `gorm:"serializer:json"`
 }
 
 func (Membership) TableName() string {

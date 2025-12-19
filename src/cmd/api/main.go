@@ -1,7 +1,7 @@
 package main
 
 import (
-	usecases "go_auth/src/application/use_cases"
+	"go_auth/src/application/handlers"
 	"go_auth/src/domain/factories"
 	"go_auth/src/infra/config"
 	"go_auth/src/infra/mappers"
@@ -79,7 +79,7 @@ func main() {
 	// ----------------------
 	// Use Cases
 	// ----------------------
-	registerUseCase := usecases.NewRegisterUseCase(
+	registerHandler := handlers.NewRegisterHandler(
 		userRepo,
 		passwordHasher,
 		idFactory,
@@ -88,42 +88,55 @@ func main() {
 		userFactory,
 	)
 
-	loginUseCase := usecases.NewLoginUseCase(
+	loginHandler := handlers.NewLoginHandler(
 		userRepo,
 		passwordHasher,
 		jwtService,
 		emailFactory, // Required by LoginUC
 	)
 
-	userUseCase := usecases.NewUserUseCase(
+	userHandler := handlers.NewUserHandler(
 		userRepo,
 		uuidMapper,
 	)
 
-	registerOrgUC := usecases.NewRegisterOrganizationUseCase(
+	registerOrgUC := handlers.NewRegisterOrganizationHandler(
 		userRepo,
 		orgRepo,
 		membershipRepo,
 		idFactory,
 		orgFactory,
 		membershipFactory,
+		uuidMapper,
+	)
+
+	listOrgsUC := handlers.NewListUserOrganizationsHandler(
+		orgRepo,
+		uuidMapper,
 	)
 
 	// ----------------------
 	// Controllers
 	// ----------------------
-	registerController := controllers.NewRegisterController(registerUseCase)
-	loginController := controllers.NewLoginController(loginUseCase)
-	getAuthenticatedUserController := controllers.NewUserController(userUseCase)
-	registerOrgCtrl := controllers.NewRegisterOrganizationController(registerOrgUC, uuidMapper)
+	authController := controllers.NewAuthController(
+		registerHandler,
+		loginHandler,
+	)
+	UserController := controllers.NewUserController(
+		userHandler,
+	)
+	organizationController := controllers.NewOrganizationController(
+		listOrgsUC,
+		registerOrgUC,
+	)
 
 	// ----------------------
 	// Routes
 	// ----------------------
-	routes.RegisterAuthRoutes(app, registerController, loginController)
 	authMiddleware := middleware.JWTMiddleware(jwtService)
-	routes.RegisterUserRoutes(app, getAuthenticatedUserController, authMiddleware)
-	routes.RegisterOrganizationRoutes(app, registerOrgCtrl, authMiddleware)
+	routes.RegisterAuthRoutes(app, authController)
+	routes.RegisterUserRoutes(app, UserController, authMiddleware)
+	routes.RegisterOrganizationRoutes(app, organizationController, authMiddleware)
 
 	// ----------------------
 	// Start server

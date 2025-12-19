@@ -1,4 +1,4 @@
-package usecases
+package handlers
 
 import (
 	"go_auth/src/application/dto"
@@ -6,25 +6,25 @@ import (
 	"go_auth/src/infra/mappers"
 )
 
-type UserUseCase struct {
+type AuthenticatedUserHandler struct {
 	userRepository repositories.UserRepositoryPort
 	uuidMapper     mappers.UUIDMapper
 }
 
-func NewUserUseCase(userRepo repositories.UserRepositoryPort, uuidMapper mappers.UUIDMapper) *UserUseCase {
-	return &UserUseCase{
+func NewUserHandler(userRepo repositories.UserRepositoryPort, uuidMapper mappers.UUIDMapper) *AuthenticatedUserHandler {
+	return &AuthenticatedUserHandler{
 		userRepository: userRepo,
 		uuidMapper:     uuidMapper,
 	}
 }
 
-func (uc *UserUseCase) GetAuthenticatedUser(userID string) (*dto.AuthenticatedUser, error) {
-	userIDVO, err := uc.uuidMapper.FromString(userID)
+func (h *AuthenticatedUserHandler) GetAuthenticatedUser(userID string) (*dto.AuthenticatedUser, error) {
+	userIDVO, err := h.uuidMapper.FromString(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := uc.userRepository.GetByID(userIDVO)
+	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil {
 		return nil, err
 	}

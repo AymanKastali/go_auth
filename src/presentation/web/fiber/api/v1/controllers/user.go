@@ -1,22 +1,23 @@
 package controllers
 
 import (
-	usecases "go_auth/src/application/use_cases"
+	"go_auth/src/application/handlers"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type UserController struct {
-	UserUseCase *usecases.UserUseCase
+	authUserHandler *handlers.AuthenticatedUserHandler
 }
 
-func NewUserController(uc *usecases.UserUseCase) *UserController {
+func NewUserController(
+	meHandler *handlers.AuthenticatedUserHandler,
+) *UserController {
 	return &UserController{
-		UserUseCase: uc,
+		authUserHandler: meHandler,
 	}
 }
 
-// GET /api/v1/users/me
 func (c *UserController) Me(ctx *fiber.Ctx) error {
 	userID := ctx.Locals("userID")
 	if userID == nil {
@@ -25,7 +26,7 @@ func (c *UserController) Me(ctx *fiber.Ctx) error {
 		})
 	}
 
-	profile, err := c.UserUseCase.GetAuthenticatedUser(userID.(string))
+	profile, err := c.authUserHandler.GetAuthenticatedUser(userID.(string))
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

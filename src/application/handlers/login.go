@@ -1,4 +1,4 @@
-package usecases
+package handlers
 
 import (
 	"go_auth/src/application/dto"
@@ -8,20 +8,20 @@ import (
 	"go_auth/src/domain/ports/repositories"
 )
 
-type LoginUseCase struct {
+type LoginHandler struct {
 	userRepository repositories.UserRepositoryPort
 	passwordHasher services.HashPasswordPort
 	tokenService   services.TokenServicePort
 	emailFactory   factories.EmailFactory
 }
 
-func NewLoginUseCase(
+func NewLoginHandler(
 	userRepository repositories.UserRepositoryPort,
 	passwordHasher services.HashPasswordPort,
 	tokenService services.TokenServicePort,
 	emailFactory factories.EmailFactory,
-) *LoginUseCase {
-	return &LoginUseCase{
+) *LoginHandler {
+	return &LoginHandler{
 		userRepository: userRepository,
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
@@ -29,13 +29,13 @@ func NewLoginUseCase(
 	}
 }
 
-func (uc *LoginUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
+func (h *LoginHandler) Execute(email string, password string) (*dto.AuthResponse, error) {
 
-	emailVO, err := uc.emailFactory.New(email)
+	emailVO, err := h.emailFactory.New(email)
 	if err != nil {
 	}
 
-	user, err := uc.userRepository.GetByEmail(emailVO)
+	user, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
 		return nil, errors.ErrInvalidCredentials
 	}
@@ -43,17 +43,17 @@ func (uc *LoginUseCase) Execute(email string, password string) (*dto.AuthRespons
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	if !uc.passwordHasher.Compare(password, user.PasswordHash.Value) {
+	if !h.passwordHasher.Compare(password, user.PasswordHash.Value) {
 		return nil, errors.ErrInvalidCredentials
 	}
 
 	userIDStr := user.ID.Value.String()
 
-	accessToken, err := uc.tokenService.IssueAccessToken(userIDStr)
+	accessToken, err := h.tokenService.IssueAccessToken(userIDStr)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := uc.tokenService.IssueRefreshToken(userIDStr)
+	refreshToken, err := h.tokenService.IssueRefreshToken(userIDStr)
 	if err != nil {
 		return nil, err
 	}

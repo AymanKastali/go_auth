@@ -51,3 +51,9 @@ func (o *Organization) Reactivate() error {
 	o.touch()
 	return nil
 }
+
+func (o *Organization) MarkDeleted() {
+	now := time.Now().UTC()
+	o.DeletedAt = &now
+	o.touch()
+}

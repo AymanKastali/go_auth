@@ -13,8 +13,4 @@ func RegisterUserRoutes(
 ) {
 	userRoutes := app.Group("/api/v1/users")
 	userRoutes.Get("/me", tokenMiddleware, controller.Me)
-
-	// Register endpoints
-	// api.Post("/register", endpoints.RegisterEndpoint(registerController))
-	// api.Post("/login", endpoints.LoginEndpoint(loginController))
 }

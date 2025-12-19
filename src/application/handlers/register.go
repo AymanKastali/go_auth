@@ -1,4 +1,4 @@
-package usecases
+package handlers
 
 import (
 	"go_auth/src/application/dto"
@@ -11,25 +11,24 @@ import (
 	"go_auth/src/application/ports/services"
 )
 
-type RegisterUseCase struct {
+type RegisterHandler struct {
 	userRepository repositories.UserRepositoryPort
 	passwordHasher services.HashPasswordPort
-	// factories
 	idFactory      factories.IDFactory
 	emailFactory   factories.EmailFactory
 	pwdHashFactory factories.PasswordHashFactory
 	userFactory    factories.UserFactory
 }
 
-func NewRegisterUseCase(
+func NewRegisterHandler(
 	userRepository repositories.UserRepositoryPort,
 	passwordHasher services.HashPasswordPort,
 	idFactory factories.IDFactory,
 	emailFactory factories.EmailFactory,
 	pwHashFactory factories.PasswordHashFactory,
 	userFactory factories.UserFactory,
-) *RegisterUseCase {
-	return &RegisterUseCase{
+) *RegisterHandler {
+	return &RegisterHandler{
 		userRepository: userRepository,
 		passwordHasher: passwordHasher,
 		idFactory:      idFactory,
@@ -39,32 +38,32 @@ func NewRegisterUseCase(
 	}
 }
 
-func (uc *RegisterUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
+func (h *RegisterHandler) Execute(email string, password string) (*dto.AuthResponse, error) {
 
 	// Use the injected factory
-	emailVO, err := uc.emailFactory.New(email)
+	emailVO, err := h.emailFactory.New(email)
 	if err != nil {
 		return nil, err
 	}
 
 	// check existence
-	existing, _ := uc.userRepository.GetByEmail(emailVO)
+	existing, _ := h.userRepository.GetByEmail(emailVO)
 	if existing != nil {
 		return nil, errors.ErrEmailAlreadyRegistered
 	}
 
 	// hash password
-	hash, err := uc.passwordHasher.Hash(password)
+	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
 		return nil, err
 	}
 
 	// Use the injected factory
-	pw := uc.pwdHashFactory.New(hash)
+	pw := h.pwdHashFactory.New(hash)
 
 	// Use the injected factory
-	user, err := uc.userFactory.New(
-		uc.idFactory.NewUserID(),
+	user, err := h.userFactory.New(
+		h.idFactory.NewUserID(),
 		emailVO,
 		pw,
 		valueobjects.UserActive,
@@ -74,7 +73,7 @@ func (uc *RegisterUseCase) Execute(email string, password string) (*dto.AuthResp
 		return nil, err
 	}
 
-	if err := uc.userRepository.Save(user); err != nil {
+	if err := h.userRepository.Save(user); err != nil {
 		return nil, err
 	}
 

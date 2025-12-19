@@ -8,10 +8,11 @@ import (
 
 func RegisterOrganizationRoutes(
 	app *fiber.App,
-	controller *controllers.RegisterOrganizationController,
+	controller *controllers.OrganizationController,
 	authMiddleware fiber.Handler,
 ) {
 	group := app.Group("/api/v1/organizations", authMiddleware)
 
-	group.Post("/", controller.Handle)
+	group.Post("/", controller.RegisterOrganization)
+	group.Get("/", controller.ListUserOrganizations)
 }
