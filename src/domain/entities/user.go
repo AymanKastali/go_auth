@@ -2,7 +2,7 @@ package entities
 
 import (
 	"errors"
-	value_objects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 	"time"
 )
 
@@ -11,6 +11,7 @@ type User struct {
 	Email        value_objects.Email
 	PasswordHash value_objects.PasswordHash
 	Status       value_objects.UserStatus
+	Roles        []value_objects.Role
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    *time.Time

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go_auth/src/domain/entities"
 	"go_auth/src/domain/ports/repositories"
-	value_objects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 	"go_auth/src/infra/mappers"
 	"go_auth/src/infra/persistence/postgres/models"
 

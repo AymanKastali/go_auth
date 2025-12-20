@@ -3,7 +3,7 @@ package controllers
 import (
 	"go_auth/src/application/handlers"
 	"go_auth/src/domain/errors"
-	"go_auth/src/presentation/web/fiber/dto/request"
+	"go_auth/src/presentation/web/fiber/dto"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -24,7 +24,7 @@ func NewAuthController(
 }
 
 func (ac *AuthController) Register(c *fiber.Ctx) error {
-	var req request.RegisterRequest
+	var req dto.RegisterRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -56,7 +56,7 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 }
 
 func (c *AuthController) Login(ctx *fiber.Ctx) error {
-	var req request.LoginRequest
+	var req dto.LoginRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -64,7 +64,7 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := c.loginHandler.Execute(req.Email, req.Password, req.OrganizationID)
+	authResp, err := c.loginHandler.Execute(req.Email, req.Password)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidCredentials:
@@ -82,5 +82,10 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 		}
 	}
 
-	return ctx.Status(fiber.StatusOK).JSON(authResp)
+	loginResponse := dto.LoginResponse{
+		AccessToken:  authResp.AccessToken,
+		RefreshToken: authResp.RefreshToken,
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(loginResponse)
 }

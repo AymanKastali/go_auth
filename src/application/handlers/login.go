@@ -6,39 +6,32 @@ import (
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
-	value_objects "go_auth/src/domain/value_objects"
-
-	"github.com/google/uuid"
 )
 
 type LoginHandler struct {
-	userRepository       repositories.UserRepositoryPort
-	membershipRepository repositories.MembershipRepositoryPort
-	passwordHasher       services.HashPasswordPort
-	tokenService         services.TokenServicePort
-	emailFactory         factories.EmailFactory
+	userRepository repositories.UserRepositoryPort
+	passwordHasher services.HashPasswordPort
+	tokenService   services.TokenServicePort
+	emailFactory   factories.EmailFactory
 }
 
 func NewLoginHandler(
 	userRepository repositories.UserRepositoryPort,
-	membershipRepository repositories.MembershipRepositoryPort,
 	passwordHasher services.HashPasswordPort,
 	tokenService services.TokenServicePort,
 	emailFactory factories.EmailFactory,
 ) *LoginHandler {
 	return &LoginHandler{
-		userRepository:       userRepository,
-		membershipRepository: membershipRepository,
-		passwordHasher:       passwordHasher,
-		tokenService:         tokenService,
-		emailFactory:         emailFactory,
+		userRepository: userRepository,
+		passwordHasher: passwordHasher,
+		tokenService:   tokenService,
+		emailFactory:   emailFactory,
 	}
 }
 
 func (h *LoginHandler) Execute(
 	email string,
 	password string,
-	organizationID *uuid.UUID,
 ) (*dto.AuthResponse, error) {
 
 	// --- Parse and validate email ---
@@ -58,45 +51,16 @@ func (h *LoginHandler) Execute(
 		return nil, errors.ErrInvalidCredentials
 	}
 
-	// --- Wrap organizationID into value object ---
-	var orgID value_objects.OrganizationID
-	if organizationID != nil {
-		orgID = value_objects.OrganizationID{
-			Value: *organizationID,
-		}
-	}
-
-	// --- Check membership if orgID is provided ---
-	var roles []string
-	if !orgID.IsZero() {
-		membership, err := h.membershipRepository.GetByUserAndOrganization(
-			user.ID,
-			orgID,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if membership == nil {
-			return nil, errors.ErrUserNotMemberOfOrganization
-		}
-
-		// Extract roles from membership
-		if membership.Role != "" {
-			roles = []string{string(membership.Role)}
-		}
-	}
-
 	// --- Convert IDs to strings for JWT / token service ---
 	userIDStr := user.ID.Value.String()
 
-	var orgIDStr *string
-	if !orgID.IsZero() {
-		s := orgID.Value.String()
-		orgIDStr = &s
+	roles := make([]string, len(user.Roles))
+	for i, r := range user.Roles {
+		roles[i] = string(r)
 	}
 
 	// --- Issue tokens ---
-	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, orgIDStr, roles)
+	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, roles)
 	if err != nil {
 		return nil, err
 	}

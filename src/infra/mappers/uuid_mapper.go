@@ -2,7 +2,7 @@ package mappers
 
 import (
 	"fmt"
-	value_objects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 
 	"github.com/google/uuid"
 )

@@ -32,10 +32,16 @@ func (h *AuthenticatedUserHandler) GetAuthenticatedUser(userID string) (*dto.Aut
 		return nil, nil
 	}
 
+	roles := make([]string, len(user.Roles))
+	for i, r := range user.Roles {
+		roles[i] = string(r)
+	}
+
 	return &dto.AuthenticatedUser{
 		ID:        user.ID.Value.String(),
 		Email:     user.Email.Value,
 		Status:    string(user.Status),
+		Roles:     roles,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}, nil

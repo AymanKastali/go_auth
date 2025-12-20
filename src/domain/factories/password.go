@@ -1,6 +1,6 @@
 package factories
 
-import value_objects "go_auth/src/domain/value_objects"
+import "go_auth/src/domain/value_objects"
 
 type PasswordHashFactory struct{}
 

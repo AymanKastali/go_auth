@@ -2,7 +2,7 @@ package factories
 
 import (
 	"errors"
-	value_objects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 	"regexp"
 )
 

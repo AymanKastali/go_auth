@@ -53,21 +53,15 @@ func main() {
 	emailFactory := factories.EmailFactory{}
 	pwHashFactory := factories.PasswordHashFactory{}
 	userFactory := factories.UserFactory{}
-	orgFactory := factories.OrganizationFactory{}
-	membershipFactory := factories.MembershipFactory{}
 
 	// Infrastructure Mappers (Stateless)
 	userMapper := mappers.UserMapper{}
 	uuidMapper := mappers.UUIDMapper{}
-	orgMapper := mappers.OrganizationMapper{}
-	memMapper := mappers.MembershipMapper{}
 
 	// ----------------------
 	// Infrastructure
 	// ----------------------
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
-	orgRepo := repositories.NewGormOrganizationRepository(db, orgMapper)
-	membershipRepo := repositories.NewGormMembershipRepository(db, memMapper)
 
 	passwordHasher := password.NewBcryptPasswordHasher(12)
 	jwt_cfg, err := config.LoadJWTConfigFromEnv()
@@ -90,7 +84,6 @@ func main() {
 
 	loginHandler := handlers.NewLoginHandler(
 		userRepo,
-		membershipRepo,
 		passwordHasher,
 		jwtService,
 		emailFactory, // Required by LoginUC
@@ -98,21 +91,6 @@ func main() {
 
 	userHandler := handlers.NewUserHandler(
 		userRepo,
-		uuidMapper,
-	)
-
-	registerOrgUC := handlers.NewRegisterOrganizationHandler(
-		userRepo,
-		orgRepo,
-		membershipRepo,
-		idFactory,
-		orgFactory,
-		membershipFactory,
-		uuidMapper,
-	)
-
-	listOrgsUC := handlers.NewListUserOrganizationsHandler(
-		orgRepo,
 		uuidMapper,
 	)
 
@@ -126,10 +104,6 @@ func main() {
 	UserController := controllers.NewUserController(
 		userHandler,
 	)
-	organizationController := controllers.NewOrganizationController(
-		listOrgsUC,
-		registerOrgUC,
-	)
 
 	// ----------------------
 	// Routes
@@ -137,7 +111,6 @@ func main() {
 	authMiddleware := middleware.JWTMiddleware(jwtService)
 	routes.RegisterAuthRoutes(app, authController)
 	routes.RegisterUserRoutes(app, UserController, authMiddleware)
-	routes.RegisterOrganizationRoutes(app, organizationController, authMiddleware)
 
 	// ----------------------
 	// Start server

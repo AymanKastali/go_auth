@@ -35,16 +35,14 @@ func NewJWTService(cfg *config.JWTConfig) *JWTService {
 }
 func (s *JWTService) IssueAccessToken(
 	userID string,
-	organizationID *string,
 	roles []string,
 ) (value_objects.JWTToken, error) {
 	now := time.Now()
 
 	claims := AccessTokenClaims{
-		UserID:         userID,
-		OrganizationID: organizationID,
-		Type:           TokenTypeAccess,
-		Roles:          roles,
+		UserID: userID,
+		Type:   TokenTypeAccess,
+		Roles:  roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},

@@ -8,7 +8,6 @@ import (
 type TokenServicePort interface {
 	IssueAccessToken(
 		userID string,
-		organizationID *string,
 		roles []string,
 	) (value_objects.JWTToken, error)
 	IssueRefreshToken(userID string) (value_objects.JWTToken, error)

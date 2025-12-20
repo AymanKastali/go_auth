@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"go_auth/src/domain/entities"
-	value_objects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 )
 
 type UserRepositoryPort interface {
