@@ -2,15 +2,15 @@ package entities
 
 import (
 	"errors"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"time"
 )
 
 type Organization struct {
-	ID          valueobjects.OrganizationID
+	ID          value_objects.OrganizationID
 	Name        string
-	OwnerUserID valueobjects.UserID
-	Status      valueobjects.OrganizationStatus
+	OwnerUserID value_objects.UserID
+	Status      value_objects.OrganizationStatus
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
@@ -21,7 +21,7 @@ func (o *Organization) touch() {
 }
 
 func (o *Organization) Rename(name string) error {
-	if o.Status != valueobjects.OrgActive {
+	if o.Status != value_objects.OrgActive {
 		return errors.New("organization is not active")
 	}
 	if name == "" {
@@ -33,21 +33,21 @@ func (o *Organization) Rename(name string) error {
 }
 
 func (o *Organization) Suspend() error {
-	if o.Status != valueobjects.OrgActive {
+	if o.Status != value_objects.OrgActive {
 		return errors.New("organization not active")
 	}
 
-	o.Status = valueobjects.OrgSuspended
+	o.Status = value_objects.OrgSuspended
 	o.touch()
 	return nil
 }
 
 func (o *Organization) Reactivate() error {
-	if o.Status != valueobjects.OrgSuspended {
+	if o.Status != value_objects.OrgSuspended {
 		return errors.New("organization not suspended")
 	}
 
-	o.Status = valueobjects.OrgActive
+	o.Status = value_objects.OrgActive
 	o.touch()
 	return nil
 }

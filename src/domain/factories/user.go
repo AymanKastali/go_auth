@@ -4,16 +4,16 @@ import (
 	"errors"
 
 	"go_auth/src/domain/entities"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 )
 
 type UserFactory struct{}
 
 func (f *UserFactory) New(
-	id valueobjects.UserID,
-	email valueobjects.Email,
-	passwordHash valueobjects.PasswordHash,
-	status valueobjects.UserStatus,
+	id value_objects.UserID,
+	email value_objects.Email,
+	passwordHash value_objects.PasswordHash,
+	status value_objects.UserStatus,
 ) (*entities.User, error) {
 
 	if id.IsZero() {

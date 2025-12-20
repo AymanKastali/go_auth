@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"go_auth/src/domain/entities"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/persistence/postgres/models"
 
 	"github.com/google/uuid"
@@ -22,18 +22,18 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("user mapper: failed to parse User ID '%s': %w", u.ID, err)
 	}
-	userID := valueobjects.UserID{Value: idUUID}
+	userID := value_objects.UserID{Value: idUUID}
 
-	emailVO := valueobjects.Email{Value: u.Email}
-	pwHashVO := valueobjects.PasswordHash{Value: u.PasswordHash}
+	emailVO := value_objects.Email{Value: u.Email}
+	pwHashVO := value_objects.PasswordHash{Value: u.PasswordHash}
 
 	// Map string status to UserStatus enum
-	var status valueobjects.UserStatus
+	var status value_objects.UserStatus
 	switch u.Status {
-	case string(valueobjects.UserActive):
-		status = valueobjects.UserActive
-	case string(valueobjects.UserInactive):
-		status = valueobjects.UserInactive
+	case string(value_objects.UserActive):
+		status = value_objects.UserActive
+	case string(value_objects.UserInactive):
+		status = value_objects.UserInactive
 	default:
 		return nil, fmt.Errorf("user mapper: unknown status '%s'", u.Status)
 	}

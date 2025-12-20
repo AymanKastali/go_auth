@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"go_auth/src/domain/entities"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/persistence/postgres/models"
 
 	"github.com/google/uuid"
@@ -33,11 +33,11 @@ func (m *MembershipMapper) ToDomain(mm *models.Membership) (*entities.Membership
 	}
 
 	return &entities.Membership{
-		ID:             valueobjects.MembershipID{Value: id},
-		UserID:         valueobjects.UserID{Value: userID},
-		OrganizationID: valueobjects.OrganizationID{Value: orgID},
-		Role:           valueobjects.Role(mm.Role),
-		Status:         valueobjects.MembershipStatus(mm.Status),
+		ID:             value_objects.MembershipID{Value: id},
+		UserID:         value_objects.UserID{Value: userID},
+		OrganizationID: value_objects.OrganizationID{Value: orgID},
+		Role:           value_objects.Role(mm.Role),
+		Status:         value_objects.MembershipStatus(mm.Status),
 		CreatedAt:      mm.CreatedAt,
 		UpdatedAt:      mm.UpdatedAt,
 		DeletedAt:      &mm.DeletedAt.Time,

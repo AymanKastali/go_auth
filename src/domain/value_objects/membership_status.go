@@ -1,4 +1,4 @@
-package valueobjects
+package value_objects
 
 type MembershipStatus string
 

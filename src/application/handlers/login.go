@@ -6,7 +6,7 @@ import (
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 
 	"github.com/google/uuid"
 )
@@ -59,14 +59,15 @@ func (h *LoginHandler) Execute(
 	}
 
 	// --- Wrap organizationID into value object ---
-	var orgID valueobjects.OrganizationID
+	var orgID value_objects.OrganizationID
 	if organizationID != nil {
-		orgID = valueobjects.OrganizationID{
+		orgID = value_objects.OrganizationID{
 			Value: *organizationID,
 		}
 	}
 
 	// --- Check membership if orgID is provided ---
+	var roles []string
 	if !orgID.IsZero() {
 		membership, err := h.membershipRepository.GetByUserAndOrganization(
 			user.ID,
@@ -77,6 +78,11 @@ func (h *LoginHandler) Execute(
 		}
 		if membership == nil {
 			return nil, errors.ErrUserNotMemberOfOrganization
+		}
+
+		// Extract roles from membership
+		if membership.Role != "" {
+			roles = []string{string(membership.Role)}
 		}
 	}
 
@@ -90,7 +96,7 @@ func (h *LoginHandler) Execute(
 	}
 
 	// --- Issue tokens ---
-	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, orgIDStr)
+	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, orgIDStr, roles)
 	if err != nil {
 		return nil, err
 	}

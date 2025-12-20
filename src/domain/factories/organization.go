@@ -4,16 +4,16 @@ import (
 	"errors"
 
 	"go_auth/src/domain/entities"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 )
 
 type OrganizationFactory struct{}
 
 func (f *OrganizationFactory) New(
-	organizationID valueobjects.OrganizationID,
+	organizationID value_objects.OrganizationID,
 	name string,
-	ownerUserID valueobjects.UserID,
-	status valueobjects.OrganizationStatus,
+	ownerUserID value_objects.UserID,
+	status value_objects.OrganizationStatus,
 ) (*entities.Organization, error) {
 
 	if organizationID.IsZero() {

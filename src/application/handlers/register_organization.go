@@ -5,7 +5,7 @@ import (
 	"go_auth/src/application/dto"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/mappers"
 )
 
@@ -63,7 +63,7 @@ func (h *RegisterOrganizationHandler) Execute(
 		orgID,
 		name,
 		userIDVO,
-		valueobjects.OrgActive,
+		value_objects.OrgActive,
 	)
 	if err != nil {
 		return nil, err
@@ -81,8 +81,8 @@ func (h *RegisterOrganizationHandler) Execute(
 		membershipID,
 		userIDVO,
 		org.ID,
-		valueobjects.RoleOwner,
-		valueobjects.MembershipActive,
+		value_objects.RoleOwner,
+		value_objects.MembershipActive,
 	)
 	if err != nil {
 		return nil, err

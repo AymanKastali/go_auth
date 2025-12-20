@@ -3,7 +3,7 @@ package repositories
 import (
 	"go_auth/src/domain/entities"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/mappers"
 	"go_auth/src/infra/persistence/postgres/models"
 
@@ -33,7 +33,7 @@ func (r *GormOrganizationRepository) Save(org *entities.Organization) error {
 }
 
 func (r *GormOrganizationRepository) GetByID(
-	id valueobjects.OrganizationID,
+	id value_objects.OrganizationID,
 ) (*entities.Organization, error) {
 
 	var model models.Organization
@@ -52,7 +52,7 @@ func (r *GormOrganizationRepository) GetByID(
 }
 
 func (r *GormOrganizationRepository) GetByOwner(
-	ownerID valueobjects.UserID,
+	ownerID value_objects.UserID,
 ) ([]*entities.Organization, error) {
 
 	var modelsList []models.Organization

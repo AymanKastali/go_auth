@@ -2,8 +2,7 @@ package mappers
 
 import (
 	"fmt"
-
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 
 	"github.com/google/uuid"
 )
@@ -14,18 +13,18 @@ func NewUUIDMapper() *UUIDMapper {
 	return &UUIDMapper{}
 }
 
-func (m *UUIDMapper) FromString(s string) (valueobjects.UserID, error) {
+func (m *UUIDMapper) FromString(s string) (value_objects.UserID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return valueobjects.UserID{}, fmt.Errorf("invalid UUID string: %w", err)
+		return value_objects.UserID{}, fmt.Errorf("invalid UUID string: %w", err)
 	}
-	return valueobjects.UserID{Value: id}, nil
+	return value_objects.UserID{Value: id}, nil
 }
 
-func (m *UUIDMapper) ToString(vo valueobjects.UserID) string {
+func (m *UUIDMapper) ToString(vo value_objects.UserID) string {
 	return vo.Value.String()
 }
 
-func (m *UUIDMapper) FromUUID(u uuid.UUID) valueobjects.UserID {
-	return valueobjects.UserID{Value: u}
+func (m *UUIDMapper) FromUUID(u uuid.UUID) value_objects.UserID {
+	return value_objects.UserID{Value: u}
 }

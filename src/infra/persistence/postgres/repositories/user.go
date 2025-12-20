@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go_auth/src/domain/entities"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 	"go_auth/src/infra/mappers"
 	"go_auth/src/infra/persistence/postgres/models"
 
@@ -43,7 +43,7 @@ func (r *GormUserRepository) Save(u *entities.User) error {
 }
 
 func (r *GormUserRepository) GetByEmail(
-	email valueobjects.Email,
+	email value_objects.Email,
 ) (*entities.User, error) {
 
 	var model models.User
@@ -64,7 +64,7 @@ func (r *GormUserRepository) GetByEmail(
 }
 
 func (r *GormUserRepository) GetByID(
-	id valueobjects.UserID,
+	id value_objects.UserID,
 ) (*entities.User, error) {
 
 	var model models.User

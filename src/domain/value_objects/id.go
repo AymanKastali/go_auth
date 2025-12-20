@@ -1,4 +1,4 @@
-package valueobjects
+package value_objects
 
 import "github.com/google/uuid"
 

@@ -4,17 +4,17 @@ import (
 	"errors"
 
 	"go_auth/src/domain/entities"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 )
 
 type MembershipFactory struct{}
 
 func (f *MembershipFactory) New(
-	membershipID valueobjects.MembershipID,
-	userID valueobjects.UserID,
-	organizationID valueobjects.OrganizationID,
-	role valueobjects.Role,
-	status valueobjects.MembershipStatus,
+	membershipID value_objects.MembershipID,
+	userID value_objects.UserID,
+	organizationID value_objects.OrganizationID,
+	role value_objects.Role,
+	status value_objects.MembershipStatus,
 ) (*entities.Membership, error) {
 
 	if membershipID.IsZero() {

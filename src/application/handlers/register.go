@@ -6,7 +6,7 @@ import (
 	"go_auth/src/domain/events"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
-	valueobjects "go_auth/src/domain/value_objects"
+	value_objects "go_auth/src/domain/value_objects"
 
 	"go_auth/src/application/ports/services"
 )
@@ -66,7 +66,7 @@ func (h *RegisterHandler) Execute(email string, password string) (*dto.AuthRespo
 		h.idFactory.NewUserID(),
 		emailVO,
 		pw,
-		valueobjects.UserActive,
+		value_objects.UserActive,
 	)
 
 	if err != nil {

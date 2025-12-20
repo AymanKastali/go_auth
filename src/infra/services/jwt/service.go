@@ -3,7 +3,7 @@ package jwt
 import (
 	"crypto/rsa"
 	"fmt"
-	valueobjects "go_auth/src/domain/value_objects"
+	"go_auth/src/domain/value_objects"
 	"go_auth/src/infra/config"
 	"time"
 
@@ -36,13 +36,15 @@ func NewJWTService(cfg *config.JWTConfig) *JWTService {
 func (s *JWTService) IssueAccessToken(
 	userID string,
 	organizationID *string,
-) (valueobjects.JWTToken, error) {
+	roles []string,
+) (value_objects.JWTToken, error) {
 	now := time.Now()
 
 	claims := AccessTokenClaims{
 		UserID:         userID,
 		OrganizationID: organizationID,
 		Type:           TokenTypeAccess,
+		Roles:          roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
@@ -54,13 +56,13 @@ func (s *JWTService) IssueAccessToken(
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.JWTToken{}, err
+		return value_objects.JWTToken{}, err
 	}
 
-	return valueobjects.JWTToken{Value: signed}, nil
+	return value_objects.JWTToken{Value: signed}, nil
 }
 
-func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.JWTToken, error) {
+func (s *JWTService) IssueRefreshToken(userID string) (value_objects.JWTToken, error) {
 	now := time.Now()
 
 	claims := RefreshTokenClaims{
@@ -77,10 +79,10 @@ func (s *JWTService) IssueRefreshToken(userID string) (valueobjects.JWTToken, er
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.JWTToken{Value: signed}, err
+		return value_objects.JWTToken{Value: signed}, err
 	}
 
-	return valueobjects.JWTToken{Value: signed}, nil
+	return value_objects.JWTToken{Value: signed}, nil
 }
 
 func (s *JWTService) ValidateAccessToken(tokenStr string) (*AccessTokenClaims, error) {
