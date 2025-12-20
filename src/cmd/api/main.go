@@ -90,6 +90,7 @@ func main() {
 
 	loginHandler := handlers.NewLoginHandler(
 		userRepo,
+		membershipRepo,
 		passwordHasher,
 		jwtService,
 		emailFactory, // Required by LoginUC

@@ -6,7 +6,10 @@ import (
 )
 
 type TokenServicePort interface {
-	IssueAccessToken(userID string) (valueobjects.JWTToken, error)
+	IssueAccessToken(
+		userID string,
+		organizationID *string,
+	) (valueobjects.JWTToken, error)
 	IssueRefreshToken(userID string) (valueobjects.JWTToken, error)
 	ValidateAccessToken(token string) (*jwt.AccessTokenClaims, error)
 }

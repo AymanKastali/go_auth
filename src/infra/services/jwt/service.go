@@ -33,13 +33,16 @@ func NewJWTService(cfg *config.JWTConfig) *JWTService {
 		signingAlg: SigningMethod,
 	}
 }
-func (s *JWTService) IssueAccessToken(userID string) (valueobjects.JWTToken, error) {
+func (s *JWTService) IssueAccessToken(
+	userID string,
+	organizationID *string,
+) (valueobjects.JWTToken, error) {
 	now := time.Now()
 
 	claims := AccessTokenClaims{
-		UserID: userID,
-		Type:   TokenTypeAccess,
-		// Roles:  roles,
+		UserID:         userID,
+		OrganizationID: organizationID,
+		Type:           TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},

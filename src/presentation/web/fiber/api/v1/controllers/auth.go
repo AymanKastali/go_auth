@@ -26,14 +26,12 @@ func NewAuthController(
 func (ac *AuthController) Register(c *fiber.Ctx) error {
 	var req request.RegisterRequest
 
-	// Parse and validate JSON body
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "invalid request body",
 		})
 	}
 
-	// Call use case
 	authResp, err := ac.registerHandler.Execute(req.Email, req.Password)
 	if err != nil {
 		switch err {
@@ -48,12 +46,10 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 		}
 	}
 
-	// Success
 	if authResp != nil {
 		return c.Status(fiber.StatusCreated).JSON(authResp)
 	}
 
-	// If no response (just registration)
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "user registered successfully",
 	})
@@ -68,11 +64,15 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := c.loginHandler.Execute(req.Email, req.Password)
+	authResp, err := c.loginHandler.Execute(req.Email, req.Password, req.OrganizationID)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidCredentials:
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		case errors.ErrUserNotMemberOfOrganization:
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		default:
