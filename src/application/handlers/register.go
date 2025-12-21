@@ -2,18 +2,17 @@ package handlers
 
 import (
 	"go_auth/src/application/dto"
+	"go_auth/src/application/ports/security"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/events"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
 	"go_auth/src/domain/value_objects"
-
-	"go_auth/src/application/ports/services"
 )
 
 type RegisterHandler struct {
 	userRepository repositories.UserRepositoryPort
-	passwordHasher services.HashPasswordPort
+	passwordHasher security.HashPasswordPort
 	idFactory      factories.IDFactory
 	emailFactory   factories.EmailFactory
 	pwdHashFactory factories.PasswordHashFactory
@@ -22,7 +21,7 @@ type RegisterHandler struct {
 
 func NewRegisterHandler(
 	userRepository repositories.UserRepositoryPort,
-	passwordHasher services.HashPasswordPort,
+	passwordHasher security.HashPasswordPort,
 	idFactory factories.IDFactory,
 	emailFactory factories.EmailFactory,
 	pwHashFactory factories.PasswordHashFactory,

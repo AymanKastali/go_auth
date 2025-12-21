@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"go_auth/src/application/dto"
-	"go_auth/src/application/ports/services"
+	"go_auth/src/application/ports/security"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
@@ -10,15 +10,15 @@ import (
 
 type LoginHandler struct {
 	userRepository repositories.UserRepositoryPort
-	passwordHasher services.HashPasswordPort
-	tokenService   services.TokenServicePort
+	passwordHasher security.HashPasswordPort
+	tokenService   security.TokenServicePort
 	emailFactory   factories.EmailFactory
 }
 
 func NewLoginHandler(
 	userRepository repositories.UserRepositoryPort,
-	passwordHasher services.HashPasswordPort,
-	tokenService services.TokenServicePort,
+	passwordHasher security.HashPasswordPort,
+	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
 ) *LoginHandler {
 	return &LoginHandler{

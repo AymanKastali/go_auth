@@ -1,8 +1,8 @@
-package services
+package security
 
 import (
 	"go_auth/src/domain/value_objects"
-	"go_auth/src/infra/services/jwt"
+	"go_auth/src/infra/security/jwt"
 )
 
 type TokenServicePort interface {

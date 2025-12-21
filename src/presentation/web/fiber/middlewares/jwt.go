@@ -1,7 +1,7 @@
-package middleware
+package middlewares
 
 import (
-	"go_auth/src/application/ports/services"
+	services "go_auth/src/application/ports/security"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"

@@ -11,7 +11,7 @@ RUN go mod tidy
 COPY . .
 
 # Build the Go Fiber binary
-RUN go build -o /go_auth_bin/main ./src/cmd/api/main.go
+RUN go build -o /go_auth_bin/main ./cmd/api/main.go
 
 # Final stage
 FROM golang:1.25

@@ -1,4 +1,4 @@
-package services
+package security
 
 type HashPasswordPort interface {
 	Hash(raw string) (string, error)
