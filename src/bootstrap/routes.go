@@ -7,6 +7,6 @@ import (
 )
 
 func registerRoutes(app *fiber.App, d *deps) {
-	routes.RegisterAuthRoutes(app, d.AuthController)
+	routes.RegisterAuthRoutes(app, d.AuthController, d.AuthMiddleware)
 	routes.RegisterUserRoutes(app, d.UserController, d.AuthMiddleware)
 }

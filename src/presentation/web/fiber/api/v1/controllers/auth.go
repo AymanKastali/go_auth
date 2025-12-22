@@ -11,15 +11,18 @@ import (
 type AuthController struct {
 	registerHandler *handlers.RegisterHandler
 	loginHandler    *handlers.LoginHandler
+	logoutHandler   *handlers.LogoutHandler
 }
 
 func NewAuthController(
 	registerHandler *handlers.RegisterHandler,
 	loginHandler *handlers.LoginHandler,
+	logoutHandler *handlers.LogoutHandler,
 ) *AuthController {
 	return &AuthController{
 		registerHandler: registerHandler,
 		loginHandler:    loginHandler,
+		logoutHandler:   logoutHandler,
 	}
 }
 
@@ -88,4 +91,18 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.Status(fiber.StatusOK).JSON(loginResponse)
+}
+
+func (c *AuthController) Logout(ctx *fiber.Ctx) error {
+	var req dto.LogoutRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid request body",
+		})
+	}
+
+	return c.logoutHandler.Execute(
+		req.RefreshToken,
+	)
 }

@@ -21,7 +21,10 @@ type deps struct {
 	AuthMiddleware fiber.Handler
 }
 
-func wireDependencies(db *gorm.DB) (*deps, error) {
+func wireDependencies(
+	db *gorm.DB,
+	// redis *redis.Client,
+) (*deps, error) {
 	// factories
 	idFactory := factories.IDFactory{}
 	emailFactory := factories.EmailFactory{}
@@ -33,13 +36,17 @@ func wireDependencies(db *gorm.DB) (*deps, error) {
 	uuidMapper := mappers.UUIDMapper{}
 
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
+	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db)
+
 	passwordHasher := password.NewBcryptPasswordHasher(12)
 
 	jwtCfg, err := config.LoadJWTConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}
-	jwtService := jwt.NewJWTService(jwtCfg)
+	jwtService := jwt.NewJWTService(jwtCfg, idFactory)
+
+	// redisBlacklist := cache.NewRedisBlacklist(redis)
 
 	// handlers
 	registerHandler := handlers.NewRegisterHandler(
@@ -53,9 +60,15 @@ func wireDependencies(db *gorm.DB) (*deps, error) {
 
 	loginHandler := handlers.NewLoginHandler(
 		userRepo,
+		refreshTokenRepo,
 		passwordHasher,
 		jwtService,
 		emailFactory,
+	)
+
+	logoutHandler := handlers.NewLogoutHandler(
+		refreshTokenRepo,
+		jwtService,
 	)
 
 	userHandler := handlers.NewUserHandler(
@@ -67,6 +80,7 @@ func wireDependencies(db *gorm.DB) (*deps, error) {
 		AuthController: controllers.NewAuthController(
 			registerHandler,
 			loginHandler,
+			logoutHandler,
 		),
 		UserController: controllers.NewUserController(userHandler),
 		AuthMiddleware: middlewares.JWTMiddleware(jwtService),

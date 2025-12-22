@@ -1,8 +1,8 @@
 package security
 
 import (
+	"go_auth/src/application/dto"
 	"go_auth/src/domain/value_objects"
-	"go_auth/src/infra/security/jwt"
 )
 
 type TokenServicePort interface {
@@ -11,5 +11,6 @@ type TokenServicePort interface {
 		roles []string,
 	) (value_objects.JWTToken, error)
 	IssueRefreshToken(userID string) (value_objects.JWTToken, error)
-	ValidateAccessToken(token string) (*jwt.AccessTokenClaims, error)
+	ValidateAccessToken(accessToken string) (*dto.AccessTokenClaims, error)
+	ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaims, error)
 }

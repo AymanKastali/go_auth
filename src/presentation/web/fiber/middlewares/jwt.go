@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// JWTMiddleware validates access tokens. Access tokens are stateless; refresh token revocation is handled separately.
 func JWTMiddleware(tokenService services.TokenServicePort) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		authHeader := ctx.Get("Authorization")
@@ -31,8 +32,10 @@ func JWTMiddleware(tokenService services.TokenServicePort) fiber.Handler {
 			})
 		}
 
-		// Store user ID in context
+		// Store user info in context
 		ctx.Locals("userID", claims.UserID)
+		ctx.Locals("roles", claims.Roles)
+		ctx.Locals("jti", claims.JTI)
 
 		return ctx.Next()
 	}

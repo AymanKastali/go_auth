@@ -9,8 +9,10 @@ import (
 func RegisterAuthRoutes(
 	app *fiber.App,
 	controller *controllers.AuthController,
+	tokenMiddleware fiber.Handler,
 ) {
 	authRoutes := app.Group("/api/v1/auth")
 	authRoutes.Post("/register", controller.Register)
 	authRoutes.Post("/login", controller.Login)
+	authRoutes.Post("/logout", tokenMiddleware, controller.Logout)
 }

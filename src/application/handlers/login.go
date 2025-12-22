@@ -2,27 +2,31 @@ package handlers
 
 import (
 	"go_auth/src/application/dto"
+	appRepo "go_auth/src/application/ports/repositories"
 	"go_auth/src/application/ports/security"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
-	"go_auth/src/domain/ports/repositories"
+	domainRepo "go_auth/src/domain/ports/repositories"
 )
 
 type LoginHandler struct {
-	userRepository repositories.UserRepositoryPort
+	userRepository domainRepo.UserRepositoryPort
+	refreshRepo    appRepo.RefreshTokenRepositoryPort
 	passwordHasher security.HashPasswordPort
 	tokenService   security.TokenServicePort
 	emailFactory   factories.EmailFactory
 }
 
 func NewLoginHandler(
-	userRepository repositories.UserRepositoryPort,
+	userRepository domainRepo.UserRepositoryPort,
+	refreshRepo appRepo.RefreshTokenRepositoryPort,
 	passwordHasher security.HashPasswordPort,
 	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
 ) *LoginHandler {
 	return &LoginHandler{
 		userRepository: userRepository,
+		refreshRepo:    refreshRepo,
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
 		emailFactory:   emailFactory,
@@ -66,6 +70,17 @@ func (h *LoginHandler) Execute(
 	}
 
 	refreshToken, err := h.tokenService.IssueRefreshToken(userIDStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// --- Save refresh token in DB ---
+	rtClaims, err := h.tokenService.ValidateRefreshToken(refreshToken.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.refreshRepo.Save(rtClaims.JTI, userIDStr, refreshToken.Value, rtClaims.ExpiresAt)
 	if err != nil {
 		return nil, err
 	}
