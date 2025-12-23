@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type AccessTokenClaims struct {
+type AccessTokenClaimsDto struct {
 	// Standard Registered Claims
 	Issuer    string    // iss
 	Subject   string    // sub
@@ -11,12 +11,11 @@ type AccessTokenClaims struct {
 	NotBefore time.Time // nbf
 	IssuedAt  time.Time // iat
 	JTI       string    // jti
-	UserID    string    // maps to sub (optional duplicate for clarity)
 	Type      string    // typ: access / refresh
 	Roles     []string  // roles (only for access tokens)
 }
 
-type RefreshTokenClaims struct {
+type RefreshTokenClaimsDto struct {
 	Issuer    string    // iss
 	Subject   string    // sub
 	Audience  []string  // aud
@@ -24,6 +23,5 @@ type RefreshTokenClaims struct {
 	NotBefore time.Time // nbf
 	IssuedAt  time.Time // iat
 	JTI       string    // jti
-	UserID    string    // maps to sub (optional duplicate for clarity)
 	Type      string    // typ: access / refresh
 }

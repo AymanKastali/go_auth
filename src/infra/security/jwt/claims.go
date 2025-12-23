@@ -3,14 +3,12 @@ package jwt
 import "github.com/golang-jwt/jwt/v5"
 
 type AccessTokenClaims struct {
-	UserID string   `json:"sub"`
-	Type   string   `json:"typ"`
-	Roles  []string `json:"roles,omitempty"`
+	Type  string   `json:"typ"`
+	Roles []string `json:"roles,omitempty"`
 	jwt.RegisteredClaims
 }
 
 type RefreshTokenClaims struct {
-	UserID string `json:"sub"`
-	Type   string `json:"typ"`
+	Type string `json:"typ"`
 	jwt.RegisteredClaims
 }

@@ -71,6 +71,13 @@ func wireDependencies(
 		jwtService,
 	)
 
+	refreshTokenHandler := handlers.NewRefreshTokenHandler(
+		userRepo,
+		refreshTokenRepo,
+		jwtService,
+		uuidMapper,
+	)
+
 	userHandler := handlers.NewUserHandler(
 		userRepo,
 		uuidMapper,
@@ -81,6 +88,7 @@ func wireDependencies(
 			registerHandler,
 			loginHandler,
 			logoutHandler,
+			refreshTokenHandler,
 		),
 		UserController: controllers.NewUserController(userHandler),
 		AuthMiddleware: middlewares.JWTMiddleware(jwtService),

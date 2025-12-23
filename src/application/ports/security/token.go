@@ -11,6 +11,6 @@ type TokenServicePort interface {
 		roles []string,
 	) (value_objects.JWTToken, error)
 	IssueRefreshToken(userID string) (value_objects.JWTToken, error)
-	ValidateAccessToken(accessToken string) (*dto.AccessTokenClaims, error)
-	ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaims, error)
+	ValidateAccessToken(accessToken string) (*dto.AccessTokenClaimsDto, error)
+	ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaimsDto, error)
 }

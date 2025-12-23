@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"go_auth/src/application/dto"
+	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/value_objects"
 	"go_auth/src/infra/config"
@@ -47,10 +48,10 @@ func (s *JWTService) IssueAccessToken(
 	now := time.Now()
 
 	claims := AccessTokenClaims{
-		UserID: userID,
-		Type:   TokenTypeAccess,
-		Roles:  roles,
+		Type:  TokenTypeAccess,
+		Roles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
 			ID:        s.idFactory.NewTokenID().Value.String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
@@ -72,9 +73,9 @@ func (s *JWTService) IssueRefreshToken(userID string) (value_objects.JWTToken, e
 	now := time.Now()
 
 	claims := RefreshTokenClaims{
-		UserID: userID,
-		Type:   TokenTypeRefresh,
+		Type: TokenTypeRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
 			ID:        s.idFactory.NewTokenID().Value.String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
@@ -92,8 +93,12 @@ func (s *JWTService) IssueRefreshToken(userID string) (value_objects.JWTToken, e
 	return value_objects.JWTToken{Value: signed}, nil
 }
 
-func (s *JWTService) ValidateAccessToken(accessToken string) (*dto.AccessTokenClaims, error) {
+func (s *JWTService) ValidateAccessToken(accessToken string) (*dto.AccessTokenClaimsDto, error) {
 	token, err := jwt.ParseWithClaims(accessToken, &AccessTokenClaims{}, func(t *jwt.Token) (any, error) {
+		// Ensure the signing method is what we expect (RS256)
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return s.publicKey, nil
 	})
 	if err != nil {
@@ -105,12 +110,15 @@ func (s *JWTService) ValidateAccessToken(accessToken string) (*dto.AccessTokenCl
 		return nil, fmt.Errorf("invalid or expired token")
 	}
 
-	appClaims := &dto.AccessTokenClaims{
+	if claims.Type != TokenTypeAccess {
+		return nil, fmt.Errorf("token type mismatch: expected access, got %s", claims.Type)
+	}
+
+	appClaims := &dto.AccessTokenClaimsDto{
 		Issuer:   claims.Issuer,
 		Subject:  claims.Subject,
 		Audience: claims.Audience,
 		JTI:      claims.ID,
-		UserID:   claims.UserID,
 		Type:     claims.Type,
 		Roles:    claims.Roles,
 	}
@@ -128,25 +136,32 @@ func (s *JWTService) ValidateAccessToken(accessToken string) (*dto.AccessTokenCl
 	return appClaims, nil
 }
 
-func (s *JWTService) ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaims, error) {
-	token, err := jwt.ParseWithClaims(refreshToken, &AccessTokenClaims{}, func(t *jwt.Token) (any, error) {
+func (s *JWTService) ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaimsDto, error) {
+	token, err := jwt.ParseWithClaims(refreshToken, &RefreshTokenClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return s.publicKey, nil
 	})
+
 	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
+		return nil, errors.ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(*AccessTokenClaims)
+	claims, ok := token.Claims.(*RefreshTokenClaims)
 	if !ok || !token.Valid {
 		return nil, fmt.Errorf("invalid or expired token")
 	}
 
-	appClaims := &dto.RefreshTokenClaims{
+	if claims.Type != TokenTypeRefresh {
+		return nil, fmt.Errorf("token type mismatch: expected refresh, got %s", claims.Type)
+	}
+
+	appClaims := &dto.RefreshTokenClaimsDto{
 		Issuer:   claims.Issuer,
 		Subject:  claims.Subject,
 		Audience: claims.Audience,
 		JTI:      claims.ID,
-		UserID:   claims.UserID,
 		Type:     claims.Type,
 	}
 

@@ -10,4 +10,5 @@ var (
 	ErrUserNotFound                = errors.New("user not found")
 	ErrSessionNotFound             = errors.New("session not found")
 	ErrUserNotMemberOfOrganization = errors.New("user is not a part of this organization")
+	ErrInvalidToken                = errors.New("Invalid token")
 )

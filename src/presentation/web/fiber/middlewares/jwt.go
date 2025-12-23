@@ -33,7 +33,7 @@ func JWTMiddleware(tokenService services.TokenServicePort) fiber.Handler {
 		}
 
 		// Store user info in context
-		ctx.Locals("userID", claims.UserID)
+		ctx.Locals("sub", claims.Subject)
 		ctx.Locals("roles", claims.Roles)
 		ctx.Locals("jti", claims.JTI)
 

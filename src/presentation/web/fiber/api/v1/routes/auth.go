@@ -15,4 +15,5 @@ func RegisterAuthRoutes(
 	authRoutes.Post("/register", controller.Register)
 	authRoutes.Post("/login", controller.Login)
 	authRoutes.Post("/logout", tokenMiddleware, controller.Logout)
+	authRoutes.Post("/refresh", controller.RefreshToken)
 }
