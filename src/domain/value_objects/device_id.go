@@ -1,6 +1,10 @@
 package value_objects
 
-import "github.com/google/uuid"
+import (
+	"go_auth/src/domain/errors"
+
+	"github.com/google/uuid"
+)
 
 type DeviceId struct {
 	Value uuid.UUID
@@ -8,4 +12,12 @@ type DeviceId struct {
 
 func (id DeviceId) IsZero() bool {
 	return id.Value == uuid.Nil
+}
+
+func NewDeviceIdFromString(s string) (DeviceId, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return DeviceId{}, errors.ErrInvalidDeviceID
+	}
+	return DeviceId{Value: id}, nil
 }

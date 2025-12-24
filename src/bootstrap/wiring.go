@@ -69,7 +69,6 @@ func wireDependencies(
 		passwordHasher,
 		jwtService,
 		emailFactory,
-		idFactory,
 		deviceFactory,
 	)
 

@@ -8,6 +8,7 @@ import (
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
+	"go_auth/src/domain/value_objects"
 	"time"
 )
 
@@ -29,7 +30,6 @@ func NewLoginHandler(
 	passwordHasher security.HashPasswordPort,
 	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
-	idFactory factories.IDFactory,
 	deviceFactory *factories.DeviceFactory,
 ) *LoginHandler {
 	return &LoginHandler{
@@ -39,7 +39,6 @@ func NewLoginHandler(
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
 		emailFactory:   emailFactory,
-		idFactory:      idFactory,
 	}
 }
 
@@ -73,7 +72,7 @@ func (h *LoginHandler) Execute(
 
 	// --- DEVICE HANDLING (NEW) ---
 	// Convert deviceId string to VO
-	deviceID, err := h.idFactory.DeviceIDFromString(deviceIDStr)
+	deviceID, err := value_objects.NewDeviceIdFromString(deviceIDStr)
 	if err != nil {
 		return nil, err
 	}

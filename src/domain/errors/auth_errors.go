@@ -15,6 +15,7 @@ var (
 	ErrDeviceRevoked     = errors.New("device is revoked")
 	ErrDeviceInactive    = errors.New("device is inactive")
 	ErrInvalidDeviceUser = errors.New("device does not belong to user")
+	ErrInvalidDeviceID   = errors.New("invalid device id")
 
 	ErrRefreshTokenRevoked = errors.New("refresh token revoked")
 	ErrRefreshTokenExpired = errors.New("refresh token expired")
