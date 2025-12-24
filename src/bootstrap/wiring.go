@@ -32,11 +32,14 @@ func wireDependencies(
 	userFactory := factories.UserFactory{}
 
 	// infra
-	userMapper := mappers.UserMapper{}
-	uuidMapper := mappers.UUIDMapper{}
+	uuidMapper := mappers.NewUUIDMapper()
+	userMapper := mappers.NewUserMapper(uuidMapper)
+	deviceMapper := mappers.NewDeviceMapper(uuidMapper)
+	refreshTokenMapper := mappers.NewRefreshTokenMapper(uuidMapper)
 
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
-	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db)
+	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
+	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper)
 
 	passwordHasher := password.NewBcryptPasswordHasher(12)
 
@@ -61,21 +64,24 @@ func wireDependencies(
 	loginHandler := handlers.NewLoginHandler(
 		userRepo,
 		refreshTokenRepo,
+		deviceRepo,
 		passwordHasher,
 		jwtService,
 		emailFactory,
+		idFactory,
 	)
 
 	logoutHandler := handlers.NewLogoutHandler(
 		refreshTokenRepo,
 		jwtService,
+		idFactory,
 	)
 
 	refreshTokenHandler := handlers.NewRefreshTokenHandler(
 		userRepo,
 		refreshTokenRepo,
 		jwtService,
-		uuidMapper,
+		idFactory,
 	)
 
 	userHandler := handlers.NewUserHandler(
@@ -91,6 +97,10 @@ func wireDependencies(
 			refreshTokenHandler,
 		),
 		UserController: controllers.NewUserController(userHandler),
-		AuthMiddleware: middlewares.JWTMiddleware(jwtService),
+		AuthMiddleware: middlewares.JWTMiddleware(
+			jwtService,
+			deviceRepo,
+			idFactory,
+		),
 	}, nil
 }

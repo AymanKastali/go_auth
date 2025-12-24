@@ -78,7 +78,7 @@ func (h *RegisterHandler) Execute(email string, password string) (*dto.AuthRespo
 	}
 
 	// publish event (omitted: just demonstrate)
-	_ = events.UserRegistered{UserID: user.ID}
+	_ = events.UserRegistered{UserId: user.ID}
 
 	return nil, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type User struct {
-	ID           value_objects.UserID
+	ID           value_objects.UserId
 	Email        value_objects.Email
 	PasswordHash value_objects.PasswordHash
 	Status       value_objects.UserStatus
@@ -17,30 +17,30 @@ type User struct {
 	DeletedAt    *time.Time
 }
 
-func (u *User) touch() {
-	u.UpdatedAt = time.Now().UTC()
+func (e *User) touch() {
+	e.UpdatedAt = time.Now().UTC()
 }
 
-func (u *User) Activate() error {
-	if u.Status == value_objects.UserActive {
+func (e *User) Activate() error {
+	if e.Status == value_objects.UserActive {
 		return errors.New("user is already active")
 	}
-	u.Status = value_objects.UserActive
-	u.touch()
+	e.Status = value_objects.UserActive
+	e.touch()
 	return nil
 }
 
-func (u *User) Deactivate() error {
-	if u.Status == value_objects.UserInactive {
+func (e *User) Deactivate() error {
+	if e.Status == value_objects.UserInactive {
 		return errors.New("user is already inactive")
 	}
-	u.Status = value_objects.UserInactive
-	u.touch()
+	e.Status = value_objects.UserInactive
+	e.touch()
 	return nil
 }
 
-func (u *User) MarkDeleted() {
+func (e *User) MarkDeleted() {
 	now := time.Now().UTC()
-	u.DeletedAt = &now
-	u.touch()
+	e.DeletedAt = &now
+	e.touch()
 }

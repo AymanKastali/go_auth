@@ -7,22 +7,30 @@ import (
 	"go_auth/src/domain/value_objects"
 	"go_auth/src/infra/persistence/postgres/models"
 
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
-type UserMapper struct{}
+type UserMapper struct {
+	uuidMapper *UUIDMapper
+}
+
+func NewUserMapper(
+	uuidMapper *UUIDMapper,
+) *UserMapper {
+	return &UserMapper{
+		uuidMapper: uuidMapper,
+	}
+}
 
 func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	if u == nil {
 		return nil, nil
 	}
 
-	idUUID, err := uuid.Parse(u.ID)
+	userId, err := m.uuidMapper.UserIdFromString(u.ID)
 	if err != nil {
-		return nil, fmt.Errorf("user mapper: failed to parse User ID '%s': %w", u.ID, err)
+		return nil, fmt.Errorf("user mapper: invalid User ID '%s': %w", u.ID, err)
 	}
-	userID := value_objects.UserID{Value: idUUID}
 
 	emailVO := value_objects.Email{Value: u.Email}
 	pwHashVO := value_objects.PasswordHash{Value: u.PasswordHash}
@@ -43,7 +51,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	}
 
 	return &entities.User{
-		ID:           userID,
+		ID:           userId,
 		Email:        emailVO,
 		PasswordHash: pwHashVO,
 		Status:       status,

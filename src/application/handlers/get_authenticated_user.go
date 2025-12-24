@@ -8,18 +8,21 @@ import (
 
 type AuthenticatedUserHandler struct {
 	userRepository repositories.UserRepositoryPort
-	uuidMapper     mappers.UUIDMapper
+	uuidMapper     *mappers.UUIDMapper
 }
 
-func NewUserHandler(userRepo repositories.UserRepositoryPort, uuidMapper mappers.UUIDMapper) *AuthenticatedUserHandler {
+func NewUserHandler(
+	userRepo repositories.UserRepositoryPort,
+	uuidMapper *mappers.UUIDMapper,
+) *AuthenticatedUserHandler {
 	return &AuthenticatedUserHandler{
 		userRepository: userRepo,
 		uuidMapper:     uuidMapper,
 	}
 }
 
-func (h *AuthenticatedUserHandler) GetAuthenticatedUser(userID string) (*dto.AuthenticatedUser, error) {
-	userIDVO, err := h.uuidMapper.FromString(userID)
+func (h *AuthenticatedUserHandler) GetAuthenticatedUser(userId string) (*dto.AuthenticatedUser, error) {
+	userIDVO, err := h.uuidMapper.UserIdFromString(userId)
 	if err != nil {
 		return nil, err
 	}

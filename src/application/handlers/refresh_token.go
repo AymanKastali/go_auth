@@ -3,102 +3,129 @@ package handlers
 import (
 	"fmt"
 	"go_auth/src/application/dto"
-	appRepo "go_auth/src/application/ports/repositories"
 	"go_auth/src/application/ports/security"
+	"go_auth/src/domain/entities"
 	"go_auth/src/domain/errors"
-	domainRepo "go_auth/src/domain/ports/repositories"
-	"go_auth/src/infra/mappers"
+	"go_auth/src/domain/factories"
+	"go_auth/src/domain/ports/repositories"
+	"time"
 )
 
 type RefreshTokenHandler struct {
-	userRepository domainRepo.UserRepositoryPort
-	refreshRepo    appRepo.RefreshTokenRepositoryPort
+	userRepository repositories.UserRepositoryPort
+	refreshRepo    repositories.RefreshTokenRepositoryPort
 	tokenService   security.TokenServicePort
-	uuidMapper     mappers.UUIDMapper
+	idFactory      factories.IDFactory
 }
 
 func NewRefreshTokenHandler(
-	userRepository domainRepo.UserRepositoryPort,
-	refreshRepo appRepo.RefreshTokenRepositoryPort,
+	userRepository repositories.UserRepositoryPort,
+	refreshRepo repositories.RefreshTokenRepositoryPort,
 	tokenService security.TokenServicePort,
-	uuidMapper mappers.UUIDMapper,
+	idFactory factories.IDFactory,
 ) *RefreshTokenHandler {
 	return &RefreshTokenHandler{
 		userRepository: userRepository,
 		refreshRepo:    refreshRepo,
 		tokenService:   tokenService,
-		uuidMapper:     uuidMapper,
+		idFactory:      idFactory,
 	}
 }
 
-func (h *RefreshTokenHandler) Execute(oldRefreshToken string) (*dto.AuthResponse, error) {
-	// 1. Cryptographic check (Signature, Expiry, Type)
+func (h *RefreshTokenHandler) Execute(
+	oldRefreshToken string,
+	deviceIdStr string,
+) (*dto.AuthResponse, error) {
+
+	// --- 1. Validate old refresh token (crypto) ---
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Database check (Revocation status)
-	// This checks if the JTI exists AND if 'revoked_at' is null
-	isRevoked, err := h.refreshRepo.IsRevoked(claims.JTI)
+	// --- 2. Convert old token JTI to VO ---
+	oldTokenID, err := h.idFactory.TokenIDFromString(claims.JTI)
+	if err != nil {
+		return nil, err
+	}
+
+	// --- 3. Check revocation status in DB ---
+	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
 		return nil, err
 	}
 	if isRevoked {
-		// SECURITY: If the token is cryptographically valid but revoked in DB,
-		// it might be a reuse/replay attack.
 		return nil, errors.ErrInvalidToken
 	}
 
-	userIDVO, err := h.uuidMapper.FromString(claims.Subject)
+	// --- 4. Load user ---
+	userIDVO, err := h.idFactory.UserIDFromString(claims.Subject)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Get fresh user data (to ensure roles/permissions are current)
 	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil || user == nil {
 		return nil, errors.ErrUserNotFound
 	}
 
-	// 4. Issue NEW tokens (Rotation)
-	userIDStr := user.ID.Value.String()
+	// --- 5. Convert deviceId string to VO ---
+	deviceID, err := h.idFactory.DeviceIDFromString(deviceIdStr)
+	if err != nil {
+		return nil, err
+	}
 
+	// --- 6. Issue new tokens ---
+	userIDStr := user.ID.Value.String()
 	roles := make([]string, len(user.Roles))
 	for i, r := range user.Roles {
 		roles[i] = string(r)
 	}
 
-	newAccessToken, err := h.tokenService.IssueAccessToken(userIDStr, roles)
+	newAccessToken, err := h.tokenService.IssueAccessToken(userIDStr, deviceIdStr, roles)
 	if err != nil {
 		return nil, err
 	}
 
-	// Note: IssueRefreshToken should return a struct with JTI and ExpiresAt
-	newRefreshToken, err := h.tokenService.IssueRefreshToken(userIDStr)
+	newRefreshToken, err := h.tokenService.IssueRefreshToken(userIDStr, deviceIdStr)
 	if err != nil {
 		return nil, err
 	}
 
-	newClaims, _ := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
-
-	// 5. Atomic Rotation: Revoke old and Save new
-	// In a production app, you'd ideally wrap these two in a DB transaction
-	err = h.refreshRepo.Revoke(claims.JTI)
+	newClaims, err := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	if err != nil {
+		return nil, err
+	}
+
+	// --- 7. Convert new token JTI to VO ---
+	newTokenID, err := h.idFactory.TokenIDFromString(newClaims.JTI)
+	if err != nil {
+		return nil, err
+	}
+
+	// --- 8. Atomic rotation ---
+	now := time.Now()
+
+	// Revoke old refresh token
+	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
 		return nil, fmt.Errorf("failed to revoke old token: %w", err)
 	}
 
-	err = h.refreshRepo.Save(
-		newClaims.JTI,
-		userIDStr,
-		newRefreshToken.Value,
-		newClaims.ExpiresAt,
-	)
-	if err != nil {
+	// Save new refresh token
+	rtEntity := &entities.RefreshToken{
+		ID:        newTokenID,
+		UserId:    user.ID,
+		DeviceId:  deviceID,
+		Token:     newRefreshToken.Value,
+		ExpiresAt: newClaims.ExpiresAt,
+		RevokedAt: nil,
+	}
+
+	if err := h.refreshRepo.Save(rtEntity); err != nil {
 		return nil, fmt.Errorf("failed to save new token: %w", err)
 	}
 
+	// --- 9. Return new tokens ---
 	return &dto.AuthResponse{
 		AccessToken:  newAccessToken.Value,
 		RefreshToken: newRefreshToken.Value,

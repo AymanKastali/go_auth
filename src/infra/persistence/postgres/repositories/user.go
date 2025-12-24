@@ -13,14 +13,14 @@ import (
 
 type GormUserRepository struct {
 	db     *gorm.DB
-	mapper mappers.UserMapper
+	mapper *mappers.UserMapper
 }
 
 var _ repositories.UserRepositoryPort = (*GormUserRepository)(nil)
 
 func NewGormUserRepository(
 	db *gorm.DB,
-	mapper mappers.UserMapper,
+	mapper *mappers.UserMapper,
 ) repositories.UserRepositoryPort {
 	return &GormUserRepository{
 		db:     db,
@@ -64,7 +64,7 @@ func (r *GormUserRepository) GetByEmail(
 }
 
 func (r *GormUserRepository) GetByID(
-	id value_objects.UserID,
+	id value_objects.UserId,
 ) (*entities.User, error) {
 
 	var model models.User

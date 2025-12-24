@@ -2,10 +2,10 @@ package value_objects
 
 import "github.com/google/uuid"
 
-type UserID struct {
+type UserId struct {
 	Value uuid.UUID
 }
 
-func (id UserID) IsZero() bool {
+func (id UserId) IsZero() bool {
 	return id.Value == uuid.Nil
 }

@@ -20,14 +20,14 @@ func NewUserController(
 }
 
 func (c *UserController) Me(ctx *fiber.Ctx) error {
-	userID := ctx.Locals("sub")
-	if userID == nil {
+	userId := ctx.Locals("sub")
+	if userId == nil {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "unauthorized",
 		})
 	}
 
-	profile, err := c.authUserHandler.GetAuthenticatedUser(userID.(string))
+	profile, err := c.authUserHandler.GetAuthenticatedUser(userId.(string))
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

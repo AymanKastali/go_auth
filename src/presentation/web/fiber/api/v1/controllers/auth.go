@@ -64,13 +64,31 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 func (c *AuthController) Login(ctx *fiber.Ctx) error {
 	var req dto.LoginRequest
 
+	deviceID := ctx.Get("X-Device-Id")
+	if deviceID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "missing device id",
+		})
+	}
+
+	deviceName := ctx.Get("X-Device-Name") // optional
+	userAgent := ctx.Get("User-Agent")     // optional
+	ipAddress := ctx.IP()                  // Fiber helper for client IP
+
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "invalid request body",
 		})
 	}
 
-	authResp, err := c.loginHandler.Execute(req.Email, req.Password)
+	authResp, err := c.loginHandler.Execute(
+		req.Email,
+		req.Password,
+		deviceID,
+		deviceName,
+		userAgent,
+		ipAddress,
+	)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidCredentials:
@@ -113,6 +131,13 @@ func (c *AuthController) Logout(ctx *fiber.Ctx) error {
 func (c *AuthController) RefreshToken(ctx *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest // Ensure this DTO exists in your presentation layer
 
+	deviceID := ctx.Get("X-Device-Id")
+	if deviceID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "missing device id",
+		})
+	}
+
 	// 1. Parse request body
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -121,7 +146,7 @@ func (c *AuthController) RefreshToken(ctx *fiber.Ctx) error {
 	}
 
 	// 2. Call the application handler
-	authResp, err := c.refreshTokenHandler.Execute(req.RefreshToken)
+	authResp, err := c.refreshTokenHandler.Execute(req.RefreshToken, deviceID)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidToken:
