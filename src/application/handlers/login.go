@@ -19,6 +19,7 @@ type LoginHandler struct {
 	tokenService   security.TokenServicePort
 	emailFactory   factories.EmailFactory
 	idFactory      factories.IDFactory
+	deviceFactory  *factories.DeviceFactory
 }
 
 func NewLoginHandler(
@@ -29,6 +30,7 @@ func NewLoginHandler(
 	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
 	idFactory factories.IDFactory,
+	deviceFactory *factories.DeviceFactory,
 ) *LoginHandler {
 	return &LoginHandler{
 		userRepository: userRepository,
@@ -85,15 +87,14 @@ func (h *LoginHandler) Execute(
 	now := time.Now()
 	if device == nil {
 		// --- CREATE NEW DEVICE ---
-		device = &entities.Device{
-			ID:         deviceID,
-			UserId:     user.ID,
-			Name:       &deviceName,
-			UserAgent:  &userAgent,
-			IPAddress:  &ipAddress,
-			IsActive:   true,
-			CreatedAt:  now,
-			LastSeenAt: &now,
+		device, err = h.deviceFactory.New(
+			&deviceName,
+			&userAgent,
+			&ipAddress,
+			now,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create device entity: %w", err)
 		}
 	} else {
 		// --- UPDATE EXISTING DEVICE ---
@@ -137,6 +138,10 @@ func (h *LoginHandler) Execute(
 		Token:     refreshToken.Value,
 		ExpiresAt: rtClaims.ExpiresAt,
 		RevokedAt: nil,
+	}
+
+	if err := h.refreshRepo.RevokeByDeviceID(user.ID, device.ID, now); err != nil {
+		return nil, fmt.Errorf("failed to rotate session: %w", err)
 	}
 
 	if err := h.refreshRepo.Save(refreshTokenEntity); err != nil {

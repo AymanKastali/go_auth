@@ -30,6 +30,7 @@ func wireDependencies(
 	emailFactory := factories.EmailFactory{}
 	pwHashFactory := factories.PasswordHashFactory{}
 	userFactory := factories.UserFactory{}
+	deviceFactory := factories.NewDeviceFactory(idFactory)
 
 	// infra
 	uuidMapper := mappers.NewUUIDMapper()
@@ -69,6 +70,7 @@ func wireDependencies(
 		jwtService,
 		emailFactory,
 		idFactory,
+		deviceFactory,
 	)
 
 	logoutHandler := handlers.NewLogoutHandler(

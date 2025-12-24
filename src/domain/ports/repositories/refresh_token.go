@@ -25,4 +25,6 @@ type RefreshTokenRepositoryPort interface {
 	GetByUserID(userID value_objects.UserId) ([]*entities.RefreshToken, error)
 
 	IsRevoked(tokenID value_objects.TokenId) (bool, error)
+
+	RevokeByDeviceID(userID value_objects.UserId, deviceID value_objects.DeviceId, revokedAt time.Time) error
 }

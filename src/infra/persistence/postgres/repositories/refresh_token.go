@@ -98,3 +98,23 @@ func (r *GormRefreshTokenRepository) IsRevoked(tokenID value_objects.TokenId) (b
 	}
 	return token.RevokedAt != nil, nil
 }
+
+func (r *GormRefreshTokenRepository) RevokeByDeviceID(
+	userID value_objects.UserId,
+	deviceID value_objects.DeviceId,
+	revokedAt time.Time,
+) error {
+	// We target records matching both IDs where revoked_at is still NULL
+	result := r.db.Model(&models.RefreshToken{}).
+		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
+			userID.Value.String(),
+			deviceID.Value.String(),
+		).
+		Update("revoked_at", revokedAt)
+
+	if result.Error != nil {
+		return fmt.Errorf("refresh token repository: failed to revoke tokens by device: %w", result.Error)
+	}
+
+	return nil
+}
