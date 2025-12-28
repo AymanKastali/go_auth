@@ -1,24 +1,28 @@
 package bootstrap
 
 import (
-	"go_auth/src/application/handlers"
+	auth_handlers "go_auth/src/adapters/http/fiber/api/v1/handlers/auth"
+	user_handlers "go_auth/src/adapters/http/fiber/api/v1/handlers/user"
+	"go_auth/src/adapters/http/fiber/middlewares"
+	"go_auth/src/adapters/mappers"
+	"go_auth/src/adapters/persistence/postgres/repositories"
+	"go_auth/src/adapters/security/jwt"
+	"go_auth/src/adapters/security/jwt/config"
+	"go_auth/src/adapters/security/password"
+	"go_auth/src/application/use_cases"
 	"go_auth/src/domain/factories"
-	"go_auth/src/infra/config"
-	"go_auth/src/infra/mappers"
-	"go_auth/src/infra/persistence/postgres/repositories"
-	"go_auth/src/infra/security/jwt"
-	"go_auth/src/infra/security/password"
-	"go_auth/src/presentation/web/fiber/api/v1/controllers"
-	"go_auth/src/presentation/web/fiber/middlewares"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
 type deps struct {
-	AuthController *controllers.AuthController
-	UserController *controllers.UserController
-	AuthMiddleware fiber.Handler
+	registerHandler     *auth_handlers.RegisterHandler
+	loginHandler        *auth_handlers.LoginHandler
+	refreshTokenHandler *auth_handlers.RefreshTokenHandler
+	logoutHandler       *auth_handlers.LogoutHandler
+	authUserHandler     *user_handlers.AuthenticatedUserHandler
+	AuthMiddleware      fiber.Handler
 }
 
 func wireDependencies(
@@ -53,7 +57,7 @@ func wireDependencies(
 	// redisBlacklist := cache.NewRedisBlacklist(redis)
 
 	// handlers
-	registerHandler := handlers.NewRegisterHandler(
+	RegisterUseCase := use_cases.NewRegisterUseCase(
 		userRepo,
 		passwordHasher,
 		idFactory,
@@ -62,7 +66,7 @@ func wireDependencies(
 		userFactory,
 	)
 
-	loginHandler := handlers.NewLoginHandler(
+	LoginUseCase := use_cases.NewLoginUseCase(
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
@@ -72,32 +76,30 @@ func wireDependencies(
 		deviceFactory,
 	)
 
-	logoutHandler := handlers.NewLogoutHandler(
+	LogoutUseCase := use_cases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
 		idFactory,
 	)
 
-	refreshTokenHandler := handlers.NewRefreshTokenHandler(
+	RefreshTokenUseCase := use_cases.NewRefreshTokenUseCase(
 		userRepo,
 		refreshTokenRepo,
 		jwtService,
 		idFactory,
 	)
 
-	userHandler := handlers.NewUserHandler(
+	userHandler := use_cases.NewAuthenticatedUserUseCase(
 		userRepo,
 		uuidMapper,
 	)
 
 	return &deps{
-		AuthController: controllers.NewAuthController(
-			registerHandler,
-			loginHandler,
-			logoutHandler,
-			refreshTokenHandler,
-		),
-		UserController: controllers.NewUserController(userHandler),
+		registerHandler:     auth_handlers.NewRegisterHandler(RegisterUseCase),
+		loginHandler:        auth_handlers.NewLoginHandler(LoginUseCase),
+		logoutHandler:       auth_handlers.NewLogoutHandler(LogoutUseCase),
+		refreshTokenHandler: auth_handlers.NewRefreshTokenHandler(RefreshTokenUseCase),
+		authUserHandler:     user_handlers.NewAuthenticatedUserHandler(userHandler),
 		AuthMiddleware: middlewares.JWTMiddleware(
 			jwtService,
 			deviceRepo,

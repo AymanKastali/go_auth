@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go_auth/src/domain/entities"
+	"go_auth/src/domain/value_objects"
 )
 
 type DeviceFactory struct {
@@ -19,6 +20,7 @@ func NewDeviceFactory(
 }
 
 func (f *DeviceFactory) New(
+	userId value_objects.UserId,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
@@ -26,7 +28,6 @@ func (f *DeviceFactory) New(
 ) (*entities.Device, error) {
 
 	deviceId := f.idFactory.NewDeviceId()
-	userId := f.idFactory.NewUserID()
 
 	return &entities.Device{
 		ID:         deviceId,

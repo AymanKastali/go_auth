@@ -1,8 +1,8 @@
 package bootstrap
 
 import (
-	"go_auth/src/infra/persistence/cache"
-	"go_auth/src/infra/persistence/postgres"
+	"go_auth/src/adapters/persistence/cache"
+	"go_auth/src/adapters/persistence/postgres"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
