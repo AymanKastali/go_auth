@@ -28,11 +28,6 @@ func (f *DeviceFactory) New(
 	now time.Time,
 ) (*entities.Device, error) {
 
-	// deviceID := f.idFactory.NewDeviceId()
-	// id, err := f.idFactory.DeviceIDFromString(deviceID)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	return &entities.Device{
 		ID:         deviceID,
 		UserID:     userID,

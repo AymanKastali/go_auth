@@ -2,6 +2,7 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
+	"go_auth/src/adapters/http/fiber/utils"
 	app_dto "go_auth/src/application/dto"
 	"go_auth/src/application/ports/use_cases"
 
@@ -39,7 +40,10 @@ func (h *RoleHandler) HandleRoleUpdate(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Role updated successfully",
-	})
+	// return c.Status(fiber.StatusOK).JSON(fiber.Map{
+	// 	"message": "Role updated successfully",
+	// })
+
+	return utils.Success(c, fiber.StatusNoContent, nil, "")
+
 }

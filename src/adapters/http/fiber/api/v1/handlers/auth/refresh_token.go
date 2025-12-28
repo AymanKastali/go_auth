@@ -2,6 +2,7 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
+	"go_auth/src/adapters/http/fiber/utils"
 	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 
@@ -17,49 +18,78 @@ func NewRefreshTokenHandler(
 ) *RefreshTokenHandler {
 	return &RefreshTokenHandler{useCase: uc}
 }
+func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
+	var req dto.RefreshTokenRequest
 
-func (h *RefreshTokenHandler) Execute(ctx *fiber.Ctx) error {
-	var req dto.RefreshTokenRequest // Ensure this DTO exists in your presentation layer
-
-	deviceID := ctx.Get("X-Device-ID")
+	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "missing device id",
-		})
+		return utils.Failure(
+			c,
+			fiber.StatusBadRequest,
+			"Device ID is required",
+			errors.ErrInvalidDeviceID,
+		)
 	}
 
-	// 1. Parse request body
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+	if err := c.BodyParser(&req); err != nil {
+		return utils.Failure(
+			c,
+			fiber.StatusBadRequest,
+			"Invalid request body",
+			err.Error(),
+		)
 	}
 
-	// 2. Call the application handler
 	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
 		switch err {
-		case errors.ErrInvalidToken:
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid or expired refresh token",
-			})
+
+		case errors.ErrInvalidToken,
+			errors.ErrRefreshTokenExpired,
+			errors.ErrRefreshTokenRevoked,
+			errors.ErrInvalidTokenUser:
+			return utils.Failure(
+				c,
+				fiber.StatusUnauthorized,
+				"Refresh token is invalid or expired",
+				err.Error(),
+			)
+
+		case errors.ErrInvalidDeviceID:
+			return utils.Failure(
+				c,
+				fiber.StatusBadRequest,
+				"Invalid device ID",
+				err.Error(),
+			)
+
 		case errors.ErrUserNotFound:
-			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.Failure(
+				c,
+				fiber.StatusNotFound,
+				"User not found",
+				err.Error(),
+			)
+
 		default:
-			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "an unexpected error occurred",
-			})
+			return utils.Failure(
+				c,
+				fiber.StatusInternalServerError,
+				"Internal server error",
+				err.Error(),
+			)
 		}
 	}
 
-	// 3. Map to presentation DTO and return
-	// Note: Reusing LoginResponse is common since the fields (AT/RT) are the same
 	response := dto.LoginResponse{
 		AccessToken:  authResp.AccessToken,
 		RefreshToken: authResp.RefreshToken,
 	}
 
-	return ctx.Status(fiber.StatusOK).JSON(response)
+	return utils.Success(
+		c,
+		fiber.StatusOK,
+		response,
+		"User token refreshed successfully",
+	)
 }

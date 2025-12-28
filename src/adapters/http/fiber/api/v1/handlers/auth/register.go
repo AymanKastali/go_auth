@@ -2,6 +2,7 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
+	"go_auth/src/adapters/http/fiber/utils"
 	appErrors "go_auth/src/application/errors"
 	"go_auth/src/application/ports/use_cases"
 
@@ -57,8 +58,10 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Return JSON response
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"user":    adapterResp,
-		"message": "user registered successfully",
-	})
+	// return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+	// 	"user":    adapterResp,
+	// 	"message": "user registered successfully",
+	// })
+
+	return utils.Success(c, fiber.StatusCreated, adapterResp, "User registered successfully")
 }

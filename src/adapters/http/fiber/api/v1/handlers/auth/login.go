@@ -2,6 +2,7 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
+	"go_auth/src/adapters/http/fiber/utils"
 	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 
@@ -18,22 +19,21 @@ func NewLoginHandler(
 	return &LoginHandler{useCase: uc}
 }
 
-func (h *LoginHandler) Login(ctx *fiber.Ctx) error {
+func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	deviceID := ctx.Get("X-Device-ID")
+	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "missing device id",
 		})
 	}
 
-	deviceName := ctx.Get("X-Device-Name") // optional
-	userAgent := ctx.Get("User-Agent")     // optional
-	ipAddress := ctx.IP()                  // Fiber helper for client IP
-
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	deviceName := c.Get("X-Device-Name") // optional
+	userAgent := c.Get("User-Agent")     // optional
+	ipAddress := c.IP()                  // Fiber helper for client IP
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "invalid request body",
 		})
 	}
@@ -49,15 +49,15 @@ func (h *LoginHandler) Login(ctx *fiber.Ctx) error {
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidCredentials:
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		case errors.ErrUserNotMemberOfOrganization:
-			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		default:
-			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		}
@@ -68,5 +68,7 @@ func (h *LoginHandler) Login(ctx *fiber.Ctx) error {
 		RefreshToken: authResp.RefreshToken,
 	}
 
-	return ctx.Status(fiber.StatusOK).JSON(loginResponse)
+	// return c.Status(fiber.StatusOK).JSON(loginResponse)
+
+	return utils.Success(c, fiber.StatusOK, loginResponse, "User logged in successfully")
 }

@@ -2,6 +2,7 @@ package user_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
+	"go_auth/src/adapters/http/fiber/utils"
 	"go_auth/src/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,22 +20,22 @@ func NewAuthenticatedUserHandler(
 	}
 }
 
-func (h *AuthenticatedUserHandler) Execute(ctx *fiber.Ctx) error {
-	userID := ctx.Locals("sub")
+func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
+	userID := c.Locals("sub")
 	if userID == nil {
-		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "unauthorized",
 		})
 	}
 
 	profile, err := h.uc.GetAuthUser(userID.(string))
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 	if profile == nil {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "user not found",
 		})
 	}
@@ -52,5 +53,7 @@ func (h *AuthenticatedUserHandler) Execute(ctx *fiber.Ctx) error {
 		userResponse.Roles[i] = string(role)
 	}
 
-	return ctx.JSON(userResponse)
+	// return c.JSON(userResponse)
+	return utils.Success(c, fiber.StatusOK, userResponse, "User authenticated successfully")
+
 }
