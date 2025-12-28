@@ -1,8 +1,6 @@
 package bootstrap
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -26,12 +24,6 @@ func NewApp() (*fiber.App, error) {
 
 	db, err := newDatabase()
 	if err != nil {
-		return nil, err
-	}
-
-	rdb, err := newRedis()
-	if err != nil {
-		fmt.Println("rdb: ", rdb)
 		return nil, err
 	}
 

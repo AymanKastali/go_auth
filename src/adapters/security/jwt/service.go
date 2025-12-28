@@ -3,7 +3,7 @@ package jwt
 import (
 	"crypto/rsa"
 	"fmt"
-	"go_auth/src/adapters/security/jwt/config"
+	"go_auth/src/adapters/config"
 	"go_auth/src/application/dto"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"

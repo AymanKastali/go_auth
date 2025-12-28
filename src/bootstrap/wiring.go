@@ -1,16 +1,18 @@
 package bootstrap
 
 import (
+	"go_auth/src/adapters/config"
 	auth_handlers "go_auth/src/adapters/http/fiber/api/v1/handlers/auth"
 	user_handlers "go_auth/src/adapters/http/fiber/api/v1/handlers/user"
 	"go_auth/src/adapters/http/fiber/middlewares"
 	"go_auth/src/adapters/mappers"
 	"go_auth/src/adapters/persistence/postgres/repositories"
 	"go_auth/src/adapters/security/jwt"
-	"go_auth/src/adapters/security/jwt/config"
 	"go_auth/src/adapters/security/password"
+	"go_auth/src/application/services"
 	"go_auth/src/application/use_cases"
 	"go_auth/src/domain/factories"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -53,6 +55,24 @@ func wireDependencies(
 		return nil, err
 	}
 	jwtService := jwt.NewJWTService(jwtCfg, idFactory)
+
+	seederCfg, err := config.LoadSeederConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	seeder := services.NewSeedAdminService(
+		userRepo,
+		passwordHasher,
+		pwHashFactory,
+		userFactory,
+		idFactory,
+		seederCfg,
+	)
+
+	if err := seeder.SeedAdmin(); err != nil {
+		log.Fatal(err)
+	}
 
 	// redisBlacklist := cache.NewRedisBlacklist(redis)
 
