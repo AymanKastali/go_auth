@@ -36,9 +36,9 @@ func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
 }
 
 // GetByID fetches a refresh token by its ID
-func (r *GormRefreshTokenRepository) GetByID(tokenID value_objects.TokenId) (*entities.RefreshToken, error) {
+func (r *GormRefreshTokenRepository) GetByID(tokenId value_objects.TokenId) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	if err := r.db.Where("id = ?", tokenID.Value.String()).First(&model).Error; err != nil {
+	if err := r.db.Where("id = ?", tokenId.Value.String()).First(&model).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -62,9 +62,9 @@ func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.Refr
 }
 
 // Revoke marks a refresh token as revoked
-func (r *GormRefreshTokenRepository) Revoke(tokenID value_objects.TokenId, revokedAt time.Time) error {
+func (r *GormRefreshTokenRepository) Revoke(tokenId value_objects.TokenId, revokedAt time.Time) error {
 	if err := r.db.Model(&models.RefreshToken{}).
-		Where("id = ?", tokenID.Value.String()).
+		Where("id = ?", tokenId.Value.String()).
 		Update("revoked_at", revokedAt).Error; err != nil {
 		return fmt.Errorf("refresh token repository: failed to revoke token: %w", err)
 	}
@@ -91,9 +91,9 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID value_objects.UserId) ([
 	return tokens, nil
 }
 
-func (r *GormRefreshTokenRepository) IsRevoked(tokenID value_objects.TokenId) (bool, error) {
+func (r *GormRefreshTokenRepository) IsRevoked(tokenId value_objects.TokenId) (bool, error) {
 	var token models.RefreshToken
-	if err := r.db.First(&token, "id = ?", tokenID.Value.String()).Error; err != nil {
+	if err := r.db.First(&token, "id = ?", tokenId.Value.String()).Error; err != nil {
 		return false, err
 	}
 	return token.RevokedAt != nil, nil
@@ -101,14 +101,14 @@ func (r *GormRefreshTokenRepository) IsRevoked(tokenID value_objects.TokenId) (b
 
 func (r *GormRefreshTokenRepository) RevokeByDeviceID(
 	userID value_objects.UserId,
-	deviceID value_objects.DeviceId,
+	deviceId value_objects.DeviceId,
 	revokedAt time.Time,
 ) error {
 	// We target records matching both IDs where revoked_at is still NULL
 	result := r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
 			userID.Value.String(),
-			deviceID.Value.String(),
+			deviceId.Value.String(),
 		).
 		Update("revoked_at", revokedAt)
 

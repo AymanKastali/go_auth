@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type RefreshTokenUseCase struct {
+type refreshTokenUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	tokenService   security.TokenServicePort
@@ -23,8 +23,8 @@ func NewRefreshTokenUseCase(
 	refreshRepo repositories.RefreshTokenRepositoryPort,
 	tokenService security.TokenServicePort,
 	idFactory factories.IDFactory,
-) *RefreshTokenUseCase {
-	return &RefreshTokenUseCase{
+) *refreshTokenUseCase {
+	return &refreshTokenUseCase{
 		userRepository: userRepository,
 		refreshRepo:    refreshRepo,
 		tokenService:   tokenService,
@@ -32,7 +32,7 @@ func NewRefreshTokenUseCase(
 	}
 }
 
-func (h *RefreshTokenUseCase) Execute(
+func (h *refreshTokenUseCase) Execute(
 	oldRefreshToken string,
 	deviceIdStr string,
 ) (*dto.AuthResponse, error) {
@@ -70,7 +70,7 @@ func (h *RefreshTokenUseCase) Execute(
 	}
 
 	// --- 5. Convert deviceId string to VO ---
-	deviceID, err := h.idFactory.DeviceIDFromString(deviceIdStr)
+	deviceId, err := h.idFactory.DeviceIDFromString(deviceIdStr)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (h *RefreshTokenUseCase) Execute(
 	rtEntity := &entities.RefreshToken{
 		ID:        newTokenID,
 		UserId:    user.ID,
-		DeviceId:  deviceID,
+		DeviceId:  deviceId,
 		Token:     newRefreshToken.Value,
 		ExpiresAt: newClaims.ExpiresAt,
 		RevokedAt: nil,

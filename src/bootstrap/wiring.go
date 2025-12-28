@@ -23,6 +23,7 @@ type deps struct {
 	loginHandler        *auth_handlers.LoginHandler
 	refreshTokenHandler *auth_handlers.RefreshTokenHandler
 	logoutHandler       *auth_handlers.LogoutHandler
+	roleHandler         *auth_handlers.RoleHandler
 	authUserHandler     *user_handlers.AuthenticatedUserHandler
 	AuthMiddleware      fiber.Handler
 }
@@ -77,7 +78,7 @@ func wireDependencies(
 	// redisBlacklist := cache.NewRedisBlacklist(redis)
 
 	// handlers
-	RegisterUseCase := use_cases.NewRegisterUseCase(
+	registerUc := use_cases.NewRegisterUseCase(
 		userRepo,
 		passwordHasher,
 		idFactory,
@@ -86,7 +87,7 @@ func wireDependencies(
 		userFactory,
 	)
 
-	LoginUseCase := use_cases.NewLoginUseCase(
+	loginUc := use_cases.NewLoginUseCase(
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
@@ -96,30 +97,36 @@ func wireDependencies(
 		deviceFactory,
 	)
 
-	LogoutUseCase := use_cases.NewLogoutUseCase(
+	logoutUc := use_cases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
 		idFactory,
 	)
 
-	RefreshTokenUseCase := use_cases.NewRefreshTokenUseCase(
+	refreshTokenUc := use_cases.NewRefreshTokenUseCase(
 		userRepo,
 		refreshTokenRepo,
 		jwtService,
 		idFactory,
 	)
 
-	userHandler := use_cases.NewAuthenticatedUserUseCase(
+	getAuthUserUc := use_cases.NewAuthenticatedUserUseCase(
+		userRepo,
+		uuidMapper,
+	)
+
+	manageRoleUc := use_cases.NewManageRoleUseCase(
 		userRepo,
 		uuidMapper,
 	)
 
 	return &deps{
-		registerHandler:     auth_handlers.NewRegisterHandler(RegisterUseCase),
-		loginHandler:        auth_handlers.NewLoginHandler(LoginUseCase),
-		logoutHandler:       auth_handlers.NewLogoutHandler(LogoutUseCase),
-		refreshTokenHandler: auth_handlers.NewRefreshTokenHandler(RefreshTokenUseCase),
-		authUserHandler:     user_handlers.NewAuthenticatedUserHandler(userHandler),
+		registerHandler:     auth_handlers.NewRegisterHandler(registerUc),
+		loginHandler:        auth_handlers.NewLoginHandler(loginUc),
+		logoutHandler:       auth_handlers.NewLogoutHandler(logoutUc),
+		refreshTokenHandler: auth_handlers.NewRefreshTokenHandler(refreshTokenUc),
+		roleHandler:         auth_handlers.NewRoleHandler(manageRoleUc),
+		authUserHandler:     user_handlers.NewAuthenticatedUserHandler(getAuthUserUc),
 		AuthMiddleware: middlewares.JWTMiddleware(
 			jwtService,
 			deviceRepo,

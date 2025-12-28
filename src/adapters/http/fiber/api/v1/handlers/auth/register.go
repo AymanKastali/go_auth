@@ -2,20 +2,20 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
-	"go_auth/src/application/use_cases"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type RegisterHandler struct {
-	uc *use_cases.RegisterUseCase
+	useCase use_cases.RegisterUseCasePort
 }
 
 func NewRegisterHandler(
-	registerUseCase *use_cases.RegisterUseCase,
+	uc use_cases.RegisterUseCasePort,
 ) *RegisterHandler {
-	return &RegisterHandler{uc: registerUseCase}
+	return &RegisterHandler{useCase: uc}
 }
 
 func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
@@ -27,7 +27,7 @@ func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := h.uc.Execute(req.Email, req.Password)
+	authResp, err := h.useCase.Execute(req.Email, req.Password)
 	if err != nil {
 		switch err {
 		case errors.ErrEmailAlreadyRegistered:

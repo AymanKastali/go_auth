@@ -2,17 +2,17 @@ package user_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
-	"go_auth/src/application/use_cases"
+	"go_auth/src/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type AuthenticatedUserHandler struct {
-	uc *use_cases.AuthenticatedUserUseCase
+	uc use_cases.AuthenticatedUserUseCasePort
 }
 
 func NewAuthenticatedUserHandler(
-	authenticatedUserUseCase *use_cases.AuthenticatedUserUseCase,
+	authenticatedUserUseCase use_cases.AuthenticatedUserUseCasePort,
 ) *AuthenticatedUserHandler {
 	return &AuthenticatedUserHandler{
 		uc: authenticatedUserUseCase,

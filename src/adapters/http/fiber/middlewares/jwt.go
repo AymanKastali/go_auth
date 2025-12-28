@@ -87,7 +87,7 @@ func JWTMiddleware(
 		ctx.Locals("sub", claims.Subject)
 		ctx.Locals("roles", claims.Roles)
 		ctx.Locals("jti", claims.JTI)
-		ctx.Locals("deviceID", deviceIdStr)
+		ctx.Locals("deviceId", deviceIdStr)
 
 		return ctx.Next()
 	}

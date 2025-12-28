@@ -2,27 +2,27 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
-	"go_auth/src/application/use_cases"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type RefreshTokenHandler struct {
-	uc *use_cases.RefreshTokenUseCase
+	useCase use_cases.RefreshTokenUseCasePort
 }
 
 func NewRefreshTokenHandler(
-	refreshTokenUseCase *use_cases.RefreshTokenUseCase,
+	uc use_cases.RefreshTokenUseCasePort,
 ) *RefreshTokenHandler {
-	return &RefreshTokenHandler{uc: refreshTokenUseCase}
+	return &RefreshTokenHandler{useCase: uc}
 }
 
 func (h *RefreshTokenHandler) Execute(ctx *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest // Ensure this DTO exists in your presentation layer
 
-	deviceID := ctx.Get("X-Device-Id")
-	if deviceID == "" {
+	deviceId := ctx.Get("X-Device-Id")
+	if deviceId == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "missing device id",
 		})
@@ -36,7 +36,7 @@ func (h *RefreshTokenHandler) Execute(ctx *fiber.Ctx) error {
 	}
 
 	// 2. Call the application handler
-	authResp, err := h.uc.Execute(req.RefreshToken, deviceID)
+	authResp, err := h.useCase.Execute(req.RefreshToken, deviceId)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidToken:

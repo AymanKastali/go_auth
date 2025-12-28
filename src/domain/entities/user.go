@@ -3,6 +3,7 @@ package entities
 import (
 	"errors"
 	"go_auth/src/domain/value_objects"
+	"slices"
 	"time"
 )
 
@@ -43,4 +44,21 @@ func (e *User) MarkDeleted() {
 	now := time.Now().UTC()
 	e.DeletedAt = &now
 	e.touch()
+}
+
+func (u *User) AddRole(role value_objects.Role) {
+	if slices.Contains(u.Roles, role) {
+		return
+	}
+	u.Roles = append(u.Roles, role)
+}
+
+func (u *User) RemoveRole(role value_objects.Role) {
+	newRoles := []value_objects.Role{}
+	for _, r := range u.Roles {
+		if r != role {
+			newRoles = append(newRoles, r)
+		}
+	}
+	u.Roles = newRoles
 }

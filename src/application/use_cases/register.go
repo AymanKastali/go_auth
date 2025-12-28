@@ -10,7 +10,7 @@ import (
 	"go_auth/src/domain/value_objects"
 )
 
-type RegisterUseCase struct {
+type registerUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	passwordHasher security.HashPasswordPort
 	idFactory      factories.IDFactory
@@ -26,8 +26,8 @@ func NewRegisterUseCase(
 	emailFactory factories.EmailFactory,
 	pwHashFactory factories.PasswordHashFactory,
 	userFactory factories.UserFactory,
-) *RegisterUseCase {
-	return &RegisterUseCase{
+) *registerUseCase {
+	return &registerUseCase{
 		userRepository: userRepository,
 		passwordHasher: passwordHasher,
 		idFactory:      idFactory,
@@ -37,7 +37,7 @@ func NewRegisterUseCase(
 	}
 }
 
-func (h *RegisterUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
+func (h *registerUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
 
 	// Use the injected factory
 	emailVO, err := h.emailFactory.New(email)

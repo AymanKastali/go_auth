@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type LoginUseCase struct {
+type loginUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	deviceRepo     repositories.DeviceRepositoryPort
@@ -31,8 +31,8 @@ func NewLoginUseCase(
 	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
 	deviceFactory *factories.DeviceFactory,
-) *LoginUseCase {
-	return &LoginUseCase{
+) *loginUseCase {
+	return &loginUseCase{
 		userRepository: userRepository,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
@@ -43,7 +43,7 @@ func NewLoginUseCase(
 	}
 }
 
-func (h *LoginUseCase) Execute(
+func (h *loginUseCase) Execute(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 
@@ -73,13 +73,13 @@ func (h *LoginUseCase) Execute(
 
 	// --- DEVICE HANDLING (NEW) ---
 	// Convert deviceId string to VO
-	deviceID, err := value_objects.NewDeviceIdFromString(deviceIDStr)
+	deviceId, err := value_objects.NewDeviceIdFromString(deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try to fetch existing device (new method could be added to repo)
-	device, err := h.deviceRepo.GetByID(deviceID)
+	device, err := h.deviceRepo.GetByID(deviceId)
 	if err != nil {
 		return nil, err
 	}
@@ -127,13 +127,13 @@ func (h *LoginUseCase) Execute(
 		return nil, err
 	}
 
-	tokenID, err := h.idFactory.TokenIDFromString(rtClaims.JTI)
+	tokenId, err := h.idFactory.TokenIDFromString(rtClaims.JTI)
 	if err != nil {
 		return nil, err
 	}
 
 	refreshTokenEntity := &entities.RefreshToken{
-		ID:        tokenID,
+		ID:        tokenId,
 		UserId:    user.ID,
 		DeviceId:  device.ID, // bind refresh token to device
 		Token:     refreshToken.Value,

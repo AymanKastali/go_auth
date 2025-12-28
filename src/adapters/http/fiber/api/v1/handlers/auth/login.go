@@ -2,27 +2,27 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
-	"go_auth/src/application/use_cases"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type LoginHandler struct {
-	uc *use_cases.LoginUseCase
+	useCase use_cases.LoginUseCasePort
 }
 
 func NewLoginHandler(
-	loginUseCase *use_cases.LoginUseCase,
+	uc use_cases.LoginUseCasePort,
 ) *LoginHandler {
-	return &LoginHandler{uc: loginUseCase}
+	return &LoginHandler{useCase: uc}
 }
 
 func (h *LoginHandler) Execute(ctx *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	deviceID := ctx.Get("X-Device-Id")
-	if deviceID == "" {
+	deviceId := ctx.Get("X-Device-Id")
+	if deviceId == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "missing device id",
 		})
@@ -38,10 +38,10 @@ func (h *LoginHandler) Execute(ctx *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := h.uc.Execute(
+	authResp, err := h.useCase.Execute(
 		req.Email,
 		req.Password,
-		deviceID,
+		deviceId,
 		deviceName,
 		userAgent,
 		ipAddress,

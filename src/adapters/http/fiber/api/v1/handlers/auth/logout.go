@@ -2,19 +2,19 @@ package auth_handlers
 
 import (
 	"go_auth/src/adapters/http/fiber/dto"
-	"go_auth/src/application/use_cases"
+	"go_auth/src/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type LogoutHandler struct {
-	uc *use_cases.LogoutUseCase
+	useCase use_cases.LogoutUserUseCasePort
 }
 
 func NewLogoutHandler(
-	logoutUseCase *use_cases.LogoutUseCase,
+	uc use_cases.LogoutUserUseCasePort,
 ) *LogoutHandler {
-	return &LogoutHandler{uc: logoutUseCase}
+	return &LogoutHandler{useCase: uc}
 }
 
 func (h *LogoutHandler) Execute(ctx *fiber.Ctx) error {
@@ -26,7 +26,7 @@ func (h *LogoutHandler) Execute(ctx *fiber.Ctx) error {
 		})
 	}
 
-	return h.uc.Execute(
+	return h.useCase.Execute(
 		req.RefreshToken,
 	)
 }
