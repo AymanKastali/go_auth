@@ -36,9 +36,9 @@ func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
 }
 
 // GetByID fetches a refresh token by its ID
-func (r *GormRefreshTokenRepository) GetByID(tokenId value_objects.TokenId) (*entities.RefreshToken, error) {
+func (r *GormRefreshTokenRepository) GetByID(tokenID value_objects.TokenID) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	if err := r.db.Where("id = ?", tokenId.Value.String()).First(&model).Error; err != nil {
+	if err := r.db.Where("id = ?", tokenID.Value.String()).First(&model).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -62,9 +62,9 @@ func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.Refr
 }
 
 // Revoke marks a refresh token as revoked
-func (r *GormRefreshTokenRepository) Revoke(tokenId value_objects.TokenId, revokedAt time.Time) error {
+func (r *GormRefreshTokenRepository) Revoke(tokenID value_objects.TokenID, revokedAt time.Time) error {
 	if err := r.db.Model(&models.RefreshToken{}).
-		Where("id = ?", tokenId.Value.String()).
+		Where("id = ?", tokenID.Value.String()).
 		Update("revoked_at", revokedAt).Error; err != nil {
 		return fmt.Errorf("refresh token repository: failed to revoke token: %w", err)
 	}
@@ -73,7 +73,7 @@ func (r *GormRefreshTokenRepository) Revoke(tokenId value_objects.TokenId, revok
 }
 
 // GetByUserID retrieves all refresh tokens for a user
-func (r *GormRefreshTokenRepository) GetByUserID(userID value_objects.UserId) ([]*entities.RefreshToken, error) {
+func (r *GormRefreshTokenRepository) GetByUserID(userID value_objects.UserID) ([]*entities.RefreshToken, error) {
 	var modelsList []models.RefreshToken
 	if err := r.db.Where("user_id = ?", userID.Value.String()).Find(&modelsList).Error; err != nil {
 		return nil, fmt.Errorf("refresh token repository: failed to get tokens by user ID: %w", err)
@@ -91,24 +91,33 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID value_objects.UserId) ([
 	return tokens, nil
 }
 
-func (r *GormRefreshTokenRepository) IsRevoked(tokenId value_objects.TokenId) (bool, error) {
+func (r *GormRefreshTokenRepository) IsRevoked(
+	tokenID value_objects.TokenID,
+) (bool, error) {
+
 	var token models.RefreshToken
-	if err := r.db.First(&token, "id = ?", tokenId.Value.String()).Error; err != nil {
+	err := r.db.First(&token, "id = ?", tokenID.Value.String()).Error
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return true, nil
+		}
 		return false, err
 	}
+
 	return token.RevokedAt != nil, nil
 }
 
 func (r *GormRefreshTokenRepository) RevokeByDeviceID(
-	userID value_objects.UserId,
-	deviceId value_objects.DeviceId,
+	userID value_objects.UserID,
+	deviceID value_objects.DeviceID,
 	revokedAt time.Time,
 ) error {
 	// We target records matching both IDs where revoked_at is still NULL
 	result := r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
 			userID.Value.String(),
-			deviceId.Value.String(),
+			deviceID.Value.String(),
 		).
 		Update("revoked_at", revokedAt)
 

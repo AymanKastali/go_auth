@@ -106,6 +106,7 @@ func wireDependencies(
 	refreshTokenUc := use_cases.NewRefreshTokenUseCase(
 		userRepo,
 		refreshTokenRepo,
+		deviceRepo,
 		jwtService,
 		idFactory,
 	)

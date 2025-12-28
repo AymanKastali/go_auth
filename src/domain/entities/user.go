@@ -8,7 +8,7 @@ import (
 )
 
 type User struct {
-	ID           value_objects.UserId
+	ID           value_objects.UserID
 	Email        value_objects.Email
 	PasswordHash value_objects.PasswordHash
 	Status       value_objects.UserStatus

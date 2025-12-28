@@ -43,7 +43,7 @@ func JWTMiddleware(
 		}
 
 		// 2. Check if the device is revoked
-		deviceIdStr := claims.DeviceId
+		deviceIdStr := claims.DeviceID
 		if deviceIdStr != "" && deviceRepo != nil {
 			deviceIdVo, err := idFactory.DeviceIDFromString(deviceIdStr)
 			if err != nil {
@@ -87,7 +87,7 @@ func JWTMiddleware(
 		ctx.Locals("sub", claims.Subject)
 		ctx.Locals("roles", claims.Roles)
 		ctx.Locals("jti", claims.JTI)
-		ctx.Locals("deviceId", deviceIdStr)
+		ctx.Locals("deviceID", deviceIdStr)
 
 		return ctx.Next()
 	}

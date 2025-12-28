@@ -27,8 +27,8 @@ func NewManageRoleUseCase(
 	}
 }
 
-func (uc *manageRoleUseCase) Execute(req dto.ManageRoleInput) error {
-	userIDVO, err := uc.uuidMapper.UserIdFromString(req.UserId)
+func (uc *manageRoleUseCase) UpdateRole(req dto.ManageRoleInput) error {
+	userIDVO, err := uc.uuidMapper.UserIdFromString(req.UserID)
 	if err != nil {
 		return err
 	}

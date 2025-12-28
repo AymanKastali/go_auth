@@ -5,5 +5,5 @@ import (
 )
 
 type RegisterUseCasePort interface {
-	Execute(email, password string) (*dto.AuthResponse, error)
+	Register(email, password string) (*dto.AuthResponse, error)
 }

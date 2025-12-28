@@ -8,6 +8,6 @@ import (
 type UserRepositoryPort interface {
 	Save(user *entities.User) error
 	Update(user *entities.User) error
-	GetByID(id value_objects.UserId) (*entities.User, error)
+	GetByID(id value_objects.UserID) (*entities.User, error)
 	GetByEmail(email value_objects.Email) (*entities.User, error)
 }

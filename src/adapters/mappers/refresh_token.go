@@ -24,25 +24,25 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		return nil, nil
 	}
 
-	tokenId, err := m.uuidMapper.TokenIdFromString(rt.ID)
+	tokenID, err := m.uuidMapper.TokenIdFromString(rt.ID)
 	if err != nil {
 		return nil, fmt.Errorf("refresh token mapper: invalid ID '%s': %w", rt.ID, err)
 	}
 
-	userId, err := m.uuidMapper.UserIdFromString(rt.UserId)
+	userID, err := m.uuidMapper.UserIdFromString(rt.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("refresh token mapper: invalid User ID '%s': %w", rt.UserId, err)
+		return nil, fmt.Errorf("refresh token mapper: invalid User ID '%s': %w", rt.UserID, err)
 	}
 
-	deviceId, err := m.uuidMapper.DeviceIdFromString(rt.DeviceId)
+	deviceID, err := m.uuidMapper.DeviceIdFromString(rt.DeviceID)
 	if err != nil {
-		return nil, fmt.Errorf("refresh token mapper: invalid Device ID '%s': %w", rt.DeviceId, err)
+		return nil, fmt.Errorf("refresh token mapper: invalid Device ID '%s': %w", rt.DeviceID, err)
 	}
 
 	return &entities.RefreshToken{
-		ID:        tokenId,
-		UserId:    userId,
-		DeviceId:  deviceId,
+		ID:        tokenID,
+		UserID:    userID,
+		DeviceID:  deviceID,
 		Token:     rt.Token,
 		CreatedAt: rt.CreatedAt,
 		ExpiresAt: rt.ExpiresAt,
@@ -58,8 +58,8 @@ func (m *RefreshTokenMapper) ToModel(rt *entities.RefreshToken) *models.RefreshT
 
 	return &models.RefreshToken{
 		ID:        m.uuidMapper.TokenIdToString(rt.ID),
-		UserId:    m.uuidMapper.UserIdToString(rt.UserId),
-		DeviceId:  m.uuidMapper.DeviceIdToString(rt.DeviceId),
+		UserID:    m.uuidMapper.UserIdToString(rt.UserID),
+		DeviceID:  m.uuidMapper.DeviceIdToString(rt.DeviceID),
 		Token:     rt.Token,
 		ExpiresAt: rt.ExpiresAt,
 		RevokedAt: rt.RevokedAt,

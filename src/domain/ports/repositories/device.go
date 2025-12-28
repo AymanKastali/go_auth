@@ -7,14 +7,11 @@ import (
 )
 
 type DeviceRepositoryPort interface {
-	GetByID(deviceId value_objects.DeviceId) (*entities.Device, error)
+	GetByID(deviceID value_objects.DeviceID) (*entities.Device, error)
 
-	// Upsert creates or updates a device
 	Upsert(device *entities.Device) error
 
-	// Revoke deactivates a device
-	Revoke(deviceId value_objects.DeviceId, revokedAt time.Time) error
+	Revoke(deviceID value_objects.DeviceID, revokedAt time.Time) error
 
-	// GetByUserID retrieves all devices for a user
-	GetByUserID(userID value_objects.UserId) ([]*entities.Device, error)
+	GetByUserID(userID value_objects.UserID) ([]*entities.Device, error)
 }

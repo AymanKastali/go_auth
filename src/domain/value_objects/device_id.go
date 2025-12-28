@@ -6,18 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
-type DeviceId struct {
+type DeviceID struct {
 	Value uuid.UUID
 }
 
-func (id DeviceId) IsZero() bool {
+func (id DeviceID) IsZero() bool {
 	return id.Value == uuid.Nil
 }
 
-func NewDeviceIdFromString(s string) (DeviceId, error) {
+func NewDeviceIdFromString(s string) (DeviceID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return DeviceId{}, errors.ErrInvalidDeviceID
+		return DeviceID{}, errors.ErrInvalidDeviceID
 	}
-	return DeviceId{Value: id}, nil
+	return DeviceID{Value: id}, nil
 }

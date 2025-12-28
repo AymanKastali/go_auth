@@ -10,7 +10,7 @@ import (
 type UserFactory struct{}
 
 func (f *UserFactory) New(
-	id value_objects.UserId,
+	id value_objects.UserID,
 	email value_objects.Email,
 	passwordHash value_objects.PasswordHash,
 	status value_objects.UserStatus,

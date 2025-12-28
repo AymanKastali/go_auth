@@ -13,56 +13,56 @@ func NewUUIDMapper() *UUIDMapper {
 	return &UUIDMapper{}
 }
 
-// ---------------- UserId ----------------
+// ---------------- UserID ----------------
 
-func (m *UUIDMapper) UserIdFromString(s string) (value_objects.UserId, error) {
+func (m *UUIDMapper) UserIdFromString(s string) (value_objects.UserID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return value_objects.UserId{}, fmt.Errorf("invalid UserId UUID string: %w", err)
+		return value_objects.UserID{}, fmt.Errorf("invalid UserID UUID string: %w", err)
 	}
-	return value_objects.UserId{Value: id}, nil
+	return value_objects.UserID{Value: id}, nil
 }
 
-func (m *UUIDMapper) UserIdToString(vo value_objects.UserId) string {
+func (m *UUIDMapper) UserIdToString(vo value_objects.UserID) string {
 	return vo.Value.String()
 }
 
-func (m *UUIDMapper) UserIdFromUUID(u uuid.UUID) value_objects.UserId {
-	return value_objects.UserId{Value: u}
+func (m *UUIDMapper) UserIdFromUUID(u uuid.UUID) value_objects.UserID {
+	return value_objects.UserID{Value: u}
 }
 
-// ---------------- DeviceId ----------------
+// ---------------- DeviceID ----------------
 
-func (m *UUIDMapper) DeviceIdFromString(s string) (value_objects.DeviceId, error) {
+func (m *UUIDMapper) DeviceIdFromString(s string) (value_objects.DeviceID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return value_objects.DeviceId{}, fmt.Errorf("invalid DeviceId UUID string: %w", err)
+		return value_objects.DeviceID{}, fmt.Errorf("invalid DeviceID UUID string: %w", err)
 	}
-	return value_objects.DeviceId{Value: id}, nil
+	return value_objects.DeviceID{Value: id}, nil
 }
 
-func (m *UUIDMapper) DeviceIdToString(vo value_objects.DeviceId) string {
+func (m *UUIDMapper) DeviceIdToString(vo value_objects.DeviceID) string {
 	return vo.Value.String()
 }
 
-func (m *UUIDMapper) DeviceIdFromUUID(u uuid.UUID) value_objects.DeviceId {
-	return value_objects.DeviceId{Value: u}
+func (m *UUIDMapper) DeviceIdFromUUID(u uuid.UUID) value_objects.DeviceID {
+	return value_objects.DeviceID{Value: u}
 }
 
-// ---------------- TokenId ----------------
+// ---------------- TokenID ----------------
 
-func (m *UUIDMapper) TokenIdFromString(s string) (value_objects.TokenId, error) {
+func (m *UUIDMapper) TokenIdFromString(s string) (value_objects.TokenID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return value_objects.TokenId{}, fmt.Errorf("invalid TokenId UUID string: %w", err)
+		return value_objects.TokenID{}, fmt.Errorf("invalid TokenID UUID string: %w", err)
 	}
-	return value_objects.TokenId{Value: id}, nil
+	return value_objects.TokenID{Value: id}, nil
 }
 
-func (m *UUIDMapper) TokenIdToString(vo value_objects.TokenId) string {
+func (m *UUIDMapper) TokenIdToString(vo value_objects.TokenID) string {
 	return vo.Value.String()
 }
 
-func (m *UUIDMapper) TokenIdFromUUID(u uuid.UUID) value_objects.TokenId {
-	return value_objects.TokenId{Value: u}
+func (m *UUIDMapper) TokenIdFromUUID(u uuid.UUID) value_objects.TokenID {
+	return value_objects.TokenID{Value: u}
 }

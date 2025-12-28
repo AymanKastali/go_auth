@@ -8,9 +8,9 @@ import (
 
 // TODO  add status
 type RefreshToken struct {
-	ID        value_objects.TokenId
-	UserId    value_objects.UserId
-	DeviceId  value_objects.DeviceId
+	ID        value_objects.TokenID
+	UserID    value_objects.UserID
+	DeviceID  value_objects.DeviceID
 	Token     string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
@@ -45,8 +45,8 @@ func (e *RefreshToken) EnsureUsable(now time.Time) error {
 }
 
 // BelongsTo checks ownership
-func (e *RefreshToken) BelongsTo(userId value_objects.UserId) error {
-	if e.UserId != userId {
+func (e *RefreshToken) BelongsTo(userID value_objects.UserID) error {
+	if e.UserID != userID {
 		return errors.ErrInvalidTokenUser
 	}
 	return nil

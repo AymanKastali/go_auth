@@ -20,18 +20,22 @@ func NewDeviceFactory(
 }
 
 func (f *DeviceFactory) New(
-	userId value_objects.UserId,
+	userID value_objects.UserID,
+	deviceID value_objects.DeviceID,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
 	now time.Time,
 ) (*entities.Device, error) {
 
-	deviceId := f.idFactory.NewDeviceId()
-
+	// deviceID := f.idFactory.NewDeviceId()
+	// id, err := f.idFactory.DeviceIDFromString(deviceID)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return &entities.Device{
-		ID:         deviceId,
-		UserId:     userId,
+		ID:         deviceID,
+		UserID:     userID,
 		Name:       name,
 		UserAgent:  userAgent,
 		IPAddress:  ipAddress,

@@ -26,7 +26,7 @@ func (h *LogoutHandler) Execute(ctx *fiber.Ctx) error {
 		})
 	}
 
-	return h.useCase.Execute(
+	return h.useCase.Logout(
 		req.RefreshToken,
 	)
 }

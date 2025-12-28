@@ -5,5 +5,5 @@ import (
 )
 
 type RefreshTokenUseCasePort interface {
-	Execute(oldRefreshToken, deviceIdStr string) (*dto.AuthResponse, error)
+	RefreshToken(oldRefreshToken, deviceIdStr string) (*dto.AuthResponse, error)
 }

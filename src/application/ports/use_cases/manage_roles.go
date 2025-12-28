@@ -5,5 +5,5 @@ import (
 )
 
 type ManageRoleUseCasePort interface {
-	Execute(req dto.ManageRoleInput) error
+	UpdateRole(req dto.ManageRoleInput) error
 }

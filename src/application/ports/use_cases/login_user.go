@@ -4,6 +4,8 @@ import (
 	"go_auth/src/application/dto"
 )
 
-type AuthenticatedUserUseCasePort interface {
-	Execute(userId string) (*dto.AuthenticatedUser, error)
+type LoginUseCasePort interface {
+	Login(
+		email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
+	) (*dto.AuthResponse, error)
 }

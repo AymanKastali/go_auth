@@ -7,8 +7,8 @@ import (
 )
 
 type Device struct {
-	ID         value_objects.DeviceId
-	UserId     value_objects.UserId
+	ID         value_objects.DeviceID
+	UserID     value_objects.UserID
 	Name       *string
 	UserAgent  *string
 	IPAddress  *string
@@ -64,8 +64,8 @@ func (e *Device) Revoke(now time.Time) {
 	e.RevokedAt = &now
 }
 
-func (e *Device) BelongsTo(userId value_objects.UserId) error {
-	if e.UserId != userId {
+func (e *Device) BelongsTo(userID value_objects.UserID) error {
+	if e.UserID != userID {
 		return errors.ErrInvalidDeviceUser
 	}
 	return nil

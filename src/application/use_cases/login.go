@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go_auth/src/application/dto"
 	"go_auth/src/application/ports/security"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/entities"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/factories"
@@ -22,6 +23,8 @@ type loginUseCase struct {
 	idFactory      factories.IDFactory
 	deviceFactory  *factories.DeviceFactory
 }
+
+var _ use_cases.LoginUseCasePort = (*loginUseCase)(nil)
 
 func NewLoginUseCase(
 	userRepository repositories.UserRepositoryPort,
@@ -43,7 +46,7 @@ func NewLoginUseCase(
 	}
 }
 
-func (h *loginUseCase) Execute(
+func (h *loginUseCase) Login(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 
@@ -72,14 +75,14 @@ func (h *loginUseCase) Execute(
 	}
 
 	// --- DEVICE HANDLING (NEW) ---
-	// Convert deviceId string to VO
-	deviceId, err := value_objects.NewDeviceIdFromString(deviceIDStr)
+	// Convert deviceID string to VO
+	deviceID, err := value_objects.NewDeviceIdFromString(deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try to fetch existing device (new method could be added to repo)
-	device, err := h.deviceRepo.GetByID(deviceId)
+	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +92,7 @@ func (h *loginUseCase) Execute(
 		// --- CREATE NEW DEVICE ---
 		device, err = h.deviceFactory.New(
 			user.ID,
+			deviceID,
 			&deviceName,
 			&userAgent,
 			&ipAddress,
@@ -110,7 +114,7 @@ func (h *loginUseCase) Execute(
 		return nil, fmt.Errorf("device repository: failed to upsert device: %w", err)
 	}
 
-	// --- ISSUE TOKENS (CHANGED: pass deviceId) ---
+	// --- ISSUE TOKENS (CHANGED: pass deviceID) ---
 	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, deviceIDStr, roles)
 	if err != nil {
 		return nil, err
@@ -127,15 +131,15 @@ func (h *loginUseCase) Execute(
 		return nil, err
 	}
 
-	tokenId, err := h.idFactory.TokenIDFromString(rtClaims.JTI)
+	tokenID, err := h.idFactory.TokenIDFromString(rtClaims.JTI)
 	if err != nil {
 		return nil, err
 	}
 
 	refreshTokenEntity := &entities.RefreshToken{
-		ID:        tokenId,
-		UserId:    user.ID,
-		DeviceId:  device.ID, // bind refresh token to device
+		ID:        tokenID,
+		UserID:    user.ID,
+		DeviceID:  device.ID, // bind refresh token to device
 		Token:     refreshToken.Value,
 		ExpiresAt: rtClaims.ExpiresAt,
 		RevokedAt: nil,

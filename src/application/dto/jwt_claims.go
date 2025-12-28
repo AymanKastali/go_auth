@@ -6,7 +6,7 @@ type AccessTokenClaimsDto struct {
 	// Standard Registered Claims
 	Issuer    string    // iss
 	Subject   string    // sub
-	DeviceId  string    // did
+	DeviceID  string    // did
 	Audience  []string  // aud
 	ExpiresAt time.Time // exp
 	NotBefore time.Time // nbf
@@ -19,7 +19,7 @@ type AccessTokenClaimsDto struct {
 type RefreshTokenClaimsDto struct {
 	Issuer    string    // iss
 	Subject   string    // sub
-	DeviceId  string    // did
+	DeviceID  string    // did
 	Audience  []string  // aud
 	ExpiresAt time.Time // exp
 	NotBefore time.Time // nbf

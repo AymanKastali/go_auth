@@ -18,7 +18,7 @@ func NewRegisterHandler(
 	return &RegisterHandler{useCase: uc}
 }
 
-func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
+func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 
 	if err := c.BodyParser(&req); err != nil {
@@ -27,7 +27,7 @@ func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := h.useCase.Execute(req.Email, req.Password)
+	authResp, err := h.useCase.Register(req.Email, req.Password)
 	if err != nil {
 		switch err {
 		case errors.ErrEmailAlreadyRegistered:

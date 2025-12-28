@@ -27,7 +27,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 		return nil, nil
 	}
 
-	userId, err := m.uuidMapper.UserIdFromString(u.ID)
+	userID, err := m.uuidMapper.UserIdFromString(u.ID)
 	if err != nil {
 		return nil, fmt.Errorf("user mapper: invalid User ID '%s': %w", u.ID, err)
 	}
@@ -51,14 +51,14 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	}
 
 	return &entities.User{
-		ID:           userId,
+		ID:           userID,
 		Email:        emailVO,
 		PasswordHash: pwHashVO,
 		Status:       status,
 		Roles:        roles,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
-		DeletedAt:    &u.DeletedAt.Time,
+		DeletedAt:    u.DeletedAt,
 	}, nil
 }
 

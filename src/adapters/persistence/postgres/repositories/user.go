@@ -65,7 +65,7 @@ func (r *GormUserRepository) GetByEmail(
 }
 
 func (r *GormUserRepository) GetByID(
-	id value_objects.UserId,
+	id value_objects.UserID,
 ) (*entities.User, error) {
 
 	var model models.User

@@ -21,8 +21,8 @@ func NewRefreshTokenHandler(
 func (h *RefreshTokenHandler) Execute(ctx *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest // Ensure this DTO exists in your presentation layer
 
-	deviceId := ctx.Get("X-Device-Id")
-	if deviceId == "" {
+	deviceID := ctx.Get("X-Device-ID")
+	if deviceID == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "missing device id",
 		})
@@ -36,7 +36,7 @@ func (h *RefreshTokenHandler) Execute(ctx *fiber.Ctx) error {
 	}
 
 	// 2. Call the application handler
-	authResp, err := h.useCase.Execute(req.RefreshToken, deviceId)
+	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidToken:

@@ -1,7 +1,7 @@
 package dto
 
 type ManageRoleInput struct {
-	UserId string
+	UserID string
 	Role   string
 	Action string
 }

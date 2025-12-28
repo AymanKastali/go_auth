@@ -3,6 +3,7 @@ package use_cases
 import (
 	"go_auth/src/application/dto"
 	"go_auth/src/application/ports/security"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/errors"
 	"go_auth/src/domain/events"
 	"go_auth/src/domain/factories"
@@ -18,6 +19,8 @@ type registerUseCase struct {
 	pwdHashFactory factories.PasswordHashFactory
 	userFactory    factories.UserFactory
 }
+
+var _ use_cases.RegisterUseCasePort = (*registerUseCase)(nil)
 
 func NewRegisterUseCase(
 	userRepository repositories.UserRepositoryPort,
@@ -37,7 +40,7 @@ func NewRegisterUseCase(
 	}
 }
 
-func (h *registerUseCase) Execute(email string, password string) (*dto.AuthResponse, error) {
+func (h *registerUseCase) Register(email string, password string) (*dto.AuthResponse, error) {
 
 	// Use the injected factory
 	emailVO, err := h.emailFactory.New(email)
@@ -78,7 +81,7 @@ func (h *registerUseCase) Execute(email string, password string) (*dto.AuthRespo
 	}
 
 	// publish event (omitted: just demonstrate)
-	_ = events.UserRegistered{UserId: user.ID}
+	_ = events.UserRegistered{UserID: user.ID}
 
 	return nil, nil
 }

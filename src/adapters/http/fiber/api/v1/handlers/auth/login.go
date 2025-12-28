@@ -18,11 +18,11 @@ func NewLoginHandler(
 	return &LoginHandler{useCase: uc}
 }
 
-func (h *LoginHandler) Execute(ctx *fiber.Ctx) error {
+func (h *LoginHandler) Login(ctx *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	deviceId := ctx.Get("X-Device-Id")
-	if deviceId == "" {
+	deviceID := ctx.Get("X-Device-ID")
+	if deviceID == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "missing device id",
 		})
@@ -38,10 +38,10 @@ func (h *LoginHandler) Execute(ctx *fiber.Ctx) error {
 		})
 	}
 
-	authResp, err := h.useCase.Execute(
+	authResp, err := h.useCase.Login(
 		req.Email,
 		req.Password,
-		deviceId,
+		deviceID,
 		deviceName,
 		userAgent,
 		ipAddress,

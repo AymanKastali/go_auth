@@ -28,9 +28,9 @@ func NewGormDeviceRepository(
 }
 
 // GetByID fetches a device by its ID
-func (r *GormDeviceRepository) GetByID(deviceId value_objects.DeviceId) (*entities.Device, error) {
+func (r *GormDeviceRepository) GetByID(deviceID value_objects.DeviceID) (*entities.Device, error) {
 	var model models.Device
-	if err := r.db.Where("id = ?", deviceId.Value.String()).First(&model).Error; err != nil {
+	if err := r.db.Where("id = ?", deviceID.Value.String()).First(&model).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -53,9 +53,9 @@ func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
 }
 
 // Revoke marks a device as inactive and sets RevokedAt
-func (r *GormDeviceRepository) Revoke(deviceId value_objects.DeviceId, revokedAt time.Time) error {
+func (r *GormDeviceRepository) Revoke(deviceID value_objects.DeviceID, revokedAt time.Time) error {
 	if err := r.db.Model(&models.Device{}).
-		Where("id = ?", deviceId.Value.String()).
+		Where("id = ?", deviceID.Value.String()).
 		Updates(map[string]any{
 			"is_active":  false,
 			"revoked_at": revokedAt,
@@ -66,7 +66,7 @@ func (r *GormDeviceRepository) Revoke(deviceId value_objects.DeviceId, revokedAt
 }
 
 // GetByUserID retrieves all devices for a user
-func (r *GormDeviceRepository) GetByUserID(userID value_objects.UserId) ([]*entities.Device, error) {
+func (r *GormDeviceRepository) GetByUserID(userID value_objects.UserID) ([]*entities.Device, error) {
 	var modelsList []models.Device
 	if err := r.db.Where("user_id = ?", userID.Value.String()).Find(&modelsList).Error; err != nil {
 		return nil, fmt.Errorf("device repository: failed to get devices by user ID: %w", err)

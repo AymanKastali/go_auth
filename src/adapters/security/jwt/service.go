@@ -42,7 +42,7 @@ func NewJWTService(
 	}
 }
 func (s *JWTService) IssueAccessToken(
-	userId, deviceId string,
+	userID, deviceID string,
 	roles []string,
 ) (value_objects.JWTToken, error) {
 	now := time.Now()
@@ -50,9 +50,9 @@ func (s *JWTService) IssueAccessToken(
 	claims := AccessTokenClaims{
 		Type:     TokenTypeAccess,
 		Roles:    roles,
-		DeviceId: deviceId,
+		DeviceID: deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   userId,
+			Subject:   userID,
 			ID:        s.idFactory.NewTokenID().Value.String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
@@ -70,14 +70,14 @@ func (s *JWTService) IssueAccessToken(
 	return value_objects.JWTToken{Value: signed}, nil
 }
 
-func (s *JWTService) IssueRefreshToken(userId, deviceId string) (value_objects.JWTToken, error) {
+func (s *JWTService) IssueRefreshToken(userID, deviceID string) (value_objects.JWTToken, error) {
 	now := time.Now()
 
 	claims := RefreshTokenClaims{
 		Type:     TokenTypeRefresh,
-		DeviceId: deviceId,
+		DeviceID: deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   userId,
+			Subject:   userID,
 			ID:        s.idFactory.NewTokenID().Value.String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},

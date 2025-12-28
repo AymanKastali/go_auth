@@ -3,6 +3,7 @@ package use_cases
 import (
 	"go_auth/src/adapters/mappers"
 	"go_auth/src/application/dto"
+	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/ports/repositories"
 )
 
@@ -10,6 +11,8 @@ type AuthenticatedUserUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	uuidMapper     *mappers.UUIDMapper
 }
+
+var _ use_cases.AuthenticatedUserUseCasePort = (*AuthenticatedUserUseCase)(nil)
 
 func NewAuthenticatedUserUseCase(
 	userRepo repositories.UserRepositoryPort,
@@ -21,8 +24,8 @@ func NewAuthenticatedUserUseCase(
 	}
 }
 
-func (h *AuthenticatedUserUseCase) Execute(userId string) (*dto.AuthenticatedUser, error) {
-	userIDVO, err := h.uuidMapper.UserIdFromString(userId)
+func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.AuthenticatedUser, error) {
+	userIDVO, err := h.uuidMapper.UserIdFromString(userID)
 	if err != nil {
 		return nil, err
 	}

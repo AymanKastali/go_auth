@@ -7,24 +7,17 @@ import (
 )
 
 type RefreshTokenRepositoryPort interface {
-	// Save creates or updates a refresh token in the store.
 	Save(token *entities.RefreshToken) error
 
-	// GetByID fetches a refresh token by its unique identifier.
-	// Returns nil, nil if the token is not found.
-	GetByID(tokenId value_objects.TokenId) (*entities.RefreshToken, error)
+	GetByID(tokenID value_objects.TokenID) (*entities.RefreshToken, error)
 
-	// GetByToken fetches a refresh token by its actual string value.
-	// Returns nil, nil if the token is not found.
 	GetByToken(tokenStr string) (*entities.RefreshToken, error)
 
-	// Revoke marks a specific refresh token as revoked at the given time.
-	Revoke(tokenId value_objects.TokenId, revokedAt time.Time) error
+	Revoke(tokenID value_objects.TokenID, revokedAt time.Time) error
 
-	// GetByUserID retrieves all refresh tokens associated with a specific user.
-	GetByUserID(userID value_objects.UserId) ([]*entities.RefreshToken, error)
+	GetByUserID(userID value_objects.UserID) ([]*entities.RefreshToken, error)
 
-	IsRevoked(tokenId value_objects.TokenId) (bool, error)
+	IsRevoked(tokenID value_objects.TokenID) (bool, error)
 
-	RevokeByDeviceID(userID value_objects.UserId, deviceId value_objects.DeviceId, revokedAt time.Time) error
+	RevokeByDeviceID(userID value_objects.UserID, deviceID value_objects.DeviceID, revokedAt time.Time) error
 }

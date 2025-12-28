@@ -27,13 +27,13 @@ func (h *RoleHandler) HandleRoleUpdate(c *fiber.Ctx) error {
 	}
 
 	input := app_dto.ManageRoleInput{
-		UserId: webReq.UserId,
+		UserID: webReq.UserID,
 		Role:   webReq.Role,
 		Action: webReq.Action,
 	}
 
 	// 3. Execute the Use Case
-	if err := h.useCase.Execute(input); err != nil {
+	if err := h.useCase.UpdateRole(input); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
