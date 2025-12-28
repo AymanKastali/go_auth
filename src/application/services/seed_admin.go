@@ -1,12 +1,13 @@
 package services
 
 import (
-	"fmt"
 	"go_auth/src/adapters/config"
+	"go_auth/src/application/errors"
 	"go_auth/src/application/ports/security"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
 	"go_auth/src/domain/value_objects"
+	"log/slog"
 )
 
 type SeedAdminService struct {
@@ -16,6 +17,7 @@ type SeedAdminService struct {
 	userFactory    factories.UserFactory
 	idFactory      factories.IDFactory
 	cfg            *config.SeederConfig
+	logger         *slog.Logger
 }
 
 func NewSeedAdminService(
@@ -25,6 +27,7 @@ func NewSeedAdminService(
 	userFactory factories.UserFactory,
 	idFactory factories.IDFactory,
 	seederConfig *config.SeederConfig,
+	logger *slog.Logger,
 ) *SeedAdminService {
 	return &SeedAdminService{
 		userRepo:       repo,
@@ -33,6 +36,7 @@ func NewSeedAdminService(
 		userFactory:    userFactory,
 		idFactory:      idFactory,
 		cfg:            seederConfig,
+		logger:         logger,
 	}
 }
 
@@ -42,20 +46,27 @@ func (s *SeedAdminService) SeedAdmin() error {
 
 	// Validation: Ensure env variables aren't empty
 	if adminEmail == "" || adminPass == "" {
-		return fmt.Errorf("seeder: ADMIN_EMAIL or ADMIN_PASSWORD environment variables are not set")
+		s.logger.Error("ADMIN_EMAIL or ADMIN_PASSWORD environment variables are not set")
+		return errors.ErrInvalidEnv
 	}
 
 	// 1. Check if admin already exists
 	emailVO := value_objects.Email{Value: adminEmail}
 	exists, err := s.userRepo.GetByEmail(emailVO)
-	if err == nil && exists != nil {
-		return nil // Admin already seeded, exit cleanly
+	if err != nil {
+		s.logger.Error("Failed to check if admin exists", "error", err)
+		return err
+	}
+	if exists != nil {
+		s.logger.Info("Admin user already exists, skipping seeding", "email", adminEmail)
+		return nil
 	}
 
 	// 2. Hash the password from .env
 	hash, err := s.passwordHasher.Hash(adminPass)
 	if err != nil {
-		return fmt.Errorf("seeder: failed to hash admin password: %w", err)
+		s.logger.Error("Failed to hash admin password", "error", err)
+		return err
 	}
 	pw := s.pwHashFactory.New(hash)
 
@@ -65,18 +76,19 @@ func (s *SeedAdminService) SeedAdmin() error {
 		emailVO,
 		pw,
 		value_objects.UserActive,
-		[]value_objects.Role{value_objects.RoleAdmin}, // FIX: Use RoleAdmin, not RoleUser
+		[]value_objects.Role{value_objects.RoleAdmin},
 	)
-
 	if err != nil {
-		return fmt.Errorf("seeder: failed to create admin entity: %w", err)
+		s.logger.Error("Failed to create admin entity", "error", err)
+		return err
 	}
 
 	// 4. Save to Repository
-	// FIX: Removed the duplicate Save call.
 	if err := s.userRepo.Save(admin); err != nil {
-		return fmt.Errorf("seeder: failed to save admin to repository: %w", err)
+		s.logger.Error("Failed to save admin to repository", "error", err)
+		return err
 	}
 
+	s.logger.Info("Admin user successfully seeded", "email", adminEmail)
 	return nil
 }

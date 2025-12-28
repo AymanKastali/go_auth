@@ -10,6 +10,7 @@ import (
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
 	"go_auth/src/domain/value_objects"
+	"log/slog"
 	"time"
 )
 
@@ -22,6 +23,7 @@ type loginUseCase struct {
 	emailFactory   factories.EmailFactory
 	idFactory      factories.IDFactory
 	deviceFactory  *factories.DeviceFactory
+	logger         *slog.Logger
 }
 
 var _ use_cases.LoginUseCasePort = (*loginUseCase)(nil)
@@ -34,6 +36,7 @@ func NewLoginUseCase(
 	tokenService security.TokenServicePort,
 	emailFactory factories.EmailFactory,
 	deviceFactory *factories.DeviceFactory,
+	logger *slog.Logger,
 ) *loginUseCase {
 	return &loginUseCase{
 		userRepository: userRepository,
@@ -43,6 +46,7 @@ func NewLoginUseCase(
 		tokenService:   tokenService,
 		emailFactory:   emailFactory,
 		deviceFactory:  deviceFactory,
+		logger:         logger,
 	}
 }
 
@@ -50,22 +54,29 @@ func (h *loginUseCase) Login(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 
+	h.logger.Info("Starting user login", "email", email, "deviceID", deviceIDStr)
+
 	// --- Parse and validate email ---
 	emailVO, err := h.emailFactory.New(email)
 	if err != nil {
-		return nil, err
+		h.logger.Error("Invalid email provided", "email", email, "error", err)
+		return nil, errors.ErrInvalidCredentials
 	}
 
 	// --- Fetch user ---
 	user, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil || user == nil {
+		h.logger.Warn("User not found", "email", email)
 		return nil, errors.ErrInvalidCredentials
 	}
 
 	// --- Validate password ---
 	if !h.passwordHasher.Compare(password, user.PasswordHash.Value) {
+		h.logger.Warn("Invalid password attempt", "email", email)
 		return nil, errors.ErrInvalidCredentials
 	}
+
+	h.logger.Info("User authenticated successfully", "email", email, "userID", user.ID)
 
 	// --- Convert IDs for JWT / repository ---
 	userIDStr := user.ID.Value.String()
@@ -74,22 +85,21 @@ func (h *loginUseCase) Login(
 		roles[i] = string(r)
 	}
 
-	// --- DEVICE HANDLING (NEW) ---
-	// Convert deviceID string to VO
+	// --- DEVICE HANDLING ---
 	deviceID, err := value_objects.NewDeviceIdFromString(deviceIDStr)
 	if err != nil {
-		return nil, err
+		h.logger.Error("Invalid device ID", "deviceID", deviceIDStr, "error", err)
+		return nil, errors.ErrInvalidCredentials
 	}
 
-	// Try to fetch existing device (new method could be added to repo)
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		return nil, err
+		h.logger.Error("Failed to fetch device", "deviceID", deviceIDStr, "error", err)
+		return nil, fmt.Errorf("device repo error: %w", err)
 	}
 
 	now := time.Now()
 	if device == nil {
-		// --- CREATE NEW DEVICE ---
 		device, err = h.deviceFactory.New(
 			user.ID,
 			deviceID,
@@ -99,59 +109,70 @@ func (h *loginUseCase) Login(
 			now,
 		)
 		if err != nil {
+			h.logger.Error("Failed to create device entity", "userID", user.ID, "error", err)
 			return nil, fmt.Errorf("failed to create device entity: %w", err)
 		}
+		h.logger.Info("New device created", "userID", user.ID, "deviceID", device.ID)
 	} else {
-		// --- UPDATE EXISTING DEVICE ---
 		device.UpdateLastSeen(now)
 		device.Name = &deviceName
 		device.UserAgent = &userAgent
 		device.IPAddress = &ipAddress
+		h.logger.Info("Existing device updated", "userID", user.ID, "deviceID", device.ID)
 	}
 
 	// Upsert device
 	if err := h.deviceRepo.Upsert(device); err != nil {
+		h.logger.Error("Failed to upsert device", "deviceID", device.ID, "error", err)
 		return nil, fmt.Errorf("device repository: failed to upsert device: %w", err)
 	}
 
-	// --- ISSUE TOKENS (CHANGED: pass deviceID) ---
+	// --- ISSUE TOKENS ---
 	accessToken, err := h.tokenService.IssueAccessToken(userIDStr, deviceIDStr, roles)
 	if err != nil {
+		h.logger.Error("Failed to issue access token", "userID", user.ID, "error", err)
 		return nil, err
 	}
 
 	refreshToken, err := h.tokenService.IssueRefreshToken(userIDStr, deviceIDStr)
 	if err != nil {
+		h.logger.Error("Failed to issue refresh token", "userID", user.ID, "error", err)
 		return nil, err
 	}
 
-	// --- SAVE REFRESH TOKEN IN DB (CHANGED: create entity) ---
+	// --- SAVE REFRESH TOKEN IN DB ---
 	rtClaims, err := h.tokenService.ValidateRefreshToken(refreshToken.Value)
 	if err != nil {
+		h.logger.Error("Failed to validate refresh token", "userID", user.ID, "error", err)
 		return nil, err
 	}
 
 	tokenID, err := h.idFactory.TokenIDFromString(rtClaims.JTI)
 	if err != nil {
+		h.logger.Error("Failed to parse refresh token ID", "userID", user.ID, "error", err)
 		return nil, err
 	}
 
 	refreshTokenEntity := &entities.RefreshToken{
 		ID:        tokenID,
 		UserID:    user.ID,
-		DeviceID:  device.ID, // bind refresh token to device
+		DeviceID:  device.ID,
 		Token:     refreshToken.Value,
 		ExpiresAt: rtClaims.ExpiresAt,
 		RevokedAt: nil,
 	}
 
 	if err := h.refreshRepo.RevokeByDeviceID(user.ID, device.ID, now); err != nil {
+		h.logger.Error("Failed to rotate refresh tokens", "userID", user.ID, "deviceID", device.ID, "error", err)
 		return nil, fmt.Errorf("failed to rotate session: %w", err)
 	}
 
 	if err := h.refreshRepo.Save(refreshTokenEntity); err != nil {
+		h.logger.Error("Failed to save refresh token", "userID", user.ID, "deviceID", device.ID, "error", err)
 		return nil, err
 	}
+
+	h.logger.Info("User login successful", "userID", user.ID, "deviceID", device.ID)
 
 	// --- RETURN RESPONSE ---
 	return &dto.AuthResponse{

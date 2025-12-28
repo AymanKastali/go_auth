@@ -5,11 +5,13 @@ import (
 	"go_auth/src/application/dto"
 	"go_auth/src/application/ports/use_cases"
 	"go_auth/src/domain/ports/repositories"
+	"log/slog"
 )
 
 type AuthenticatedUserUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	uuidMapper     *mappers.UUIDMapper
+	logger         *slog.Logger
 }
 
 var _ use_cases.AuthenticatedUserUseCasePort = (*AuthenticatedUserUseCase)(nil)
@@ -17,10 +19,12 @@ var _ use_cases.AuthenticatedUserUseCasePort = (*AuthenticatedUserUseCase)(nil)
 func NewAuthenticatedUserUseCase(
 	userRepo repositories.UserRepositoryPort,
 	uuidMapper *mappers.UUIDMapper,
+	logger *slog.Logger,
 ) *AuthenticatedUserUseCase {
 	return &AuthenticatedUserUseCase{
 		userRepository: userRepo,
 		uuidMapper:     uuidMapper,
+		logger:         logger,
 	}
 }
 

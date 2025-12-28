@@ -13,6 +13,7 @@ import (
 	"go_auth/src/application/use_cases"
 	"go_auth/src/domain/factories"
 	"log"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -26,11 +27,11 @@ type deps struct {
 	roleHandler         *auth_handlers.RoleHandler
 	authUserHandler     *user_handlers.AuthenticatedUserHandler
 	AuthMiddleware      fiber.Handler
+	Logger              *slog.Logger
 }
 
 func wireDependencies(
 	db *gorm.DB,
-	// redis *redis.Client,
 ) (*deps, error) {
 	// factories
 	idFactory := factories.IDFactory{}
@@ -62,6 +63,9 @@ func wireDependencies(
 		return nil, err
 	}
 
+	// logger
+	logger := initLogger()
+
 	seeder := services.NewSeedAdminService(
 		userRepo,
 		passwordHasher,
@@ -69,13 +73,12 @@ func wireDependencies(
 		userFactory,
 		idFactory,
 		seederCfg,
+		logger,
 	)
 
 	if err := seeder.SeedAdmin(); err != nil {
 		log.Fatal(err)
 	}
-
-	// redisBlacklist := cache.NewRedisBlacklist(redis)
 
 	// handlers
 	registerUc := use_cases.NewRegisterUseCase(
@@ -85,6 +88,7 @@ func wireDependencies(
 		emailFactory,
 		pwHashFactory,
 		userFactory,
+		logger,
 	)
 
 	loginUc := use_cases.NewLoginUseCase(
@@ -95,12 +99,14 @@ func wireDependencies(
 		jwtService,
 		emailFactory,
 		deviceFactory,
+		logger,
 	)
 
 	logoutUc := use_cases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
 		idFactory,
+		logger,
 	)
 
 	refreshTokenUc := use_cases.NewRefreshTokenUseCase(
@@ -109,16 +115,19 @@ func wireDependencies(
 		deviceRepo,
 		jwtService,
 		idFactory,
+		logger,
 	)
 
 	getAuthUserUc := use_cases.NewAuthenticatedUserUseCase(
 		userRepo,
 		uuidMapper,
+		logger,
 	)
 
 	manageRoleUc := use_cases.NewManageRoleUseCase(
 		userRepo,
 		uuidMapper,
+		logger,
 	)
 
 	return &deps{

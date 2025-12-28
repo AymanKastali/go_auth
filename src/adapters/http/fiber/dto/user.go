@@ -2,6 +2,11 @@ package dto
 
 import "time"
 
+type RegisteredUserResponse struct {
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+}
+
 type UserResponse struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`

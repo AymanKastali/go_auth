@@ -2,13 +2,14 @@ package use_cases
 
 import (
 	"go_auth/src/application/dto"
+	"go_auth/src/application/errors"
 	"go_auth/src/application/ports/security"
 	"go_auth/src/application/ports/use_cases"
-	"go_auth/src/domain/errors"
 	"go_auth/src/domain/events"
 	"go_auth/src/domain/factories"
 	"go_auth/src/domain/ports/repositories"
 	"go_auth/src/domain/value_objects"
+	"log/slog"
 )
 
 type registerUseCase struct {
@@ -18,6 +19,7 @@ type registerUseCase struct {
 	emailFactory   factories.EmailFactory
 	pwdHashFactory factories.PasswordHashFactory
 	userFactory    factories.UserFactory
+	logger         *slog.Logger
 }
 
 var _ use_cases.RegisterUseCasePort = (*registerUseCase)(nil)
@@ -29,6 +31,7 @@ func NewRegisterUseCase(
 	emailFactory factories.EmailFactory,
 	pwHashFactory factories.PasswordHashFactory,
 	userFactory factories.UserFactory,
+	logger *slog.Logger,
 ) *registerUseCase {
 	return &registerUseCase{
 		userRepository: userRepository,
@@ -37,33 +40,40 @@ func NewRegisterUseCase(
 		emailFactory:   emailFactory,
 		pwdHashFactory: pwHashFactory,
 		userFactory:    userFactory,
+		logger:         logger,
 	}
 }
 
-func (h *registerUseCase) Register(email string, password string) (*dto.AuthResponse, error) {
+func (h *registerUseCase) Register(email string, password string) (*dto.RegisteredUserDTO, error) {
+	h.logger.Info("Starting user registration", "email", email)
 
-	// Use the injected factory
+	// 1. Validate email
 	emailVO, err := h.emailFactory.New(email)
 	if err != nil {
-		return nil, err
+		h.logger.Error("Invalid email provided", "email", email, "error", err)
+		return nil, errors.ErrInvalidEmail
 	}
 
-	// check existence
-	existing, _ := h.userRepository.GetByEmail(emailVO)
+	// 2. Check if user already exists
+	existing, err := h.userRepository.GetByEmail(emailVO)
+	if err != nil {
+		h.logger.Error("Failed to check existing user", "email", email, "error", err)
+		return nil, errors.ErrInternal
+	}
 	if existing != nil {
+		h.logger.Warn("Email already registered", "email", email)
 		return nil, errors.ErrEmailAlreadyRegistered
 	}
 
-	// hash password
+	// 3. Hash password
 	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
-		return nil, err
+		h.logger.Error("Failed to hash password", "email", email, "error", err)
+		return nil, errors.ErrInternal
 	}
-
-	// Use the injected factory
 	pw := h.pwdHashFactory.New(hash)
 
-	// Use the injected factory
+	// 4. Create user entity
 	user, err := h.userFactory.New(
 		h.idFactory.NewUserID(),
 		emailVO,
@@ -71,17 +81,24 @@ func (h *registerUseCase) Register(email string, password string) (*dto.AuthResp
 		value_objects.UserActive,
 		[]value_objects.Role{value_objects.RoleUser},
 	)
-
 	if err != nil {
-		return nil, err
+		h.logger.Error("Failed to create user entity", "email", email, "error", err)
+		return nil, errors.ErrInternal
 	}
 
+	// 5. Save user
 	if err := h.userRepository.Save(user); err != nil {
-		return nil, err
+		h.logger.Error("Failed to save user", "email", email, "error", err)
+		return nil, errors.ErrInternal
 	}
 
-	// publish event (omitted: just demonstrate)
-	_ = events.UserRegistered{UserID: user.ID}
+	// 6. Publish event
+	h.logger.Info("User registered successfully", "email", email, "userID", user.ID)
+	_ = events.UserRegistered{UserID: user.ID} // implement actual event publishing
 
-	return nil, nil
+	// 7. Return response DTO
+	return &dto.RegisteredUserDTO{
+		UserID: user.ID.Value.String(),
+		Email:  user.Email.Value,
+	}, nil
 }
