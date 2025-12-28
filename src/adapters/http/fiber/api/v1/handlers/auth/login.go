@@ -22,53 +22,66 @@ func NewLoginHandler(
 func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	deviceID := c.Get("X-Device-ID")
-	if deviceID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "missing device id",
-		})
+	ctx, err := utils.ExtractRequestContext(c)
+	if err != nil {
+		return utils.Failure(
+			c,
+			fiber.StatusBadRequest,
+			"Device ID is required",
+			err.Error(),
+		)
 	}
 
-	deviceName := c.Get("X-Device-Name") // optional
-	userAgent := c.Get("User-Agent")     // optional
-	ipAddress := c.IP()                  // Fiber helper for client IP
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return utils.Failure(
+			c,
+			fiber.StatusBadRequest,
+			"Invalid request body",
+			err.Error(),
+		)
 	}
 
 	authResp, err := h.useCase.Login(
 		req.Email,
 		req.Password,
-		deviceID,
-		deviceName,
-		userAgent,
-		ipAddress,
+		ctx.DeviceID,
+		ctx.DeviceName,
+		ctx.UserAgent,
+		ctx.IPAddress,
 	)
 	if err != nil {
 		switch err {
 		case errors.ErrInvalidCredentials:
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.Failure(
+				c,
+				fiber.StatusUnauthorized,
+				"Invalid credentials",
+				err.Error(),
+			)
 		case errors.ErrUserNotMemberOfOrganization:
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.Failure(
+				c,
+				fiber.StatusBadRequest,
+				"Bad request",
+				err.Error(),
+			)
 		default:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.Failure(
+				c,
+				fiber.StatusInternalServerError,
+				"Internal server error",
+				err.Error(),
+			)
 		}
 	}
 
-	loginResponse := dto.LoginResponse{
-		AccessToken:  authResp.AccessToken,
-		RefreshToken: authResp.RefreshToken,
-	}
-
-	// return c.Status(fiber.StatusOK).JSON(loginResponse)
-
-	return utils.Success(c, fiber.StatusOK, loginResponse, "User logged in successfully")
+	return utils.Success(
+		c,
+		fiber.StatusOK,
+		dto.LoginResponse{
+			AccessToken:  authResp.AccessToken,
+			RefreshToken: authResp.RefreshToken,
+		},
+		"User logged in successfully",
+	)
 }
