@@ -1,16 +1,18 @@
 package main
 
 import (
-	"go_auth/internal/bootstrap"
-	"log"
+	"fmt"
+	"go_auth/internal/adapters/http/fiber"
 )
 
 func main() {
-	app, err := bootstrap.NewApp()
+	deps, err := fiber.InitDeps()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 
-	log.Println("Fiber server running on :8080")
-	log.Fatal(app.Listen(":8080"))
+	app := fiber.NewFiberApp(deps)
+
+	fmt.Println("Fiber server running on :8080")
+	fmt.Println(app.Listen(":8080"))
 }
