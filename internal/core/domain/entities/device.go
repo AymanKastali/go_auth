@@ -6,8 +6,14 @@ import (
 	"time"
 )
 
-const newDeviceOp = "Device.New"
-const reconstituteDeviceOp = "Device.ReconstituteDevice"
+const (
+	newDeviceOp           = "Device.New"
+	reconstituteDeviceOp  = "Device.Reconstitute"
+	updateDeviceOp        = "Device.Update"
+	revokeDeviceOp        = "Device.Revoke"
+	ensureDeviceUsableOp  = "Device.EnsureUsable"
+	validateDeviceOwnerOp = "Device.ValidateOwner"
+)
 
 type Device struct {
 	id         valueobjects.DeviceID
@@ -22,7 +28,6 @@ type Device struct {
 	revokedAt  *time.Time
 }
 
-// Constructor
 func NewDevice(
 	deviceID valueobjects.DeviceID,
 	userID valueobjects.UserID,
@@ -32,31 +37,34 @@ func NewDevice(
 	isActive bool,
 	nowUTC time.Time,
 ) (*Device, error) {
+	var missing []string
+
 	if deviceID.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("device id", newDeviceOp)
+		missing = append(missing, "id")
 	}
 	if userID.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("user id", newDeviceOp)
+		missing = append(missing, "user_id")
+	}
+	if len(missing) > 0 {
+		return nil, domainerr.RequiredAttrsError(
+			missing,
+			createRefreshTokenOp,
+		)
 	}
 
-	d := &Device{
-		id:        deviceID,
-		userID:    userID,
-		isActive:  isActive,
-		createdAt: nowUTC,
-		updatedAt: nowUTC,
-	}
-
-	// Use private setters for optional fields
-	d.setName(name)
-	d.setUserAgent(userAgent)
-	d.setIPAddress(ipAddress)
-	d.setLastSeen(nowUTC)
-
-	return d, nil
+	return &Device{
+		id:         deviceID,
+		userID:     userID,
+		name:       name,
+		userAgent:  userAgent,
+		ipAddress:  ipAddress,
+		isActive:   true,
+		createdAt:  nowUTC,
+		updatedAt:  nowUTC,
+		lastSeenAt: nowUTC,
+	}, nil
 }
 
-// ReconstituteDevice creates a Device from persistence (DB) — no setters needed
 func ReconstituteDevice(
 	deviceID valueobjects.DeviceID,
 	userID valueobjects.UserID,
@@ -69,12 +77,6 @@ func ReconstituteDevice(
 	lastSeenAt time.Time,
 	revokedAt *time.Time,
 ) (*Device, error) {
-	if deviceID.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("device id", reconstituteDeviceOp)
-	}
-	if userID.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("user id", reconstituteDeviceOp)
-	}
 
 	return &Device{
 		id:         deviceID,
@@ -90,110 +92,82 @@ func ReconstituteDevice(
 	}, nil
 }
 
-// --- Getters ---
-func (e *Device) ID() valueobjects.DeviceID   { return e.id }
-func (e *Device) UserID() valueobjects.UserID { return e.userID }
-func (e *Device) Name() *string               { return e.name }
-func (e *Device) UserAgent() *string          { return e.userAgent }
-func (e *Device) IPAddress() *string          { return e.ipAddress }
-func (e *Device) IsActive() bool              { return e.isActive }
-func (e *Device) CreatedAt() time.Time        { return e.createdAt }
-func (e *Device) UpdatedAt() time.Time        { return e.updatedAt }
-func (e *Device) LastSeenAt() time.Time       { return e.lastSeenAt }
-func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
+func (d *Device) ID() valueobjects.DeviceID   { return d.id }
+func (d *Device) UserID() valueobjects.UserID { return d.userID }
+func (d *Device) Name() *string               { return d.name }
+func (d *Device) UserAgent() *string          { return d.userAgent }
+func (d *Device) IPAddress() *string          { return d.ipAddress }
+func (d *Device) IsActive() bool              { return d.isActive }
+func (d *Device) CreatedAt() time.Time        { return d.createdAt }
+func (d *Device) UpdatedAt() time.Time        { return d.updatedAt }
+func (d *Device) LastSeenAt() time.Time       { return d.lastSeenAt }
+func (d *Device) RevokedAt() *time.Time       { return d.revokedAt }
 
-// --- Methods ---
-func (e *Device) touch() {
-	e.updatedAt = time.Now().UTC()
-}
+func (d *Device) Update(
+	now time.Time,
+	name *string,
+	userAgent *string,
+	ipAddress *string,
+) error {
 
-func (e *Device) UpdateLastSeen(now time.Time) {
-	e.setLastSeen(now)
-}
-
-func (e *Device) Revoke(now time.Time) {
-	e.setActive(false)
-	e.setRevokedAt(&now)
-}
-
-func (e *Device) EnsureActive() error {
-	if !e.isActive {
-		return domainerr.ErrDeviceInactive
+	if d.revokedAt != nil {
+		return domainerr.OperationDeniedError(
+			"revoked device cannot be updated",
+			updateDeviceOp,
+		)
 	}
-	return nil
-}
 
-func (e *Device) EnsureNotRevoked() error {
-	if e.revokedAt != nil {
-		return domainerr.ErrDeviceRevoked
-	}
-	return nil
-}
-
-func (e *Device) EnsureUsable() error {
-	if err := e.EnsureNotRevoked(); err != nil {
-		return err
-	}
-	if err := e.EnsureActive(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (e *Device) BelongsTo(userID valueobjects.UserID) error {
-	if !e.userID.Equal(userID) {
-		return domainerr.ErrInvalidDeviceUser
-	}
-	return nil
-}
-
-// --- Private setters (fluent) ---
-func (e *Device) setName(name *string) *Device {
-	e.name = name
-	e.touch()
-	return e
-}
-
-func (e *Device) setUserAgent(agent *string) *Device {
-	e.userAgent = agent
-	e.touch()
-	return e
-}
-
-func (e *Device) setIPAddress(ip *string) *Device {
-	e.ipAddress = ip
-	e.touch()
-	return e
-}
-
-func (e *Device) setActive(active bool) *Device {
-	e.isActive = active
-	e.touch()
-	return e
-}
-
-func (e *Device) setRevokedAt(t *time.Time) *Device {
-	e.revokedAt = t
-	e.touch()
-	return e
-}
-
-func (e *Device) setLastSeen(t time.Time) *Device {
-	e.lastSeenAt = t
-	e.touch()
-	return e
-}
-
-// --- Public update method ---
-func (e *Device) Update(lastSeen time.Time, name, userAgent, ip *string) *Device {
 	if name != nil {
-		e.setName(name)
+		d.name = name
 	}
 	if userAgent != nil {
-		e.setUserAgent(userAgent)
+		d.userAgent = userAgent
 	}
-	if ip != nil {
-		e.setIPAddress(ip)
+	if ipAddress != nil {
+		d.ipAddress = ipAddress
 	}
-	return e
+
+	d.lastSeenAt = now
+	d.updatedAt = now
+	return nil
+}
+
+func (d *Device) Revoke(now time.Time) error {
+	if d.revokedAt != nil {
+		return domainerr.InvalidStateError(
+			"device already revoked",
+			revokeDeviceOp,
+		)
+	}
+
+	d.isActive = false
+	d.revokedAt = &now
+	d.updatedAt = now
+	return nil
+}
+
+func (d *Device) EnsureUsable() error {
+	if d.revokedAt != nil {
+		return domainerr.InvalidStateError(
+			"device is revoked",
+			ensureDeviceUsableOp,
+		)
+	}
+	if !d.isActive {
+		return domainerr.InvalidStateError(
+			"device is inactive",
+			ensureDeviceUsableOp,
+		)
+	}
+	return nil
+}
+
+func (d *Device) BelongsTo(userID valueobjects.UserID) error {
+	if !d.userID.Equal(userID) {
+		return domainerr.OperationDeniedError(
+			"device does not belong to user",
+			validateDeviceOwnerOp,
+		)
+	}
+	return nil
 }

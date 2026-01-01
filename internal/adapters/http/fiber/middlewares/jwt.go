@@ -1,8 +1,8 @@
 package middlewares
 
 import (
+	"go_auth/internal/core/application/apperr"
 	services "go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/domain/domainerr"
 	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 	"strings"
@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// JWTMiddleware validates access tokens and checks device revocation.
+// JWTMiddleware validates access tokens and checks device usability.
 func JWTMiddleware(
 	tokenService services.TokenServicePort,
 	deviceRepo repositories.DeviceRepositoryPort,
@@ -37,52 +37,42 @@ func JWTMiddleware(
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid or expired token",
+				"error": apperr.ErrInvalidCredentials.Error(),
 			})
 		}
 
-		// 2. Check if the device is revoked
+		// 2. Check if the device is usable
 		deviceIDStr := claims.DeviceID
 		if deviceIDStr != "" && deviceRepo != nil {
 			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
 			if err != nil {
 				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error": "invalid device id",
+					"error": apperr.FromDomainError(err),
 				})
 			}
 
 			device, err := deviceRepo.GetByID(deviceIDVO)
 			if err != nil {
 				return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "failed to validate device",
+					"error": apperr.ErrInternal.Error(),
 				})
 			}
 
 			if device == nil {
 				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": "device not found",
+					"error": apperr.ErrDeviceNotFound.Error(),
 				})
 			}
 
 			if err := device.EnsureUsable(); err != nil {
-				switch err {
-				case domainerr.ErrDeviceRevoked:
-					return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-						"error": "device revoked",
-					})
-				case domainerr.ErrDeviceInactive:
-					return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-						"error": "device inactive",
-					})
-				default:
-					return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-						"error": "invalid device",
-					})
-				}
+				appErr := apperr.FromDomainError(err)
+				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": appErr.Error(),
+				})
 			}
 		}
 
-		// 3. Store user info in context
+		// 3. Store user info in context for downstream handlers
 		ctx.Locals("sub", claims.Subject)
 		ctx.Locals("roles", claims.Roles)
 		ctx.Locals("jti", claims.JTI)

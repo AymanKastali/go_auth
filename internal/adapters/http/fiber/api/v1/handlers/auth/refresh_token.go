@@ -3,8 +3,8 @@ package auth_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
-	"go_auth/internal/core/domain/domainerr"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,19 +18,22 @@ func NewRefreshTokenHandler(
 ) *RefreshTokenHandler {
 	return &RefreshTokenHandler{useCase: uc}
 }
+
 func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest
 
+	// Extract Device ID header
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
 		return utils.Failure(
 			c,
 			fiber.StatusBadRequest,
 			"Device ID is required",
-			domainerr.ErrInvalidDeviceID,
+			"missing device ID",
 		)
 	}
 
+	// Parse body
 	if err := c.BodyParser(&req); err != nil {
 		return utils.Failure(
 			c,
@@ -40,47 +43,43 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 		)
 	}
 
+	// Call use case
 	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
-		switch err {
-
-		case domainerr.ErrInvalidToken,
-			domainerr.ErrRefreshTokenExpired,
-			domainerr.ErrRefreshTokenRevoked,
-			domainerr.ErrInvalidTokenUser:
+		appErr := apperr.FromDomainError(err)
+		switch appErr {
+		case apperr.ErrInvalidCredentials, apperr.ErrDeviceNotUsable:
 			return utils.Failure(
 				c,
 				fiber.StatusUnauthorized,
 				"Refresh token is invalid or expired",
-				err.Error(),
+				appErr.Error(),
 			)
-
-		case domainerr.ErrInvalidDeviceID:
+		case apperr.ErrDeviceNotFound:
 			return utils.Failure(
 				c,
-				fiber.StatusBadRequest,
-				"Invalid device ID",
-				err.Error(),
+				fiber.StatusUnauthorized,
+				"Device not found",
+				appErr.Error(),
 			)
-
-		case domainerr.ErrUserNotFound:
+		case apperr.ErrUserInactive:
 			return utils.Failure(
 				c,
-				fiber.StatusNotFound,
-				"User not found",
-				err.Error(),
+				fiber.StatusForbidden,
+				"User is inactive",
+				appErr.Error(),
 			)
-
 		default:
 			return utils.Failure(
 				c,
 				fiber.StatusInternalServerError,
 				"Internal server error",
-				err.Error(),
+				appErr.Error(),
 			)
 		}
 	}
 
+	// Success
 	response := dto.LoginResponse{
 		AccessToken:  authResp.AccessToken,
 		RefreshToken: authResp.RefreshToken,

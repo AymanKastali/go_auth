@@ -23,7 +23,7 @@ func UserIDFromUUID(u uuid.UUID) UserID {
 func UserIDFromString(u string) (UserID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return UserID{}, domainerr.NewDomainInvalidValueError("user id", userIDFromStringOp, err)
+		return UserID{}, domainerr.InvalidValueError("user id", userIDFromStringOp, err)
 	}
 
 	return UserID{value: parsed}, nil

@@ -5,6 +5,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
+	"time"
 )
 
 type RefreshTokenMapper struct{}
@@ -34,15 +35,27 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		return nil, fmt.Errorf("refresh token mapper: invalid Device ID '%s': %w", rt.DeviceID, err)
 	}
 
-	return &entities.RefreshToken{
-		ID:        tokenID,
-		UserID:    userID,
-		DeviceID:  deviceID,
-		Token:     rt.Token,
-		CreatedAt: rt.CreatedAt,
-		ExpiresAt: rt.ExpiresAt,
-		RevokedAt: rt.RevokedAt,
-	}, nil
+	// Use CreatedAt or UpdatedAt as "now" for factory
+	now := time.Now().UTC()
+
+	refreshToken, err := entities.NewRefreshToken(
+		tokenID,
+		userID,
+		deviceID,
+		rt.Token,
+		rt.ExpiresAt,
+		now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("refresh token mapper: failed to create domain entity: %w", err)
+	}
+
+	// Restore revoked time from DB
+	if rt.RevokedAt != nil {
+		refreshToken.Revoke(*rt.RevokedAt)
+	}
+
+	return refreshToken, nil
 }
 
 // ToModel converts a domain entity to a GORM model
@@ -52,11 +65,13 @@ func (m *RefreshTokenMapper) ToModel(rt *entities.RefreshToken) *models.RefreshT
 	}
 
 	return &models.RefreshToken{
-		ID:        rt.ID.String(),
-		UserID:    rt.UserID.String(),
-		DeviceID:  rt.DeviceID.String(),
-		Token:     rt.Token,
-		ExpiresAt: rt.ExpiresAt,
-		RevokedAt: rt.RevokedAt,
+		ID:        rt.ID().String(),
+		UserID:    rt.UserID().String(),
+		DeviceID:  rt.DeviceID().String(),
+		Token:     rt.Token(),
+		ExpiresAt: rt.ExpiresAt(),
+		RevokedAt: rt.RevokedAt(),
+		CreatedAt: rt.CreatedAt(),
+		UpdatedAt: rt.UpdatedAt(),
 	}
 }

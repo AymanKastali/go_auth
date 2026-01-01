@@ -1,15 +1,23 @@
 package entities
 
 import (
-	"errors"
 	"go_auth/internal/core/domain/domainerr"
 	"go_auth/internal/core/domain/valueobjects"
 	"slices"
 	"time"
 )
 
-const newUserOp = "User.Newuser"
-const reconstituteUserOp = "User.ReconstituteUser"
+const (
+	newUserOp          = "User.Create"
+	reconstituteUserOp = "User.Reconstitute"
+	activateUserOp     = "User.Activate"
+	deactivateUserOp   = "User.Deactivate"
+	deleteUserOp       = "User.Delete"
+	changeEmailOp      = "User.ChangeEmail"
+	changePasswordOp   = "User.ChangePassword"
+	addRoleOp          = "User.AddRole"
+	removeRoleOp       = "User.RemoveRole"
+)
 
 type User struct {
 	id           valueobjects.UserID
@@ -31,20 +39,29 @@ func NewUser(
 	roles []valueobjects.Role,
 	nowUTC time.Time,
 ) (*User, error) {
+	var missing []string
+
 	if userID.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("user id", newUserOp)
+		missing = append(missing, "id")
 	}
 	if email.Value() == "" {
-		return nil, domainerr.NewDomainRequiredAttrError("email", newUserOp)
+		missing = append(missing, "email")
 	}
 	if passwordHash.Value() == "" {
-		return nil, domainerr.NewDomainRequiredAttrError("password", newUserOp)
+		missing = append(missing, "password")
 	}
 	if status == "" {
-		return nil, domainerr.NewDomainRequiredAttrError("status", newUserOp)
+		missing = append(missing, "state")
 	}
 	if roles == nil {
 		roles = []valueobjects.Role{}
+	}
+
+	if len(missing) > 0 {
+		return nil, domainerr.RequiredAttrsError(
+			missing,
+			createRefreshTokenOp,
+		)
 	}
 
 	return &User{
@@ -55,7 +72,6 @@ func NewUser(
 		roles:        roles,
 		createdAt:    nowUTC,
 		updatedAt:    nowUTC,
-		deletedAt:    nil,
 	}, nil
 }
 
@@ -68,10 +84,6 @@ func ReconstituteUser(
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
 ) (*User, error) {
-	if id.IsZero() {
-		return nil, domainerr.NewDomainRequiredAttrError("user id", reconstituteUserOp)
-	}
-
 	return &User{
 		id:           id,
 		email:        email,
@@ -129,74 +141,127 @@ func (e *User) IsActive() bool {
 	return e.Status() == valueobjects.UserActive
 }
 
-func (e *User) Activate() error {
-	if e.IsActive() {
-		return errors.New("user is already active")
+func (u *User) Activate() error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"deleted user cannot be activated",
+			activateUserOp,
+		)
 	}
-	e.status = valueobjects.UserActive
-	e.touch()
+
+	if u.IsActive() {
+		return domainerr.InvalidStateError(
+			"user is already active",
+			activateUserOp,
+		)
+	}
+
+	u.status = valueobjects.UserActive
+	u.touch()
 	return nil
 }
 
-func (e *User) Deactivate() error {
-	if !e.IsActive() {
-		return errors.New("user is already inactive")
-	}
-	if e.IsDeleted() {
-		return errors.New("deleted user cannot be deactivated")
+func (u *User) Deactivate() error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"deleted user cannot be deactivated",
+			deactivateUserOp,
+		)
 	}
 
-	e.status = valueobjects.UserInactive
-	e.touch()
+	if !u.IsActive() {
+		return domainerr.InvalidStateError(
+			"user is already inactive",
+			deactivateUserOp,
+		)
+	}
+
+	u.status = valueobjects.UserInactive
+	u.touch()
 	return nil
 }
 
-func (e *User) MarkDeleted() {
-	if e.deletedAt != nil {
-		return
+func (u *User) MarkDeleted() error {
+	if u.IsDeleted() {
+		return domainerr.InvalidStateError(
+			"user is already deleted",
+			deleteUserOp,
+		)
 	}
 
 	now := time.Now().UTC()
-	e.deletedAt = &now
-	e.touch()
+	u.deletedAt = &now
+	u.touch()
+	return nil
 }
 
-func (e *User) AddRole(role valueobjects.Role) {
-	if slices.Contains(e.roles, role) {
-		return
+func (u *User) AddRole(role valueobjects.Role) error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"cannot modify roles of deleted user",
+			addRoleOp,
+		)
 	}
 
-	e.roles = append(e.roles, role)
-	e.touch()
+	if slices.Contains(u.roles, role) {
+		return nil
+	}
+
+	u.roles = append(u.roles, role)
+	u.touch()
+	return nil
 }
 
-func (e *User) RemoveRole(role valueobjects.Role) {
-	if !slices.Contains(e.roles, role) {
-		return
+func (u *User) RemoveRole(role valueobjects.Role) error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"cannot modify roles of deleted user",
+			removeRoleOp,
+		)
 	}
 
-	newRoles := make([]valueobjects.Role, 0, len(e.roles))
-	for _, r := range e.roles {
+	if !slices.Contains(u.roles, role) {
+		return nil
+	}
+
+	newRoles := make([]valueobjects.Role, 0, len(u.roles))
+	for _, r := range u.roles {
 		if r != role {
 			newRoles = append(newRoles, r)
 		}
 	}
 
-	e.roles = newRoles
-	e.touch()
+	u.roles = newRoles
+	u.touch()
+	return nil
 }
 
-func (e *User) ChangeEmail(email valueobjects.Email) error {
-	if e.email == email {
+func (u *User) ChangeEmail(email valueobjects.Email) error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"cannot change email of deleted user",
+			changeEmailOp,
+		)
+	}
+
+	if u.email == email {
 		return nil
 	}
 
-	e.email = email
-	e.touch()
+	u.email = email
+	u.touch()
 	return nil
 }
-func (e *User) ChangeHashedPassword(hash valueobjects.HashedPassword) error {
-	e.passwordHash = hash
-	e.touch()
+
+func (u *User) ChangeHashedPassword(hash valueobjects.HashedPassword) error {
+	if u.IsDeleted() {
+		return domainerr.OperationDeniedError(
+			"cannot change password of deleted user",
+			changePasswordOp,
+		)
+	}
+
+	u.passwordHash = hash
+	u.touch()
 	return nil
 }

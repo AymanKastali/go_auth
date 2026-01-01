@@ -40,25 +40,25 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
 		h.logger.Error("Invalid email provided", "email", email, "error", err)
-		return nil, apperr.ErrInvalidEmail
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// 2. Check if user already exists
 	existing, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
 		h.logger.Error("Failed to check existing user", "email", email, "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.FromDomainError(err)
 	}
 	if existing != nil {
 		h.logger.Warn("Email already registered", "email", email)
-		return nil, apperr.ErrEmailAlreadyRegistered
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// 3. Hash password
 	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
 		h.logger.Error("Failed to hash password", "email", email, "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.FromDomainError(err)
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
@@ -73,18 +73,19 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 	)
 	if err != nil {
 		h.logger.Error("Failed to create user entity", "email", email, "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// 5. Save user
 	if err := h.userRepository.Save(user); err != nil {
 		h.logger.Error("Failed to save user", "email", email, "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// 6. Publish event
-	h.logger.Info("User registered successfully", "email", email, "userID", user.ID)
-	_ = events.UserRegistered{UserID: user.ID()} // implement actual event publishing
+	userIDVO := user.ID()
+	h.logger.Info("User registered successfully", "email", email, "userID", userIDVO)
+	_ = events.UserRegistered{UserID: userIDVO} // implement actual event publishing
 
 	// 7. Return response DTO
 	return &dto.RegisteredUserDTO{

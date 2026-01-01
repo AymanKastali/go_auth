@@ -23,7 +23,7 @@ func TokenIDFromUUID(u uuid.UUID) TokenID {
 func TokenIDFromString(u string) (TokenID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return TokenID{}, domainerr.NewDomainInvalidValueError("device id", tokenIDFromStringOp, err)
+		return TokenID{}, domainerr.InvalidValueError("device id", tokenIDFromStringOp, err)
 	}
 
 	return TokenID{value: parsed}, nil

@@ -3,8 +3,8 @@ package auth_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
-	"go_auth/internal/core/domain/domainerr"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,6 +22,7 @@ func NewLoginHandler(
 func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
+	// Extract context (device info, etc.)
 	ctx, err := utils.ExtractRequestContext(c)
 	if err != nil {
 		return utils.Failure(
@@ -32,6 +33,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		)
 	}
 
+	// Parse request body
 	if err := c.BodyParser(&req); err != nil {
 		return utils.Failure(
 			c,
@@ -41,6 +43,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		)
 	}
 
+	// Call use case
 	authResp, err := h.useCase.Login(
 		req.Email,
 		req.Password,
@@ -51,30 +54,20 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	)
 	if err != nil {
 		switch err {
-		case domainerr.ErrInvalidCredentials:
-			return utils.Failure(
-				c,
-				fiber.StatusUnauthorized,
-				"Invalid credentials",
-				err.Error(),
-			)
-		case domainerr.ErrUserNotMemberOfOrganization:
-			return utils.Failure(
-				c,
-				fiber.StatusBadRequest,
-				"Bad request",
-				err.Error(),
-			)
+		case apperr.ErrInvalidCredentials:
+			return utils.Failure(c, fiber.StatusUnauthorized, "Invalid credentials", err.Error())
+		case apperr.ErrUserInactive:
+			return utils.Failure(c, fiber.StatusForbidden, "User is inactive", err.Error())
+		case apperr.ErrDeviceNotUsable:
+			return utils.Failure(c, fiber.StatusUnauthorized, "Device is not usable", err.Error())
+		case apperr.ErrDeviceNotFound:
+			return utils.Failure(c, fiber.StatusUnauthorized, "Device not found", err.Error())
 		default:
-			return utils.Failure(
-				c,
-				fiber.StatusInternalServerError,
-				"Internal server error",
-				err.Error(),
-			)
+			return utils.Failure(c, fiber.StatusInternalServerError, "Internal server error", err.Error())
 		}
 	}
 
+	// Success response
 	return utils.Success(
 		c,
 		fiber.StatusOK,

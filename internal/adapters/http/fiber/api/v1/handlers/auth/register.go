@@ -22,46 +22,36 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 
 	// Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return utils.Failure(
+			c,
+			fiber.StatusBadRequest,
+			"Invalid request body",
+			err.Error(),
+		)
 	}
 
 	// Call the use case
 	domainResp, err := h.useCase.Register(req.Email, req.Password)
 	if err != nil {
-		switch err {
-		case apperr.ErrInvalidEmail:
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+		appErr := apperr.FromDomainError(err)
+
+		switch appErr {
+		case apperr.ErrInvalidCredentials:
+			return utils.Failure(c, fiber.StatusBadRequest, "Invalid email or password", appErr.Error())
 		case apperr.ErrEmailAlreadyRegistered:
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": err.Error(),
-			})
+			return utils.Failure(c, fiber.StatusConflict, "Email already registered", appErr.Error())
 		case apperr.ErrInternal:
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "internal server error",
-			})
+			return utils.Failure(c, fiber.StatusInternalServerError, "Internal server error", appErr.Error())
 		default:
-			// fallback for unexpected errors
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "unexpected error",
-			})
+			return utils.Failure(c, fiber.StatusInternalServerError, "Unexpected error", appErr.Error())
 		}
 	}
 
-	// Map domain response to adapter layer DTO
+	// Map domain response to adapter DTO
 	adapterResp := dto.RegisteredUserResponse{
 		UserID: domainResp.UserID,
 		Email:  domainResp.Email,
 	}
-
-	// Return JSON response
-	// return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-	// 	"user":    adapterResp,
-	// 	"message": "user registered successfully",
-	// })
 
 	return utils.Success(c, fiber.StatusCreated, adapterResp, "User registered successfully")
 }

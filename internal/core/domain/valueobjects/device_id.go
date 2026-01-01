@@ -23,7 +23,7 @@ func DeviceIDFromUUID(u uuid.UUID) DeviceID {
 func DeviceIDFromString(u string) (DeviceID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return DeviceID{}, domainerr.NewDomainInvalidValueError("device id", deviceIDFromStringOp, err)
+		return DeviceID{}, domainerr.InvalidValueError("device id", deviceIDFromStringOp, err)
 	}
 
 	return DeviceID{value: parsed}, nil

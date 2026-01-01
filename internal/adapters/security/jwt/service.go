@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go_auth/internal/adapters/config"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/domain/domainerr"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
 
@@ -143,7 +142,7 @@ func (s *JWTService) ValidateRefreshToken(refreshToken string) (*dto.RefreshToke
 	})
 
 	if err != nil {
-		return nil, domainerr.ErrInvalidToken
+		return nil, fmt.Errorf("invalid token")
 	}
 
 	claims, ok := token.Claims.(*RefreshTokenClaims)

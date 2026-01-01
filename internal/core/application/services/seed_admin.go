@@ -39,7 +39,7 @@ func (s *SeedAdminService) SeedAdmin() error {
 	// Validation: Ensure env variables aren't empty
 	if adminEmail == "" || adminPass == "" {
 		s.logger.Error("ADMIN_EMAIL or ADMIN_PASSWORD environment variables are not set")
-		return apperr.ErrInvalidEnv
+		return apperr.ErrInternal
 	}
 
 	// 1. Check if admin already exists

@@ -16,7 +16,7 @@ type Email struct {
 
 func NewEmail(email string) (Email, error) {
 	if !emailRegex.MatchString(email) {
-		return Email{}, domainerr.NewDomainInvalidValueError(
+		return Email{}, domainerr.InvalidValueError(
 			"email",
 			newEmailOp,
 			errors.New("invalid email format"),

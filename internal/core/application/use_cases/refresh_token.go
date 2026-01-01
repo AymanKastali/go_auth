@@ -1,10 +1,10 @@
 package use_cases
 
 import (
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/application/ports/use_cases"
-	"go_auth/internal/core/domain/domainerr"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
@@ -48,7 +48,7 @@ func (h *refreshTokenUseCase) RefreshToken(
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
 		h.logger.Warn("Old refresh token expired or invalid", "error", err)
-		return nil, domainerr.ErrRefreshTokenExpired
+		return nil, apperr.FromDomainError(err)
 	}
 	h.logger.Info("Old refresh token validated", "tokenID", claims.JTI, "userID", claims.Subject)
 
@@ -56,39 +56,39 @@ func (h *refreshTokenUseCase) RefreshToken(
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
 		h.logger.Error("Failed to parse old token ID", "jti", claims.JTI, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// --- Check if token is revoked ---
 	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
 		h.logger.Error("Failed to check token revocation", "tokenID", oldTokenID, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		return nil, apperr.FromDomainError(err)
 	}
 	if isRevoked {
 		h.logger.Warn("Old refresh token is revoked", "tokenID", oldTokenID)
-		return nil, domainerr.ErrRefreshTokenRevoked
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// --- Fetch user ---
 	userIDVO, err := valueobjects.UserIDFromString(claims.Subject)
 	if err != nil {
 		h.logger.Error("Invalid user ID in refresh token", "userID", claims.Subject, "error", err)
-		return nil, domainerr.ErrInvalidTokenUser
+		return nil, apperr.FromDomainError(err)
 	}
 
 	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil || user == nil {
 		h.logger.Warn("User not found for refresh token", "userID", userIDVO)
-		return nil, domainerr.ErrUserNotFound
+		return nil, apperr.FromDomainError(err)
 	}
-	h.logger.Info("User retrieved for refresh token", "userID", user.ID)
+	h.logger.Info("User retrieved for refresh token", "userID", user.ID())
 
 	// --- Fetch device ---
 	deviceID, err := valueobjects.DeviceIDFromString(deviceIDStr)
 	if err != nil {
 		h.logger.Error("Invalid device ID", "deviceID", deviceIDStr, "error", err)
-		return nil, domainerr.ErrInvalidDeviceID
+		return nil, apperr.FromDomainError(err)
 	}
 
 	device, err := h.deviceRepo.GetByID(deviceID)
@@ -98,7 +98,7 @@ func (h *refreshTokenUseCase) RefreshToken(
 	}
 	if device == nil {
 		h.logger.Warn("Device not found", "deviceID", deviceID)
-		return nil, domainerr.ErrInvalidDeviceID
+		return nil, apperr.FromDomainError(err)
 	}
 
 	userRoles := user.Roles()
@@ -111,48 +111,57 @@ func (h *refreshTokenUseCase) RefreshToken(
 
 	newAccessToken, err := h.tokenService.IssueAccessToken(userIDStr, deviceIDStr, roles)
 	if err != nil {
-		h.logger.Error("Failed to issue new access token", "userID", user.ID, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		h.logger.Error("Failed to issue new access token", "userID", userIDVO, "error", err)
+		return nil, apperr.FromDomainError(err)
 	}
 
 	newRefreshToken, err := h.tokenService.IssueRefreshToken(userIDStr, deviceIDStr)
 	if err != nil {
-		h.logger.Error("Failed to issue new refresh token", "userID", user.ID, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		h.logger.Error("Failed to issue new refresh token", "userID", userIDVO, "error", err)
+		return nil, apperr.FromDomainError(err)
 	}
 
 	newClaims, err := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	if err != nil {
-		h.logger.Error("Failed to validate new refresh token", "userID", user.ID, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		h.logger.Error("Failed to validate new refresh token", "userID", userIDVO, "error", err)
+		return nil, apperr.FromDomainError(err)
 	}
 
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
 		h.logger.Error("Failed to parse new token ID", "jti", newClaims.JTI, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// --- Revoke old token ---
 	now := time.Now()
 	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
 		h.logger.Error("Failed to revoke old refresh token", "tokenID", oldTokenID, "error", err)
-		return nil, domainerr.ErrRefreshTokenRevoked
+		return nil, apperr.FromDomainError(err)
 	}
 
 	// --- Save new refresh token ---
-	rtEntity := &entities.RefreshToken{
-		ID:        newTokenID,
-		UserID:    user.ID(),
-		DeviceID:  deviceID,
-		Token:     newRefreshToken.Value,
-		ExpiresAt: newClaims.ExpiresAt,
-		RevokedAt: nil,
+	rtEntity, err := entities.NewRefreshToken(
+		newTokenID,
+		userIDVO,
+		device.ID(),
+		newRefreshToken.Value,
+		newClaims.ExpiresAt,
+		now,
+	)
+	if err != nil {
+		h.logger.Error(
+			"Failed to create refresh token entity",
+			"userID", userIDVO,
+			"deviceID", device.ID(),
+			"error", err,
+		)
+		return nil, err
 	}
 
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
 		h.logger.Error("Failed to save new refresh token", "tokenID", newTokenID, "error", err)
-		return nil, domainerr.ErrInvalidToken
+		return nil, apperr.FromDomainError(err)
 	}
 
 	h.logger.Info("Refresh token rotated successfully", "userID", user.ID, "deviceID", deviceID)
