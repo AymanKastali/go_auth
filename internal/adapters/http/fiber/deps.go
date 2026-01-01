@@ -6,7 +6,6 @@ import (
 	user_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/user"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/mappers"
-	"go_auth/internal/adapters/persistence/postgres"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/security/jwt"
 	"go_auth/internal/adapters/security/password"
@@ -17,6 +16,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type Deps struct {
@@ -30,12 +30,7 @@ type Deps struct {
 	Logger              *slog.Logger
 }
 
-func InitDeps() (*Deps, error) {
-	db, err := postgres.NewPostgresConnection()
-	if err != nil {
-		return nil, err
-	}
-	postgres.AutoMigrate(db)
+func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Logger
 	// -------------------

@@ -8,9 +8,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func NewFiberApp(d *Deps) *fiber.App {
+func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
 	app := fiber.New(fiber.Config{
-		AppName:      "GoAuthApp",
+		AppName:      cfg.AppName(),
 		ErrorHandler: defaultErrorHandler,
 	})
 
