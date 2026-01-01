@@ -1,10 +1,10 @@
 package middlewares
 
 import (
-	services "go_auth/internal/application/ports/security"
-	"go_auth/internal/domain/domainerr"
-	"go_auth/internal/domain/factories"
-	"go_auth/internal/domain/ports/repositories"
+	services "go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/ports/repositories"
+	"go_auth/internal/core/domain/valueobjects"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +14,6 @@ import (
 func JWTMiddleware(
 	tokenService services.TokenServicePort,
 	deviceRepo repositories.DeviceRepositoryPort,
-	idFactory factories.IDFactory,
 ) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		authHeader := ctx.Get("Authorization")
@@ -43,16 +42,16 @@ func JWTMiddleware(
 		}
 
 		// 2. Check if the device is revoked
-		deviceIdStr := claims.DeviceID
-		if deviceIdStr != "" && deviceRepo != nil {
-			deviceIdVo, err := idFactory.DeviceIDFromString(deviceIdStr)
+		deviceIDStr := claims.DeviceID
+		if deviceIDStr != "" && deviceRepo != nil {
+			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
 			if err != nil {
 				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 					"error": "invalid device id",
 				})
 			}
 
-			device, err := deviceRepo.GetByID(deviceIdVo)
+			device, err := deviceRepo.GetByID(deviceIDVO)
 			if err != nil {
 				return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "failed to validate device",
@@ -87,7 +86,7 @@ func JWTMiddleware(
 		ctx.Locals("sub", claims.Subject)
 		ctx.Locals("roles", claims.Roles)
 		ctx.Locals("jti", claims.JTI)
-		ctx.Locals("deviceID", deviceIdStr)
+		ctx.Locals("deviceID", deviceIDStr)
 
 		return ctx.Next()
 	}

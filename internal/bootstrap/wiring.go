@@ -9,9 +9,8 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/security/jwt"
 	"go_auth/internal/adapters/security/password"
-	"go_auth/internal/application/services"
-	"go_auth/internal/application/use_cases"
-	"go_auth/internal/domain/factories"
+	"go_auth/internal/core/application/services"
+	"go_auth/internal/core/application/use_cases"
 	"log"
 	"log/slog"
 
@@ -33,30 +32,22 @@ type deps struct {
 func wireDependencies(
 	db *gorm.DB,
 ) (*deps, error) {
-	// factories
-	idFactory := factories.IDFactory{}
-	emailFactory := factories.EmailFactory{}
-	pwHashFactory := factories.PasswordHashFactory{}
-	userFactory := factories.UserFactory{}
-	deviceFactory := factories.NewDeviceFactory(idFactory)
-
 	// infra
-	uuidMapper := mappers.NewUUIDMapper()
-	userMapper := mappers.NewUserMapper(uuidMapper)
-	deviceMapper := mappers.NewDeviceMapper(uuidMapper)
-	refreshTokenMapper := mappers.NewRefreshTokenMapper(uuidMapper)
+	userMapper := mappers.NewUserMapper()
+	deviceMapper := mappers.NewDeviceMapper()
+	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
 	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper)
 
-	passwordHasher := password.NewBcryptPasswordHasher(12)
+	passwordHasher := password.NewBcryptHashedPassworder(12)
 
 	jwtCfg, err := config.LoadJWTConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}
-	jwtService := jwt.NewJWTService(jwtCfg, idFactory)
+	jwtService := jwt.NewJWTService(jwtCfg)
 
 	seederCfg, err := config.LoadSeederConfig()
 	if err != nil {
@@ -69,9 +60,6 @@ func wireDependencies(
 	seeder := services.NewSeedAdminService(
 		userRepo,
 		passwordHasher,
-		pwHashFactory,
-		userFactory,
-		idFactory,
 		seederCfg,
 		logger,
 	)
@@ -84,10 +72,6 @@ func wireDependencies(
 	registerUc := use_cases.NewRegisterUseCase(
 		userRepo,
 		passwordHasher,
-		idFactory,
-		emailFactory,
-		pwHashFactory,
-		userFactory,
 		logger,
 	)
 
@@ -97,15 +81,12 @@ func wireDependencies(
 		deviceRepo,
 		passwordHasher,
 		jwtService,
-		emailFactory,
-		deviceFactory,
 		logger,
 	)
 
 	logoutUc := use_cases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
-		idFactory,
 		logger,
 	)
 
@@ -114,19 +95,16 @@ func wireDependencies(
 		refreshTokenRepo,
 		deviceRepo,
 		jwtService,
-		idFactory,
 		logger,
 	)
 
 	getAuthUserUc := use_cases.NewAuthenticatedUserUseCase(
 		userRepo,
-		uuidMapper,
 		logger,
 	)
 
 	manageRoleUc := use_cases.NewManageRoleUseCase(
 		userRepo,
-		uuidMapper,
 		logger,
 	)
 
@@ -140,7 +118,6 @@ func wireDependencies(
 		AuthMiddleware: middlewares.JWTMiddleware(
 			jwtService,
 			deviceRepo,
-			idFactory,
 		),
 	}, nil
 }

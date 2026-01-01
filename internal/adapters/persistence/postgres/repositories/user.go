@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/domain/entities"
-	"go_auth/internal/domain/ports/repositories"
-	"go_auth/internal/domain/valueobjects"
+	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/ports/repositories"
+	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
 )
@@ -50,7 +50,7 @@ func (r *GormUserRepository) GetByEmail(
 	var model models.User
 
 	err := r.db.
-		Where("email = ?", email.Value).
+		Where("email = ?", email.Value()).
 		First(&model).
 		Error
 
@@ -70,7 +70,7 @@ func (r *GormUserRepository) GetByID(
 
 	var model models.User
 
-	modelID := id.Value.String()
+	modelID := id.String()
 
 	err := r.db.
 		Where("id = ?", modelID).
@@ -100,7 +100,7 @@ func (r *GormUserRepository) Update(u *entities.User) error {
 		Where("id = ?", model.ID).
 		Updates(map[string]any{
 			"email":         model.Email,
-			"password_hash": model.PasswordHash,
+			"password_hash": model.HashedPassword,
 			"status":        model.Status,
 			"roles":         model.Roles, // datatypes.JSONSlice handles the valuer interface
 			"updated_at":    u.UpdatedAt, // Use the entity's timestamp

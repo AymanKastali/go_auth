@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"go_auth/internal/domain/valueobjects"
+	"go_auth/internal/core/domain/valueobjects"
 
 	"github.com/gofiber/fiber/v2"
 )

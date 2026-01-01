@@ -3,62 +3,63 @@ package mappers
 import (
 	"fmt"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/domain/entities"
+	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/valueobjects"
 )
 
-type DeviceMapper struct {
-	uuidMapper *UUIDMapper
+type DeviceMapper struct{}
+
+func NewDeviceMapper() *DeviceMapper {
+	return &DeviceMapper{}
 }
 
-func NewDeviceMapper(
-	uuidMapper *UUIDMapper,
-) *DeviceMapper {
-	return &DeviceMapper{
-		uuidMapper: uuidMapper,
-	}
-}
-
+// Map from DB model to domain entity
 func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 	if d == nil {
 		return nil, nil
 	}
 
-	deviceID, err := m.uuidMapper.DeviceIdFromString(d.ID)
+	deviceID, err := valueobjects.DeviceIDFromString(d.ID)
 	if err != nil {
 		return nil, fmt.Errorf("device mapper: invalid ID '%s': %w", d.ID, err)
 	}
 
-	userID, err := m.uuidMapper.UserIdFromString(d.UserID)
+	userID, err := valueobjects.UserIDFromString(d.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("device mapper: invalid User ID '%s': %w", d.UserID, err)
 	}
 
-	return &entities.Device{
-		ID:         deviceID,
-		UserID:     userID,
-		Name:       d.Name,
-		UserAgent:  d.UserAgent,
-		IPAddress:  d.IPAddress,
-		IsActive:   d.IsActive,
-		CreatedAt:  d.CreatedAt,
-		LastSeenAt: d.LastSeenAt,
-		RevokedAt:  d.RevokedAt,
-	}, nil
+	// Use ReconstituteDevice to respect unexported fields
+	return entities.ReconstituteDevice(
+		deviceID,
+		userID,
+		d.Name,
+		d.UserAgent,
+		d.IPAddress,
+		d.IsActive,
+		d.CreatedAt,
+		d.UpdatedAt,
+		d.LastSeenAt,
+		d.RevokedAt,
+	)
 }
 
+// Map from domain entity to DB model
 func (m *DeviceMapper) ToModel(d *entities.Device) *models.Device {
 	if d == nil {
 		return nil
 	}
 
 	return &models.Device{
-		ID:         d.ID.Value.String(),
-		UserID:     d.UserID.Value.String(),
-		Name:       d.Name,
-		UserAgent:  d.UserAgent,
-		IPAddress:  d.IPAddress,
-		IsActive:   d.IsActive,
-		LastSeenAt: d.LastSeenAt,
-		RevokedAt:  d.RevokedAt,
+		ID:         d.ID().String(),
+		UserID:     d.UserID().String(),
+		Name:       d.Name(),
+		UserAgent:  d.UserAgent(),
+		IPAddress:  d.IPAddress(),
+		IsActive:   d.IsActive(),
+		CreatedAt:  d.CreatedAt(),
+		UpdatedAt:  d.UpdatedAt(),
+		LastSeenAt: d.LastSeenAt(),
+		RevokedAt:  d.RevokedAt(),
 	}
 }

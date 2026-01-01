@@ -4,22 +4,16 @@ import (
 	"fmt"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/domain/entities"
-	"go_auth/internal/domain/valueobjects"
+	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/datatypes"
 )
 
-type UserMapper struct {
-	uuidMapper *UUIDMapper
-}
+type UserMapper struct{}
 
-func NewUserMapper(
-	uuidMapper *UUIDMapper,
-) *UserMapper {
-	return &UserMapper{
-		uuidMapper: uuidMapper,
-	}
+func NewUserMapper() *UserMapper {
+	return &UserMapper{}
 }
 
 func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
@@ -27,13 +21,17 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 		return nil, nil
 	}
 
-	userID, err := m.uuidMapper.UserIdFromString(u.ID)
+	userID, err := valueobjects.UserIDFromString(u.ID)
 	if err != nil {
-		return nil, fmt.Errorf("user mapper: invalid User ID '%s': %w", u.ID, err)
+		return nil, fmt.Errorf("invalid User ID '%s': %w", u.ID, err)
 	}
 
-	emailVO := valueobjects.Email{Value: u.Email}
-	pwHashVO := valueobjects.PasswordHash{Value: u.PasswordHash}
+	emailVO, err := valueobjects.NewEmail(u.Email)
+	if err != nil {
+		return nil, fmt.Errorf("invalid email '%s': %w", u.Email, err)
+	}
+
+	pwHashVO := valueobjects.NewHashedPassword(u.HashedPassword)
 
 	var status valueobjects.UserStatus
 	switch u.Status {
@@ -42,7 +40,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	case string(valueobjects.UserInactive):
 		status = valueobjects.UserInactive
 	default:
-		return nil, fmt.Errorf("user mapper: unknown status '%s'", u.Status)
+		return nil, fmt.Errorf("unknown status '%s'", u.Status)
 	}
 
 	roles := make([]valueobjects.Role, len(u.Roles))
@@ -50,16 +48,22 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 		roles[i] = valueobjects.Role(r)
 	}
 
-	return &entities.User{
-		ID:           userID,
-		Email:        emailVO,
-		PasswordHash: pwHashVO,
-		Status:       status,
-		Roles:        roles,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
-		DeletedAt:    u.DeletedAt,
-	}, nil
+	// Use rehydration constructor
+	user, err := entities.ReconstituteUser(
+		userID,
+		emailVO,
+		pwHashVO,
+		status,
+		roles,
+		u.CreatedAt,
+		u.UpdatedAt,
+		u.DeletedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reconstitute user: %w", err)
+	}
+
+	return user, nil
 }
 
 func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
@@ -67,16 +71,17 @@ func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
 		return nil, nil
 	}
 
-	roles := make(datatypes.JSONSlice[string], len(u.Roles))
-	for i, r := range u.Roles {
+	userRoles := u.Roles()
+	roles := make(datatypes.JSONSlice[string], len(userRoles))
+	for i, r := range userRoles {
 		roles[i] = string(r)
 	}
 
 	return &models.User{
-		ID:           u.ID.Value.String(),
-		Email:        u.Email.Value,
-		PasswordHash: u.PasswordHash.Value,
-		Status:       string(u.Status),
-		Roles:        roles,
+		ID:             u.ID().String(),
+		Email:          u.Email().String(),
+		HashedPassword: u.HashedPassword().Value(),
+		Status:         string(u.Status()),
+		Roles:          roles,
 	}, nil
 }

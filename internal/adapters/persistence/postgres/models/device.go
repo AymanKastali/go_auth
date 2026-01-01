@@ -12,7 +12,7 @@ type Device struct {
 	UserAgent  *string `gorm:"type:text"`
 	IPAddress  *string `gorm:"type:varchar(45)"`
 	IsActive   bool    `gorm:"not null;default:true"`
-	LastSeenAt *time.Time
+	LastSeenAt time.Time
 	RevokedAt  *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

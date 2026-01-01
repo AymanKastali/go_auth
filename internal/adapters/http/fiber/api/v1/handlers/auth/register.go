@@ -3,8 +3,8 @@ package auth_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
-	"go_auth/internal/application/apperr"
-	"go_auth/internal/application/ports/use_cases"
+	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )

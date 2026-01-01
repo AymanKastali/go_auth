@@ -4,10 +4,9 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"go_auth/internal/adapters/config"
-	"go_auth/internal/application/dto"
-	"go_auth/internal/domain/domainerr"
-	"go_auth/internal/domain/factories"
-	"go_auth/internal/domain/valueobjects"
+	"go_auth/internal/core/application/dto"
+	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/valueobjects"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,7 +15,6 @@ import (
 var SigningMethod = jwt.SigningMethodRS256
 
 type JWTService struct {
-	idFactory  factories.IDFactory
 	privateKey *rsa.PrivateKey
 	publicKey  *rsa.PublicKey
 	issuer     string
@@ -28,10 +26,8 @@ type JWTService struct {
 
 func NewJWTService(
 	cfg *config.JWTConfig,
-	idFactory factories.IDFactory,
 ) *JWTService {
 	return &JWTService{
-		idFactory:  idFactory,
 		privateKey: cfg.PrivateKey,
 		publicKey:  cfg.PublicKey,
 		issuer:     cfg.Issuer,
@@ -53,7 +49,7 @@ func (s *JWTService) IssueAccessToken(
 		DeviceID: deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
-			ID:        s.idFactory.NewTokenID().Value.String(),
+			ID:        valueobjects.NewTokenID().String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -78,7 +74,7 @@ func (s *JWTService) IssueRefreshToken(userID, deviceID string) (valueobjects.JW
 		DeviceID: deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
-			ID:        s.idFactory.NewTokenID().Value.String(),
+			ID:        valueobjects.NewTokenID().String(),
 			Issuer:    s.issuer,
 			Audience:  []string{s.audience},
 			IssuedAt:  jwt.NewNumericDate(now),

@@ -3,7 +3,7 @@ package routes
 import (
 	auth_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
 	"go_auth/internal/adapters/http/fiber/middlewares"
-	"go_auth/internal/domain/valueobjects"
+	"go_auth/internal/core/domain/valueobjects"
 
 	"github.com/gofiber/fiber/v2"
 )
