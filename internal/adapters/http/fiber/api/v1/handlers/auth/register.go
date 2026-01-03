@@ -1,8 +1,8 @@
 package auth_handlers
 
 import (
-	"go_auth/internal/adapters/adaptererr"
 	"go_auth/internal/adapters/http/fiber/dto"
+	"go_auth/internal/adapters/http/fiber/fibererr"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -24,7 +24,7 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		// If body parsing fails, we treat it as an internal adapter error
 		// or map it to a standardized bad request response.
-		return adaptererr.Translate(c, err)
+		return fibererr.Translate(c, err)
 	}
 
 	// 2. APPLICATION: Call the use case
@@ -32,7 +32,7 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	if err != nil {
 		// Handler doesn't care about the error type.
 		// It just knows it needs to be translated for the client.
-		return adaptererr.Translate(c, err)
+		return fibererr.Translate(c, err)
 	}
 
 	// 3. SUCCESS: Map domain response to adapter DTO
@@ -42,9 +42,5 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	}
 
 	return utils.Success(c, fiber.StatusCreated, adapterResp, "User registered successfully")
-	// return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-	// 	"success": true,
-	// 	"message": "User registered successfully",
-	// 	"data":    adapterResp,
-	// })
+
 }

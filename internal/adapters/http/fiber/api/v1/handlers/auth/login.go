@@ -1,8 +1,8 @@
 package auth_handlers
 
 import (
-	"go_auth/internal/adapters/adaptererr"
 	"go_auth/internal/adapters/http/fiber/dto"
+	"go_auth/internal/adapters/http/fiber/fibererr"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -25,12 +25,6 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	// Extract context (device info, etc.)
 	ctx, err := utils.ExtractRequestContext(c)
 	if err != nil {
-		// return utils.Failure(
-		// 	c,
-		// 	fiber.StatusBadRequest,
-		// 	"Device ID is required",
-		// 	err.Error(),
-		// )
 		return utils.Failure(c, fiber.StatusBadRequest, err.Error(), "Device ID")
 	}
 
@@ -49,7 +43,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		return adaptererr.Translate(c, err)
+		return fibererr.Translate(c, err)
 	}
 
 	// Success response
