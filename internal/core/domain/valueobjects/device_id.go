@@ -32,8 +32,8 @@ func DeviceIDFromString(u string) (DeviceID, error) {
 	return DeviceID{value: parsed}, nil
 }
 
-// IsZero checks if the DeviceID is empty/nil
-func (vo DeviceID) IsZero() bool {
+// IsEmpty checks if the DeviceID is empty/nil
+func (vo DeviceID) IsEmpty() bool {
 	return vo.value == uuid.Nil
 }
 

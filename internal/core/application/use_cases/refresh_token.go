@@ -42,17 +42,13 @@ func (h *refreshTokenUseCase) RefreshToken(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 
-	h.logger.Info("Starting refresh token process", "deviceID", deviceIDStr)
-
-	// 1. INFRASTRUCTURE: External Token Service failure
+	// 1. INFRASTRUCTURE: Validation
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
-		h.logger.Warn("Token validation failed", "error", err)
-		// Logic: If the token is cryptographically invalid, it's an Application Unauthorized error
-		return nil, apperr.ErrUnauthorized
+		return nil, apperr.NewUnauthorized("session expired or invalid")
 	}
 
-	// 2. DOMAIN: Value Object parsing (The "What")
+	// 2. DOMAIN: Parsing
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomain(err)
@@ -68,88 +64,68 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.MapDomain(err)
 	}
 
-	// 3. INFRASTRUCTURE: Database failures (The "Firewall")
+	// 3. INFRASTRUCTURE: Checks
 	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
-		h.logger.Error("DB error checking revocation", "error", err)
-		return nil, apperr.ErrInternal // Never leak DB errors
+		return nil, apperr.NewInternal("token check failed")
 	}
 	if isRevoked {
-		return nil, apperr.ErrUnauthorized
+		return nil, apperr.NewUnauthorized("token revoked")
 	}
 
 	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil {
-		h.logger.Error("DB error fetching user", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("user lookup failed")
 	}
 	if user == nil {
-		return nil, apperr.ErrUnauthorized
+		return nil, apperr.NewUnauthorized("user no longer exists")
 	}
 
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		h.logger.Error("DB error fetching device", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("device lookup failed")
 	}
 	if device == nil {
-		// Specific application error for missing device
-		return nil, apperr.ErrDeviceNotFound
+		// APPLICATION CONCERN: Resource not found
+		return nil, apperr.NewNotFound("associated device not found")
 	}
 
-	// 4. APPLICATION Logic: Cross-referencing data
-	// The token claims MUST match the device ID provided in the request
+	// 4. APPLICATION: Security Logic
 	if claims.DeviceID != deviceID.String() {
-		h.logger.Warn("Token/Device mismatch", "tokenDevice", claims.DeviceID, "reqDevice", deviceIDStr)
-		return nil, apperr.ErrUnauthorized
+		return nil, apperr.NewUnauthorized("device mismatch")
 	}
 
 	// 5. INFRASTRUCTURE: Issuing new tokens
 	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), user.RolesAsStrings())
 	if err != nil {
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to issue access token")
 	}
 
 	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), deviceID.String())
 	if err != nil {
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to issue refresh token")
 	}
 
-	// 6. DOMAIN: Re-validating new token data
-	newClaims, err := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
-	if err != nil {
-		return nil, apperr.ErrInternal
-	}
-
+	// 6. DOMAIN: New Token entity
+	newClaims, _ := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomain(err)
 	}
 
-	// 7. PERSISTENCE: Atomic Rotation
 	now := time.Now().UTC()
-
-	rtEntity, err := entities.NewRefreshToken(
-		newTokenID,
-		user.ID(),
-		device.ID(),
-		newRefreshToken.Value,
-		newClaims.ExpiresAt,
-		now,
-	)
+	rtEntity, err := entities.NewRefreshToken(newTokenID, user.ID(), device.ID(), newRefreshToken.Value, newClaims.ExpiresAt, now)
 	if err != nil {
 		return nil, apperr.MapDomain(err)
 	}
 
-	// Execute rotation
+	// 7. PERSISTENCE: Atomic Rotation
 	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
-		h.logger.Error("Revocation failed", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to rotate session")
 	}
 
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
-		h.logger.Error("Save failed", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to persist session")
 	}
 
 	return &dto.AuthResponse{

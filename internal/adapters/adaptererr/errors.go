@@ -2,50 +2,89 @@ package adaptererr
 
 import (
 	"errors"
+	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/domain/domainerr"
 	"net/http"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-// ErrorResponse is the standard JSON contract for your API consumers
-type ErrorResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Field   string `json:"field,omitempty"` // For validation errors
+// Translate now calls utils.Failure directly to ensure unified output
+func Translate(c *fiber.Ctx, err error) error {
+	// 1. Handle Application Layer Errors
+	var aErr *apperr.AppError
+	if errors.As(err, &aErr) {
+		status := http.StatusInternalServerError
+
+		switch aErr.Code() {
+		case apperr.CodeInvalidInput:
+			status = http.StatusBadRequest
+		case apperr.CodeUnauthorized:
+			status = http.StatusUnauthorized
+		case apperr.CodeNotFound:
+			status = http.StatusNotFound
+		case apperr.CodeConflict:
+			status = http.StatusConflict
+		case apperr.CodeUnprocessable:
+			status = http.StatusUnprocessableEntity
+		}
+
+		return utils.Failure(c, status, aErr.Error(), aErr.Field())
+	}
+
+	// 2. Handle Adapter/Framework Errors (Fiber Errors)
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		return utils.Failure(c, fiberErr.Code, fiberErr.Message, "")
+	}
+
+	// 3. Fallback for unknown errors
+	return utils.Failure(c, http.StatusInternalServerError, "Internal Error", "")
 }
 
-func Translate(err error) (int, ErrorResponse) {
-	// 1. Check for Domain-level errors (Validation/Rules)
-	// We use errors.As because we want to extract the Attr() field
-	var dErr domainerr.DomainError
-	if errors.As(err, &dErr) {
-		return http.StatusBadRequest, ErrorResponse{
-			Success: false,
-			Message: dErr.Error(),
-			Field:   dErr.Attr(),
-		}
-	}
+// package adaptererr
 
-	// 2. Check for Application-level errors (Business Logic Outcomes)
-	// We use errors.Is for sentinel errors
-	if errors.Is(err, apperr.ErrInvalidCredentials) {
-		return http.StatusUnauthorized, ErrorResponse{
-			Success: false,
-			Message: "Authentication failed. Check your email and password.",
-		}
-	}
+// import (
+// 	"errors"
+// 	"go_auth/internal/core/application/apperr"
+// 	"net/http"
+// )
 
-	if errors.Is(err, apperr.ErrNotFound) {
-		return http.StatusNotFound, ErrorResponse{
-			Success: false,
-			Message: "The requested resource could not be found.",
-		}
-	}
+// // ErrorResponse is the standard JSON contract for your API consumers
+// type ErrorResponse struct {
+// 	Success bool   `json:"success"`
+// 	Message string `json:"message"`
+// 	Field   string `json:"field,omitempty"` // For validation errors
+// }
 
-	// 3. The Catch-All (Internal Server Error)
-	// This covers apperr.ErrInternal and any unhandled errors
-	return http.StatusInternalServerError, ErrorResponse{
-		Success: false,
-		Message: "An unexpected error occurred. Please try again later.",
-	}
-}
+// func Translate(err error) (int, ErrorResponse) {
+// 	var aErr *apperr.AppError
+// 	if errors.As(err, &aErr) {
+// 		status := http.StatusInternalServerError
+
+// 		switch aErr.Code() { // Use getter
+// 		case apperr.CodeInvalidInput:
+// 			status = http.StatusBadRequest
+// 		case apperr.CodeUnauthorized:
+// 			status = http.StatusUnauthorized
+// 		case apperr.CodeNotFound:
+// 			status = http.StatusNotFound
+// 		case apperr.CodeConflict:
+// 			status = http.StatusConflict
+// 		case apperr.CodeUnprocessable:
+// 			status = http.StatusUnprocessableEntity
+// 		}
+
+// 		return status, ErrorResponse{
+// 			Success: false,
+// 			Message: aErr.Error(),
+// 			Field:   aErr.Field(), // Use getter
+// 		}
+// 	}
+
+// 	return http.StatusInternalServerError, ErrorResponse{
+// 		Success: false,
+// 		Message: "Internal Error",
+// 	}
+
+// }

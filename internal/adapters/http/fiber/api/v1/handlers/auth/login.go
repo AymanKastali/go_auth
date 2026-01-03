@@ -25,22 +25,18 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	// Extract context (device info, etc.)
 	ctx, err := utils.ExtractRequestContext(c)
 	if err != nil {
-		return utils.Failure(
-			c,
-			fiber.StatusBadRequest,
-			"Device ID is required",
-			err.Error(),
-		)
+		// return utils.Failure(
+		// 	c,
+		// 	fiber.StatusBadRequest,
+		// 	"Device ID is required",
+		// 	err.Error(),
+		// )
+		return utils.Failure(c, fiber.StatusBadRequest, err.Error(), "Device ID")
 	}
 
 	// Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return utils.Failure(
-			c,
-			fiber.StatusBadRequest,
-			"Invalid request body",
-			err.Error(),
-		)
+		return utils.Failure(c, fiber.StatusBadRequest, "Invalid request body", "json")
 	}
 
 	// Call use case
@@ -53,8 +49,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		status, payload := adaptererr.Translate(err)
-		return c.Status(status).JSON(payload)
+		return adaptererr.Translate(c, err)
 	}
 
 	// Success response

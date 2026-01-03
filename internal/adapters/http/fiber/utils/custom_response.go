@@ -12,18 +12,18 @@ func Success(c *fiber.Ctx, statusCode int, data any, message string) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 
-	return c.Status(statusCode).JSON(dto.APIResponse{
-		Status:  "success",
+	return c.Status(statusCode).JSON(dto.SuccessResponse{
+		Success: true,
 		Message: message,
 		Data:    data,
 	})
 }
 
 // Error response
-func Failure(c *fiber.Ctx, statusCode int, message string, errors any) error {
-	return c.Status(statusCode).JSON(dto.APIResponse{
-		Status:  "error",
+func Failure(c *fiber.Ctx, statusCode int, message string, field string) error {
+	return c.Status(statusCode).JSON(dto.ErrorResponse{
+		Success: false,
 		Message: message,
-		Errors:  errors,
+		Field:   field,
 	})
 }

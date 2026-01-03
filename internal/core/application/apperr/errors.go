@@ -5,43 +5,69 @@ import (
 	"go_auth/internal/core/domain/domainerr"
 )
 
-// Application-level Sentinel Errors
-// These describe "Process" failures rather than "Business Rule" failures.
-var (
-	ErrInternal           = errors.New("internal server error")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUnauthorized       = errors.New("unauthorized access")
-	ErrNotFound           = errors.New("resource not found")
-	ErrConflict           = errors.New("resource already exists")
-	ErrDeviceNotFound     = errors.New("device not found")
-	ErrUserInactive       = errors.New("user account is inactive")
-	ErrTokenExpired       = errors.New("session has expired")
+type code uint16
+
+const (
+	CodeInternal      code = iota // 0
+	CodeInvalidInput              // 1
+	CodeNotFound                  // 2
+	CodeConflict                  // 3
+	CodeUnauthorized              // 4
+	CodeUnprocessable             // 5
 )
 
-// MapDomain categorizes a domain error into an application context.
-// It is the "Firewall" between the inner Domain and the Application use cases.
+type AppError struct {
+	code    code
+	message string
+	field   string
+}
+
+func (e *AppError) Error() string { return e.message }
+func (e *AppError) Code() code    { return e.code }
+func (e *AppError) Field() string { return e.field }
+
+// --- Factories (Standardized Constructors like Domain) ---
+
+func NewInternal(msg string) error {
+	return &AppError{code: CodeInternal, message: msg}
+}
+
+func NewNotFound(msg string) error {
+	return &AppError{code: CodeNotFound, message: msg}
+}
+
+func NewConflict(msg string) error {
+	return &AppError{code: CodeConflict, message: msg}
+}
+
+func NewUnauthorized(msg string) error {
+	return &AppError{code: CodeUnauthorized, message: msg}
+}
+
+func NewInvalidInput(msg string, field string) error {
+	return &AppError{code: CodeInvalidInput, message: msg, field: field}
+}
+
+// MapDomain converts Domain logic into Application context
 func MapDomain(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	// If it's already a DomainError interface, we return it as is.
-	// This allows the Adapters layer to use errors.As() to find the Code() and Attr().
 	var dErr domainerr.DomainError
 	if errors.As(err, &dErr) {
-		switch dErr.Code() {
-		case domainerr.CodeRequired, domainerr.CodeInvalidValue, domainerr.CodeRuleViolation:
-			// These are "Safe" errors to pass to the user because they
-			// describe business constraints, not technical failures.
-			return err
-		case domainerr.CodeInternal:
-			return ErrInternal
-		default:
-			return ErrInternal
+		code := CodeInvalidInput
+		if dErr.Code() == domainerr.CodeRuleViolation {
+			code = CodeUnprocessable
+		}
+
+		return &AppError{
+			code:    code,
+			message: dErr.Error(),
+			field:   dErr.Attr(),
 		}
 	}
 
-	// If it's not a DomainError (e.g., a raw string error or fmt.Errorf),
-	// it's considered an untrusted internal error.
-	return ErrInternal
+	// Any unknown error becomes a secure Internal error
+	return NewInternal("an unexpected error occurred")
 }

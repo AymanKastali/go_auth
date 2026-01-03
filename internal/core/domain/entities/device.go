@@ -37,10 +37,10 @@ func NewDevice(
 	isActive bool,
 	nowUTC time.Time,
 ) (*Device, error) {
-	if deviceID.IsZero() {
+	if deviceID.IsEmpty() {
 		return nil, domainerr.NewRequired("device_id")
 	}
-	if userID.IsZero() {
+	if userID.IsEmpty() {
 		return nil, domainerr.NewRequired("user_id")
 	}
 

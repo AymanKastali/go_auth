@@ -31,8 +31,8 @@ func UserIDFromString(u string) (UserID, error) {
 	return UserID{value: parsed}, nil
 }
 
-// IsZero checks if the UserID is empty/nil
-func (vo UserID) IsZero() bool {
+// IsEmpty checks if the UserID is empty/nil
+func (vo UserID) IsEmpty() bool {
 	return vo.value == uuid.Nil
 }
 

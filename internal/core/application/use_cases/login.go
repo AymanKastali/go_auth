@@ -44,33 +44,29 @@ func NewLoginUseCase(
 func (h *loginUseCase) Login(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
-
 	h.logger.Info("Starting user login", "email", email)
 
 	// 1. DOMAIN: Parse and validate email
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		h.logger.Error("Invalid email", "error", err)
-		return nil, apperr.MapDomain(err) // Business rule violation
+		return nil, apperr.MapDomain(err)
 	}
 
 	// 2. INFRASTRUCTURE: Fetch user
 	user, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
 		h.logger.Error("User repository failure", "error", err)
-		return nil, apperr.ErrInternal // Securely hide DB specifics
+		return nil, apperr.NewInternal("database connection failed")
 	}
 
-	// 3. APPLICATION: Logical check
+	// 3. APPLICATION: Logical check (Security: generic message)
 	if user == nil {
-		h.logger.Warn("Login attempt: User not found", "email", email)
-		return nil, apperr.ErrInvalidCredentials
+		return nil, apperr.NewUnauthorized("invalid credentials")
 	}
 
 	// 4. APPLICATION: Password validation
 	if !h.passwordHasher.Compare(password, user.HashedPassword().Value()) {
-		h.logger.Warn("Login attempt: Password mismatch", "email", email)
-		return nil, apperr.ErrInvalidCredentials
+		return nil, apperr.NewUnauthorized("invalid credentials")
 	}
 
 	// 5. DOMAIN: Device ID parsing
@@ -82,13 +78,11 @@ func (h *loginUseCase) Login(
 	// 6. INFRASTRUCTURE: Fetch device
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		h.logger.Error("Device repo failure", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("device lookup failed")
 	}
 
 	now := time.Now().UTC()
 	if device == nil {
-		// DOMAIN: Entity creation
 		device, err = entities.NewDevice(deviceID, user.ID(), &deviceName, &userAgent, &ipAddress, true, now)
 		if err != nil {
 			return nil, apperr.MapDomain(err)
@@ -99,44 +93,40 @@ func (h *loginUseCase) Login(
 
 	// 7. INFRASTRUCTURE: Save device
 	if err := h.deviceRepo.Upsert(device); err != nil {
-		h.logger.Error("Device upsert failure", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to update device info")
 	}
 
 	// 8. INFRASTRUCTURE: Token Issuance
 	accessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), nil)
 	if err != nil {
-		h.logger.Error("Token service failure", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("token generation failed")
 	}
 
 	refreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), deviceID.String())
 	if err != nil {
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("refresh token generation failed")
 	}
 
-	// 9. DOMAIN: Parsing token JTI
+	// 9. DOMAIN: Token ID parsing
 	rtClaims, _ := h.tokenService.ValidateRefreshToken(refreshToken.Value)
 	tokenID, err := valueobjects.TokenIDFromString(rtClaims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomain(err)
 	}
 
-	// 10. DOMAIN: Create Refresh Token Entity
+	// 10. DOMAIN: Entity creation
 	refreshTokenEntity, err := entities.NewRefreshToken(tokenID, user.ID(), device.ID(), refreshToken.Value, rtClaims.ExpiresAt, now)
 	if err != nil {
 		return nil, apperr.MapDomain(err)
 	}
 
-	// 11. INFRASTRUCTURE: Final persistence
+	// 11. INFRASTRUCTURE: Rotation
 	if err := h.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), now); err != nil {
-		h.logger.Error("Token revocation failure", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to revoke old tokens")
 	}
 
 	if err := h.refreshRepo.Save(refreshTokenEntity); err != nil {
-		h.logger.Error("Token save failure", "error", err)
-		return nil, apperr.ErrInternal
+		return nil, apperr.NewInternal("failed to save session")
 	}
 
 	return &dto.AuthResponse{

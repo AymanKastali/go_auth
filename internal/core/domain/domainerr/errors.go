@@ -4,10 +4,10 @@ import (
 	"fmt"
 )
 
-type Code uint16
+type code uint16
 
 const (
-	CodeInternal      Code = iota // 0
+	CodeInternal      code = iota // 0
 	CodeRequired                  // 1
 	CodeInvalidValue              // 2
 	CodeRuleViolation             // 3
@@ -15,18 +15,18 @@ const (
 
 type DomainError interface {
 	error
-	Code() Code
+	Code() code
 	Attr() string // The specific field (e.g., "email")
 }
 
 type domainErr struct {
-	code Code
+	code code
 	attr string
 	msg  string
 }
 
 func (e *domainErr) Error() string { return e.msg }
-func (e *domainErr) Code() Code    { return e.code }
+func (e *domainErr) Code() code    { return e.code }
 func (e *domainErr) Attr() string  { return e.attr }
 
 // Factories - Standardized constructors

@@ -31,8 +31,8 @@ func TokenIDFromString(u string) (TokenID, error) {
 	return TokenID{value: parsed}, nil
 }
 
-// IsZero checks if the TokenID is empty/nil
-func (vo TokenID) IsZero() bool {
+// IsEmpty checks if the TokenID is empty/nil
+func (vo TokenID) IsEmpty() bool {
 	return vo.value == uuid.Nil
 }
 

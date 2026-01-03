@@ -35,13 +35,13 @@ func NewRefreshToken(
 	now time.Time,
 ) (*RefreshToken, error) {
 
-	if id.IsZero() {
+	if id.IsEmpty() {
 		return nil, domainerr.NewRequired("token_id")
 	}
-	if userID.IsZero() {
+	if userID.IsEmpty() {
 		return nil, domainerr.NewRequired("user_id")
 	}
-	if deviceID.IsZero() {
+	if deviceID.IsEmpty() {
 		return nil, domainerr.NewRequired("device_id")
 	}
 	if token == "" {

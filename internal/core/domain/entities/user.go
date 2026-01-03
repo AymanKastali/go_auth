@@ -40,7 +40,7 @@ func NewUser(
 	nowUTC time.Time,
 ) (*User, error) {
 	// Strict individual required checks
-	if userID.IsZero() {
+	if userID.IsEmpty() {
 		return nil, domainerr.NewRequired("user_id")
 	}
 	if email.Value() == "" {

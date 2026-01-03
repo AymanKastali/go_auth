@@ -1,7 +1,6 @@
 package middlewares
 
 import (
-	"go_auth/internal/adapters/adaptererr"
 	"go_auth/internal/core/application/apperr"
 	services "go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/domain/ports/repositories"
@@ -18,13 +17,13 @@ func JWTMiddleware(
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return respond(c, apperr.ErrUnauthorized)
+			return apperr.NewUnauthorized("missing authorization header")
 		}
 
 		// 1. TRANSPORT LOGIC: Header parsing
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return respond(c, apperr.ErrUnauthorized)
+			return apperr.NewUnauthorized("invalid token format")
 		}
 
 		accessToken := parts[1]
@@ -32,35 +31,28 @@ func JWTMiddleware(
 		// 2. INFRASTRUCTURE: Token Validation
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
-			// If the token is cryptographically dead, we treat it as an App Unauthorized error
-			return respond(c, apperr.ErrUnauthorized)
+			return apperr.NewUnauthorized("invalid or expired access token")
 		}
 
 		// 3. CROSS-LAYER CHECK: Device Usability
 		deviceIDStr := claims.DeviceID
 		if deviceIDStr != "" && deviceRepo != nil {
-
-			// DOMAIN: Parse Value Object
 			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
 			if err != nil {
-				// Map domain-specific parse error via apperr firewall
-				return respond(c, apperr.MapDomain(err))
+				return apperr.MapDomain(err)
 			}
 
-			// INFRASTRUCTURE: DB Retrieval
 			device, err := deviceRepo.GetByID(deviceIDVO)
 			if err != nil {
-				return respond(c, apperr.ErrInternal)
+				return apperr.NewInternal("failed to verify device state")
 			}
 
 			if device == nil {
-				return respond(c, apperr.ErrDeviceNotFound)
+				return apperr.NewUnauthorized("device not recognized")
 			}
 
-			// DOMAIN: Business Rule check
 			if err := device.EnsureUsable(); err != nil {
-				// Map domain violation (e.g., CodeRuleViolation)
-				return respond(c, apperr.MapDomain(err))
+				return apperr.MapDomain(err)
 			}
 		}
 
@@ -72,11 +64,4 @@ func JWTMiddleware(
 
 		return c.Next()
 	}
-}
-
-// respond is the adapter-layer helper that translates errors into Fiber responses.
-func respond(c *fiber.Ctx, err error) error {
-	// Translate is the single source of truth for HTTP codes and JSON structure
-	status, payload := adaptererr.Translate(err)
-	return c.Status(status).JSON(payload)
 }

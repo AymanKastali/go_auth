@@ -24,23 +24,20 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
 		// Use the same standardized response even for simple transport checks
-		status, payload := adaptererr.Translate(apperr.ErrUnauthorized)
-		return c.Status(status).JSON(payload)
+		return adaptererr.Translate(c, apperr.NewUnauthorized("missing device id header"))
 	}
 
 	// 2. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
 		// We can pass a specific apperr for bad input
-		status, payload := adaptererr.Translate(apperr.MapDomain(err))
-		return c.Status(status).JSON(payload)
+		return adaptererr.Translate(c, apperr.MapDomain(err))
 	}
 
 	// 3. APPLICATION: Call use case
 	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
 		// The handler no longer cares if it's a 401, 403, or 500
-		status, payload := adaptererr.Translate(err)
-		return c.Status(status).JSON(payload)
+		return adaptererr.Translate(c, err)
 	}
 
 	// 4. SUCCESS: Standardized response
