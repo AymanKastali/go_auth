@@ -5,7 +5,6 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports/use_cases"
-	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -54,14 +53,8 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		status, msg := adaptererr.FromApplication(err)
-
-		var details any
-		if status != http.StatusInternalServerError {
-			details = err.Error()
-		}
-
-		return utils.Failure(c, status, msg, details)
+		status, payload := adaptererr.Translate(err)
+		return c.Status(status).JSON(payload)
 	}
 
 	// Success response

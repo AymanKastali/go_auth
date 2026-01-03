@@ -37,19 +37,11 @@ func NewDevice(
 	isActive bool,
 	nowUTC time.Time,
 ) (*Device, error) {
-	var missing []string
-
 	if deviceID.IsZero() {
-		missing = append(missing, "id")
+		return nil, domainerr.NewRequired("device_id")
 	}
 	if userID.IsZero() {
-		missing = append(missing, "user_id")
-	}
-	if len(missing) > 0 {
-		return nil, domainerr.RequiredAttrsError(
-			missing,
-			createRefreshTokenOp,
-		)
+		return nil, domainerr.NewRequired("user_id")
 	}
 
 	return &Device{
@@ -111,10 +103,7 @@ func (d *Device) Update(
 ) error {
 
 	if d.revokedAt != nil {
-		return domainerr.OperationDeniedError(
-			"revoked device cannot be updated",
-			updateDeviceOp,
-		)
+		return domainerr.NewRuleViolation("cannot update a revoked device")
 	}
 
 	if name != nil {
@@ -134,10 +123,7 @@ func (d *Device) Update(
 
 func (d *Device) Revoke(now time.Time) error {
 	if d.revokedAt != nil {
-		return domainerr.InvalidStateError(
-			"device already revoked",
-			revokeDeviceOp,
-		)
+		return domainerr.NewRuleViolation("device is already revoked")
 	}
 
 	d.isActive = false
@@ -148,26 +134,18 @@ func (d *Device) Revoke(now time.Time) error {
 
 func (d *Device) EnsureUsable() error {
 	if d.revokedAt != nil {
-		return domainerr.InvalidStateError(
-			"device is revoked",
-			ensureDeviceUsableOp,
-		)
+		return domainerr.NewRuleViolation("device is revoked")
 	}
 	if !d.isActive {
-		return domainerr.InvalidStateError(
-			"device is inactive",
-			ensureDeviceUsableOp,
-		)
+		return domainerr.NewRuleViolation("device is inactive")
 	}
 	return nil
 }
 
 func (d *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !d.userID.Equal(userID) {
-		return domainerr.OperationDeniedError(
-			"device does not belong to user",
-			validateDeviceOwnerOp,
-		)
+		// If it's the wrong user, it's a violation of access/value logic
+		return domainerr.NewInvalidValue("user_id", "device ownership mismatch")
 	}
 	return nil
 }

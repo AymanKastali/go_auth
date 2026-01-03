@@ -5,111 +5,43 @@ import (
 	"go_auth/internal/core/domain/domainerr"
 )
 
-type Code uint16
-
-const (
-	CodeInvalidCredentials Code = 2001
-	CodeInvalidValue       Code = 2003
-	CodeUserInactive       Code = 2004
-	CodeDeviceNotUsable    Code = 2005
-	CodeDeviceNotFound     Code = 2006
-	CodeEmailExists        Code = 2007
-	CodeInternal           Code = 2008
-)
-
-type AppError struct {
-	code Code
-	msg  string
-	err  error
-}
-
-func (e *AppError) Error() string {
-	return e.msg
-}
-
-func (e *AppError) Code() Code {
-	return e.code
-}
-
-func (e *AppError) Unwrap() error {
-	return e.err
-}
-
-// Enables errors.Is(err, ErrX)
-func (e *AppError) Is(target error) bool {
-	t, ok := target.(*AppError)
-	if !ok {
-		return false
-	}
-	return e.code == t.code
-}
-
+// Application-level Sentinel Errors
+// These describe "Process" failures rather than "Business Rule" failures.
 var (
-	ErrInvalidCredentials = &AppError{
-		code: CodeInvalidCredentials,
-		msg:  "invalid credentials",
-	}
-
-	ErrInvalidValue = &AppError{
-		code: CodeInvalidValue,
-		msg:  "invalid value",
-	}
-
-	ErrUserInactive = &AppError{
-		code: CodeUserInactive,
-		msg:  "user is inactive",
-	}
-
-	ErrDeviceNotUsable = &AppError{
-		code: CodeDeviceNotUsable,
-		msg:  "device is not usable",
-	}
-
-	ErrDeviceNotFound = &AppError{
-		code: CodeDeviceNotFound,
-		msg:  "device not found",
-	}
-
-	ErrEmailAlreadyRegistered = &AppError{
-		code: CodeEmailExists,
-		msg:  "email already registered",
-	}
-
-	ErrInternal = &AppError{
-		code: CodeInternal,
-		msg:  "internal server error",
-	}
+	ErrInternal           = errors.New("internal server error")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUnauthorized       = errors.New("unauthorized access")
+	ErrNotFound           = errors.New("resource not found")
+	ErrConflict           = errors.New("resource already exists")
+	ErrDeviceNotFound     = errors.New("device not found")
+	ErrUserInactive       = errors.New("user account is inactive")
+	ErrTokenExpired       = errors.New("session has expired")
 )
 
-var domainToAppMap = map[domainerr.Code]*AppError{
-	domainerr.CodeRequiredAttr:    ErrInternal,
-	domainerr.CodeInvalidValue:    ErrInvalidValue,
-	domainerr.CodeInvalidState:    ErrUserInactive,
-	domainerr.CodeOperationDenied: ErrDeviceNotUsable,
-}
-
-func wrap(appErr *AppError, cause error) *AppError {
-	return &AppError{
-		code: appErr.code,
-		msg:  appErr.msg,
-		err:  cause,
-	}
-}
-
-func FromDomainError(err error) error {
+// MapDomain categorizes a domain error into an application context.
+// It is the "Firewall" between the inner Domain and the Application use cases.
+func MapDomain(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	var dErr *domainerr.DomainError
-	if !errors.As(err, &dErr) {
-		return wrap(ErrInternal, err)
+	// If it's already a DomainError interface, we return it as is.
+	// This allows the Adapters layer to use errors.As() to find the Code() and Attr().
+	var dErr domainerr.DomainError
+	if errors.As(err, &dErr) {
+		switch dErr.Code() {
+		case domainerr.CodeRequired, domainerr.CodeInvalidValue, domainerr.CodeRuleViolation:
+			// These are "Safe" errors to pass to the user because they
+			// describe business constraints, not technical failures.
+			return err
+		case domainerr.CodeInternal:
+			return ErrInternal
+		default:
+			return ErrInternal
+		}
 	}
 
-	appErr, ok := domainToAppMap[dErr.Code()]
-	if !ok {
-		return wrap(ErrInternal, err)
-	}
-
-	return wrap(appErr, err)
+	// If it's not a DomainError (e.g., a raw string error or fmt.Errorf),
+	// it's considered an untrusted internal error.
+	return ErrInternal
 }

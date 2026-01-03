@@ -1,8 +1,8 @@
 package auth_handlers
 
 import (
+	"go_auth/internal/adapters/adaptererr"
 	"go_auth/internal/adapters/http/fiber/dto"
-	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -13,82 +13,43 @@ type RefreshTokenHandler struct {
 	useCase use_cases.RefreshTokenUseCasePort
 }
 
-func NewRefreshTokenHandler(
-	uc use_cases.RefreshTokenUseCasePort,
-) *RefreshTokenHandler {
+func NewRefreshTokenHandler(uc use_cases.RefreshTokenUseCasePort) *RefreshTokenHandler {
 	return &RefreshTokenHandler{useCase: uc}
 }
 
 func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest
 
-	// Extract Device ID header
+	// 1. TRANSPORT: Extract Device ID
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		return utils.Failure(
-			c,
-			fiber.StatusBadRequest,
-			"Device ID is required",
-			"missing device ID",
-		)
+		// Use the same standardized response even for simple transport checks
+		status, payload := adaptererr.Translate(apperr.ErrUnauthorized)
+		return c.Status(status).JSON(payload)
 	}
 
-	// Parse body
+	// 2. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
-		return utils.Failure(
-			c,
-			fiber.StatusBadRequest,
-			"Invalid request body",
-			err.Error(),
-		)
+		// We can pass a specific apperr for bad input
+		status, payload := adaptererr.Translate(apperr.MapDomain(err))
+		return c.Status(status).JSON(payload)
 	}
 
-	// Call use case
+	// 3. APPLICATION: Call use case
 	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
-		appErr := apperr.FromDomainError(err)
-		switch appErr {
-		case apperr.ErrInvalidCredentials, apperr.ErrDeviceNotUsable:
-			return utils.Failure(
-				c,
-				fiber.StatusUnauthorized,
-				"Refresh token is invalid or expired",
-				appErr.Error(),
-			)
-		case apperr.ErrDeviceNotFound:
-			return utils.Failure(
-				c,
-				fiber.StatusUnauthorized,
-				"Device not found",
-				appErr.Error(),
-			)
-		case apperr.ErrUserInactive:
-			return utils.Failure(
-				c,
-				fiber.StatusForbidden,
-				"User is inactive",
-				appErr.Error(),
-			)
-		default:
-			return utils.Failure(
-				c,
-				fiber.StatusInternalServerError,
-				"Internal server error",
-				appErr.Error(),
-			)
-		}
+		// The handler no longer cares if it's a 401, 403, or 500
+		status, payload := adaptererr.Translate(err)
+		return c.Status(status).JSON(payload)
 	}
 
-	// Success
-	response := dto.LoginResponse{
-		AccessToken:  authResp.AccessToken,
-		RefreshToken: authResp.RefreshToken,
-	}
-
-	return utils.Success(
-		c,
-		fiber.StatusOK,
-		response,
-		"User token refreshed successfully",
-	)
+	// 4. SUCCESS: Standardized response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "User token refreshed successfully",
+		"data": dto.LoginResponse{
+			AccessToken:  authResp.AccessToken,
+			RefreshToken: authResp.RefreshToken,
+		},
+	})
 }

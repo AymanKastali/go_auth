@@ -44,129 +44,114 @@ func (h *refreshTokenUseCase) RefreshToken(
 
 	h.logger.Info("Starting refresh token process", "deviceID", deviceIDStr)
 
-	// --- Validate old refresh token ---
+	// 1. INFRASTRUCTURE: External Token Service failure
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
-		h.logger.Warn("Old refresh token expired or invalid", "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Warn("Token validation failed", "error", err)
+		// Logic: If the token is cryptographically invalid, it's an Application Unauthorized error
+		return nil, apperr.ErrUnauthorized
 	}
-	h.logger.Info("Old refresh token validated", "tokenID", claims.JTI, "userID", claims.Subject)
 
-	// --- Parse token IDs ---
+	// 2. DOMAIN: Value Object parsing (The "What")
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
-		h.logger.Error("Failed to parse old token ID", "jti", claims.JTI, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.MapDomain(err)
 	}
 
-	// --- Check if token is revoked ---
-	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
-	if err != nil {
-		h.logger.Error("Failed to check token revocation", "tokenID", oldTokenID, "error", err)
-		return nil, apperr.FromDomainError(err)
-	}
-	if isRevoked {
-		h.logger.Warn("Old refresh token is revoked", "tokenID", oldTokenID)
-		return nil, apperr.FromDomainError(err)
-	}
-
-	// --- Fetch user ---
 	userIDVO, err := valueobjects.UserIDFromString(claims.Subject)
 	if err != nil {
-		h.logger.Error("Invalid user ID in refresh token", "userID", claims.Subject, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.MapDomain(err)
+	}
+
+	deviceID, err := valueobjects.DeviceIDFromString(deviceIDStr)
+	if err != nil {
+		return nil, apperr.MapDomain(err)
+	}
+
+	// 3. INFRASTRUCTURE: Database failures (The "Firewall")
+	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
+	if err != nil {
+		h.logger.Error("DB error checking revocation", "error", err)
+		return nil, apperr.ErrInternal // Never leak DB errors
+	}
+	if isRevoked {
+		return nil, apperr.ErrUnauthorized
 	}
 
 	user, err := h.userRepository.GetByID(userIDVO)
-	if err != nil || user == nil {
-		h.logger.Warn("User not found for refresh token", "userID", userIDVO)
-		return nil, apperr.FromDomainError(err)
-	}
-	h.logger.Info("User retrieved for refresh token", "userID", user.ID())
-
-	// --- Fetch device ---
-	deviceID, err := valueobjects.DeviceIDFromString(deviceIDStr)
 	if err != nil {
-		h.logger.Error("Invalid device ID", "deviceID", deviceIDStr, "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Error("DB error fetching user", "error", err)
+		return nil, apperr.ErrInternal
+	}
+	if user == nil {
+		return nil, apperr.ErrUnauthorized
 	}
 
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		h.logger.Error("Failed to fetch device", "deviceID", deviceID, "error", err)
-		return nil, err
+		h.logger.Error("DB error fetching device", "error", err)
+		return nil, apperr.ErrInternal
 	}
 	if device == nil {
-		h.logger.Warn("Device not found", "deviceID", deviceID)
-		return nil, apperr.FromDomainError(err)
+		// Specific application error for missing device
+		return nil, apperr.ErrDeviceNotFound
 	}
 
-	userRoles := user.Roles()
-	// --- Issue new tokens ---
-	userIDStr := user.ID().String()
-	roles := make([]string, len(userRoles))
-	for i, r := range userRoles {
-		roles[i] = string(r)
+	// 4. APPLICATION Logic: Cross-referencing data
+	// The token claims MUST match the device ID provided in the request
+	if claims.DeviceID != deviceID.String() {
+		h.logger.Warn("Token/Device mismatch", "tokenDevice", claims.DeviceID, "reqDevice", deviceIDStr)
+		return nil, apperr.ErrUnauthorized
 	}
 
-	newAccessToken, err := h.tokenService.IssueAccessToken(userIDStr, deviceIDStr, roles)
+	// 5. INFRASTRUCTURE: Issuing new tokens
+	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), user.RolesAsStrings())
 	if err != nil {
-		h.logger.Error("Failed to issue new access token", "userID", userIDVO, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.ErrInternal
 	}
 
-	newRefreshToken, err := h.tokenService.IssueRefreshToken(userIDStr, deviceIDStr)
+	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), deviceID.String())
 	if err != nil {
-		h.logger.Error("Failed to issue new refresh token", "userID", userIDVO, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.ErrInternal
 	}
 
+	// 6. DOMAIN: Re-validating new token data
 	newClaims, err := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	if err != nil {
-		h.logger.Error("Failed to validate new refresh token", "userID", userIDVO, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.ErrInternal
 	}
 
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
-		h.logger.Error("Failed to parse new token ID", "jti", newClaims.JTI, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.MapDomain(err)
 	}
 
-	// --- Revoke old token ---
-	now := time.Now()
-	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
-		h.logger.Error("Failed to revoke old refresh token", "tokenID", oldTokenID, "error", err)
-		return nil, apperr.FromDomainError(err)
-	}
+	// 7. PERSISTENCE: Atomic Rotation
+	now := time.Now().UTC()
 
-	// --- Save new refresh token ---
 	rtEntity, err := entities.NewRefreshToken(
 		newTokenID,
-		userIDVO,
+		user.ID(),
 		device.ID(),
 		newRefreshToken.Value,
 		newClaims.ExpiresAt,
 		now,
 	)
 	if err != nil {
-		h.logger.Error(
-			"Failed to create refresh token entity",
-			"userID", userIDVO,
-			"deviceID", device.ID(),
-			"error", err,
-		)
-		return nil, err
+		return nil, apperr.MapDomain(err)
+	}
+
+	// Execute rotation
+	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
+		h.logger.Error("Revocation failed", "error", err)
+		return nil, apperr.ErrInternal
 	}
 
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
-		h.logger.Error("Failed to save new refresh token", "tokenID", newTokenID, "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Error("Save failed", "error", err)
+		return nil, apperr.ErrInternal
 	}
 
-	h.logger.Info("Refresh token rotated successfully", "userID", user.ID, "deviceID", deviceID)
-
-	// --- Return new tokens ---
 	return &dto.AuthResponse{
 		AccessToken:  newAccessToken.Value,
 		RefreshToken: newRefreshToken.Value,

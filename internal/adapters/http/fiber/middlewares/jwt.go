@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"go_auth/internal/adapters/adaptererr"
 	"go_auth/internal/core/application/apperr"
 	services "go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/domain/ports/repositories"
@@ -10,74 +11,72 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// JWTMiddleware validates access tokens and checks device usability.
 func JWTMiddleware(
 	tokenService services.TokenServicePort,
 	deviceRepo repositories.DeviceRepositoryPort,
 ) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		authHeader := ctx.Get("Authorization")
+	return func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "missing access token",
-			})
+			return respond(c, apperr.ErrUnauthorized)
 		}
 
-		// Expect "Bearer <token>"
+		// 1. TRANSPORT LOGIC: Header parsing
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid authorization header",
-			})
+			return respond(c, apperr.ErrUnauthorized)
 		}
 
 		accessToken := parts[1]
 
-		// 1. Validate access token cryptographically
+		// 2. INFRASTRUCTURE: Token Validation
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": apperr.ErrInvalidCredentials.Error(),
-			})
+			// If the token is cryptographically dead, we treat it as an App Unauthorized error
+			return respond(c, apperr.ErrUnauthorized)
 		}
 
-		// 2. Check if the device is usable
+		// 3. CROSS-LAYER CHECK: Device Usability
 		deviceIDStr := claims.DeviceID
 		if deviceIDStr != "" && deviceRepo != nil {
+
+			// DOMAIN: Parse Value Object
 			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
 			if err != nil {
-				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error": apperr.FromDomainError(err),
-				})
+				// Map domain-specific parse error via apperr firewall
+				return respond(c, apperr.MapDomain(err))
 			}
 
+			// INFRASTRUCTURE: DB Retrieval
 			device, err := deviceRepo.GetByID(deviceIDVO)
 			if err != nil {
-				return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": apperr.ErrInternal.Error(),
-				})
+				return respond(c, apperr.ErrInternal)
 			}
 
 			if device == nil {
-				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": apperr.ErrDeviceNotFound.Error(),
-				})
+				return respond(c, apperr.ErrDeviceNotFound)
 			}
 
+			// DOMAIN: Business Rule check
 			if err := device.EnsureUsable(); err != nil {
-				appErr := apperr.FromDomainError(err)
-				return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": appErr.Error(),
-				})
+				// Map domain violation (e.g., CodeRuleViolation)
+				return respond(c, apperr.MapDomain(err))
 			}
 		}
 
-		// 3. Store user info in context for downstream handlers
-		ctx.Locals("sub", claims.Subject)
-		ctx.Locals("roles", claims.Roles)
-		ctx.Locals("jti", claims.JTI)
-		ctx.Locals("deviceID", deviceIDStr)
+		// 4. CONTEXT SETTING
+		c.Locals("sub", claims.Subject)
+		c.Locals("roles", claims.Roles)
+		c.Locals("jti", claims.JTI)
+		c.Locals("deviceID", deviceIDStr)
 
-		return ctx.Next()
+		return c.Next()
 	}
+}
+
+// respond is the adapter-layer helper that translates errors into Fiber responses.
+func respond(c *fiber.Ctx, err error) error {
+	// Translate is the single source of truth for HTTP codes and JSON structure
+	status, payload := adaptererr.Translate(err)
+	return c.Status(status).JSON(payload)
 }

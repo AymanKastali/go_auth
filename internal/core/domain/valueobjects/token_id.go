@@ -6,37 +6,47 @@ import (
 	"github.com/google/uuid"
 )
 
-const tokenIDFromStringOp = "TokenID.FromString"
-
 type TokenID struct {
 	value uuid.UUID
 }
 
+// NewTokenID generates a new random TokenID
 func NewTokenID() TokenID {
 	return TokenID{value: uuid.New()}
 }
 
+// TokenIDFromUUID creates a TokenID from an existing UUID
 func TokenIDFromUUID(u uuid.UUID) TokenID {
 	return TokenID{value: u}
 }
 
+// TokenIDFromString parses a string into a TokenID
 func TokenIDFromString(u string) (TokenID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return TokenID{}, domainerr.InvalidValueError("device id", tokenIDFromStringOp, err)
+		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
+		return TokenID{}, domainerr.NewInvalidValue("token_id", "invalid uuid format")
 	}
 
 	return TokenID{value: parsed}, nil
 }
 
+// IsZero checks if the TokenID is empty/nil
 func (vo TokenID) IsZero() bool {
 	return vo.value == uuid.Nil
 }
 
+// Equal compares two TokenID objects
 func (vo TokenID) Equal(other TokenID) bool {
 	return vo.value == other.value
 }
 
+// String returns the string representation of the UUID
 func (vo TokenID) String() string {
 	return vo.value.String()
+}
+
+// UUID returns the underlying uuid.UUID type
+func (vo TokenID) UUID() uuid.UUID {
+	return vo.value
 }

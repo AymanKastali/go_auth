@@ -6,37 +6,47 @@ import (
 	"github.com/google/uuid"
 )
 
-const userIDFromStringOp = "UserID.FromString"
-
 type UserID struct {
 	value uuid.UUID
 }
 
+// NewUserID generates a new random UserID
 func NewUserID() UserID {
 	return UserID{value: uuid.New()}
 }
 
+// UserIDFromUUID creates a UserID from an existing UUID
 func UserIDFromUUID(u uuid.UUID) UserID {
 	return UserID{value: u}
 }
 
+// UserIDFromString parses a string into a UserID
 func UserIDFromString(u string) (UserID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return UserID{}, domainerr.InvalidValueError("user id", userIDFromStringOp, err)
+		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
+		return UserID{}, domainerr.NewInvalidValue("user_id", "invalid uuid format")
 	}
 
 	return UserID{value: parsed}, nil
 }
 
+// IsZero checks if the UserID is empty/nil
 func (vo UserID) IsZero() bool {
 	return vo.value == uuid.Nil
 }
 
+// Equal compares two UserID objects
 func (vo UserID) Equal(other UserID) bool {
 	return vo.value == other.value
 }
 
+// String returns the string representation of the UUID
 func (vo UserID) String() string {
 	return vo.value.String()
+}
+
+// UUID returns the underlying uuid.UUID type for persistence
+func (vo UserID) UUID() uuid.UUID {
+	return vo.value
 }

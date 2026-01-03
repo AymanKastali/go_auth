@@ -2,37 +2,50 @@ package adaptererr
 
 import (
 	"errors"
-	"net/http"
-
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/domain/domainerr"
+	"net/http"
 )
 
-func FromApplication(err error) (status int, message string) {
-	var appErr *apperr.AppError
-	if !errors.As(err, &appErr) {
-		return http.StatusInternalServerError, "internal server error"
+// ErrorResponse is the standard JSON contract for your API consumers
+type ErrorResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Field   string `json:"field,omitempty"` // For validation errors
+}
+
+func Translate(err error) (int, ErrorResponse) {
+	// 1. Check for Domain-level errors (Validation/Rules)
+	// We use errors.As because we want to extract the Attr() field
+	var dErr domainerr.DomainError
+	if errors.As(err, &dErr) {
+		return http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: dErr.Error(),
+			Field:   dErr.Attr(),
+		}
 	}
 
-	switch appErr.Code() {
-	case apperr.CodeInvalidValue:
-		return http.StatusBadRequest, appErr.Error()
+	// 2. Check for Application-level errors (Business Logic Outcomes)
+	// We use errors.Is for sentinel errors
+	if errors.Is(err, apperr.ErrInvalidCredentials) {
+		return http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "Authentication failed. Check your email and password.",
+		}
+	}
 
-	case apperr.CodeInvalidCredentials:
-		return http.StatusUnauthorized, "invalid credentials"
+	if errors.Is(err, apperr.ErrNotFound) {
+		return http.StatusNotFound, ErrorResponse{
+			Success: false,
+			Message: "The requested resource could not be found.",
+		}
+	}
 
-	case apperr.CodeUserInactive:
-		return http.StatusForbidden, "user is inactive"
-
-	case apperr.CodeDeviceNotUsable:
-		return http.StatusUnauthorized, "device is not usable"
-
-	case apperr.CodeDeviceNotFound:
-		return http.StatusUnauthorized, "device not found"
-
-	case apperr.CodeEmailExists:
-		return http.StatusConflict, "email already registered"
-
-	default:
-		return http.StatusInternalServerError, "internal server error"
+	// 3. The Catch-All (Internal Server Error)
+	// This covers apperr.ErrInternal and any unhandled errors
+	return http.StatusInternalServerError, ErrorResponse{
+		Success: false,
+		Message: "An unexpected error occurred. Please try again later.",
 	}
 }

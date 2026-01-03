@@ -36,33 +36,35 @@ func NewRegisterUseCase(
 func (h *registerUseCase) Register(email string, password string) (*dto.RegisteredUserDTO, error) {
 	h.logger.Info("Starting user registration", "email", email)
 
-	// 1. Validate email
+	// 1. DOMAIN: Validate email (Business Rule)
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
 		h.logger.Error("Invalid email provided", "email", email, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.MapDomain(err) // Preserves the Attr() for the API
 	}
 
-	// 2. Check if user already exists
+	// 2. INFRASTRUCTURE: Check if user already exists
 	existing, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
 		h.logger.Error("Failed to check existing user", "email", email, "error", err)
-		return nil, apperr.FromDomainError(err)
+		return nil, apperr.ErrInternal // Securely hide DB specifics
 	}
 	if existing != nil {
 		h.logger.Warn("Email already registered", "email", email)
-		return nil, apperr.FromDomainError(err)
+		// This is a process conflict, return the specific app error
+		return nil, apperr.ErrConflict
 	}
 
-	// 3. Hash password
+	// 3. INFRASTRUCTURE: Hash password
 	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
-		h.logger.Error("Failed to hash password", "email", email, "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Error("Failed to hash password", "error", err)
+		return nil, apperr.ErrInternal
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
-	// 4. Create user entity
+	// 4. DOMAIN: Create user entity
+	// Note: We use the Domain constants for default state and roles
 	user, err := entities.NewUser(
 		valueobjects.NewUserID(),
 		emailVO,
@@ -72,22 +74,22 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 		time.Now().UTC(),
 	)
 	if err != nil {
-		h.logger.Error("Failed to create user entity", "email", email, "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Error("Entity validation failed", "error", err)
+		return nil, apperr.MapDomain(err)
 	}
 
-	// 5. Save user
+	// 5. INFRASTRUCTURE: Save user
 	if err := h.userRepository.Save(user); err != nil {
-		h.logger.Error("Failed to save user", "email", email, "error", err)
-		return nil, apperr.FromDomainError(err)
+		h.logger.Error("Failed to save user repository", "error", err)
+		return nil, apperr.ErrInternal
 	}
 
-	// 6. Publish event
-	userIDVO := user.ID()
-	h.logger.Info("User registered successfully", "email", email, "userID", userIDVO)
-	_ = events.UserRegistered{UserID: userIDVO} // implement actual event publishing
+	// 6. LOGGING & EVENTS
+	h.logger.Info("User registered successfully", "userID", user.ID())
+	// Note: In a production app, event publishing would be handled here
+	_ = events.UserRegistered{UserID: user.ID()}
 
-	// 7. Return response DTO
+	// 7. RETURN DTO
 	return &dto.RegisteredUserDTO{
 		UserID: user.ID().String(),
 		Email:  user.Email().Value(),

@@ -39,29 +39,22 @@ func NewUser(
 	roles []valueobjects.Role,
 	nowUTC time.Time,
 ) (*User, error) {
-	var missing []string
-
+	// Strict individual required checks
 	if userID.IsZero() {
-		missing = append(missing, "id")
+		return nil, domainerr.NewRequired("user_id")
 	}
 	if email.Value() == "" {
-		missing = append(missing, "email")
+		return nil, domainerr.NewRequired("email")
 	}
 	if passwordHash.Value() == "" {
-		missing = append(missing, "password")
+		return nil, domainerr.NewRequired("password")
 	}
-	if status == "" {
-		missing = append(missing, "state")
-	}
-	if roles == nil {
-		roles = []valueobjects.Role{}
+	if string(status) == "" {
+		return nil, domainerr.NewRequired("status")
 	}
 
-	if len(missing) > 0 {
-		return nil, domainerr.RequiredAttrsError(
-			missing,
-			createRefreshTokenOp,
-		)
+	if roles == nil {
+		roles = []valueobjects.Role{}
 	}
 
 	return &User{
@@ -141,19 +134,24 @@ func (e *User) IsActive() bool {
 	return e.Status() == valueobjects.UserActive
 }
 
-func (u *User) Activate() error {
-	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"deleted user cannot be activated",
-			activateUserOp,
-		)
+func (e *User) RolesAsStrings() []string {
+	if e.roles == nil {
+		return []string{}
 	}
 
+	roles := make([]string, len(e.roles))
+	for i, role := range e.roles {
+		roles[i] = string(role)
+	}
+	return roles
+}
+
+func (u *User) Activate() error {
+	if u.IsDeleted() {
+		return domainerr.NewRuleViolation("cannot activate a deleted user")
+	}
 	if u.IsActive() {
-		return domainerr.InvalidStateError(
-			"user is already active",
-			activateUserOp,
-		)
+		return domainerr.NewRuleViolation("user is already active")
 	}
 
 	u.status = valueobjects.UserActive
@@ -163,17 +161,10 @@ func (u *User) Activate() error {
 
 func (u *User) Deactivate() error {
 	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"deleted user cannot be deactivated",
-			deactivateUserOp,
-		)
+		return domainerr.NewRuleViolation("cannot deactivate a deleted user")
 	}
-
 	if !u.IsActive() {
-		return domainerr.InvalidStateError(
-			"user is already inactive",
-			deactivateUserOp,
-		)
+		return domainerr.NewRuleViolation("user is already inactive")
 	}
 
 	u.status = valueobjects.UserInactive
@@ -183,26 +174,20 @@ func (u *User) Deactivate() error {
 
 func (u *User) MarkDeleted() error {
 	if u.IsDeleted() {
-		return domainerr.InvalidStateError(
-			"user is already deleted",
-			deleteUserOp,
-		)
+		return domainerr.NewRuleViolation("user is already deleted")
 	}
 
 	now := time.Now().UTC()
 	u.deletedAt = &now
+	u.status = valueobjects.UserInactive
 	u.touch()
 	return nil
 }
 
 func (u *User) AddRole(role valueobjects.Role) error {
 	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"cannot modify roles of deleted user",
-			addRoleOp,
-		)
+		return domainerr.NewRuleViolation("cannot modify roles of a deleted user")
 	}
-
 	if slices.Contains(u.roles, role) {
 		return nil
 	}
@@ -214,37 +199,24 @@ func (u *User) AddRole(role valueobjects.Role) error {
 
 func (u *User) RemoveRole(role valueobjects.Role) error {
 	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"cannot modify roles of deleted user",
-			removeRoleOp,
-		)
+		return domainerr.NewRuleViolation("cannot modify roles of a deleted user")
 	}
-
 	if !slices.Contains(u.roles, role) {
 		return nil
 	}
 
-	newRoles := make([]valueobjects.Role, 0, len(u.roles))
-	for _, r := range u.roles {
-		if r != role {
-			newRoles = append(newRoles, r)
-		}
-	}
-
-	u.roles = newRoles
+	u.roles = slices.DeleteFunc(u.roles, func(r valueobjects.Role) bool {
+		return r == role
+	})
 	u.touch()
 	return nil
 }
 
 func (u *User) ChangeEmail(email valueobjects.Email) error {
 	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"cannot change email of deleted user",
-			changeEmailOp,
-		)
+		return domainerr.NewRuleViolation("cannot change email of a deleted user")
 	}
-
-	if u.email == email {
+	if u.email.Value() == email.Value() {
 		return nil
 	}
 
@@ -255,10 +227,7 @@ func (u *User) ChangeEmail(email valueobjects.Email) error {
 
 func (u *User) ChangeHashedPassword(hash valueobjects.HashedPassword) error {
 	if u.IsDeleted() {
-		return domainerr.OperationDeniedError(
-			"cannot change password of deleted user",
-			changePasswordOp,
-		)
+		return domainerr.NewRuleViolation("cannot change password of a deleted user")
 	}
 
 	u.passwordHash = hash
