@@ -3,10 +3,11 @@ package repositories
 import (
 	"errors"
 	"fmt"
+
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
@@ -30,30 +31,19 @@ func NewGormUserRepository(
 }
 
 func (r *GormUserRepository) Save(u *entities.User) error {
-
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return err
 	}
 
-	result := r.db.
-		Session(&gorm.Session{FullSaveAssociations: true}).
-		Save(model)
-
-	return result.Error
+	// Omit("Roles.*") tells GORM:
+	// "Update the join table (user_roles), but don't touch the columns in the roles table."
+	return r.db.Omit("Roles.*").Create(model).Error
 }
 
-func (r *GormUserRepository) GetByEmail(
-	email valueobjects.Email,
-) (*entities.User, error) {
-
+func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*entities.User, error) {
 	var model models.User
-
-	err := r.db.
-		Where("email = ?", email.Value()).
-		First(&model).
-		Error
-
+	err := r.db.Preload("Roles").Where("email = ?", email.Value()).First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -64,19 +54,9 @@ func (r *GormUserRepository) GetByEmail(
 	return r.mapper.ToDomain(&model)
 }
 
-func (r *GormUserRepository) GetByID(
-	id valueobjects.UserID,
-) (*entities.User, error) {
-
+func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*entities.User, error) {
 	var model models.User
-
-	modelID := id.String()
-
-	err := r.db.
-		Where("id = ?", modelID).
-		First(&model).
-		Error
-
+	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -86,33 +66,25 @@ func (r *GormUserRepository) GetByID(
 
 	return r.mapper.ToDomain(&model)
 }
-
 func (r *GormUserRepository) Update(u *entities.User) error {
-	// 1. Map Domain Entity to DB Model using your Mapper
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return fmt.Errorf("repository update: mapping failed: %w", err)
 	}
 
-	// 2. Perform the update
-	// Using a map ensures 'Roles' is updated even if the slice is empty
-	result := r.db.Model(&models.User{}).
-		Where("id = ?", model.ID).
-		Updates(map[string]any{
-			"email":         model.Email,
-			"password_hash": model.HashedPassword,
-			"status":        model.Status,
-			"roles":         model.Roles, // datatypes.JSONSlice handles the valuer interface
-			"updated_at":    u.UpdatedAt, // Use the entity's timestamp
-		})
+	// We use a transaction to ensure the User and their Associations are updated correctly
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Update User basic fields
+		if err := tx.Omit("Roles").Save(model).Error; err != nil {
+			return err
+		}
 
-	if result.Error != nil {
-		return fmt.Errorf("repository update: database error: %w", result.Error)
-	}
+		// 2. Replace the associations in the join table
+		// This ensures the Many-to-Many link is updated without wiping Role names
+		if err := tx.Model(model).Association("Roles").Replace(model.Roles); err != nil {
+			return err
+		}
 
-	if result.RowsAffected == 0 {
-		return errors.New("repository update: user not found")
-	}
-
-	return nil
+		return nil
+	})
 }

@@ -6,8 +6,6 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
-
-	"gorm.io/datatypes"
 )
 
 type UserMapper struct{}
@@ -16,6 +14,7 @@ func NewUserMapper() *UserMapper {
 	return &UserMapper{}
 }
 
+// ToDomain converts a GORM User model (with Roles) to a domain entity
 func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	if u == nil {
 		return nil, nil
@@ -43,18 +42,23 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 		return nil, fmt.Errorf("unknown status '%s'", u.Status)
 	}
 
-	roles := make([]valueobjects.Role, len(u.Roles))
+	// Map roles from models.Role → valueobjects.RoleID
+	roleIDs := make([]valueobjects.RoleID, len(u.Roles))
 	for i, r := range u.Roles {
-		roles[i] = valueobjects.Role(r)
+		roleID, err := valueobjects.RoleIDFromString(r.ID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Role ID '%s': %w", r.ID, err)
+		}
+		roleIDs[i] = roleID
 	}
 
-	// Use rehydration constructor
+	// Rehydrate the domain User
 	user, err := entities.ReconstituteUser(
 		userID,
 		emailVO,
 		pwHashVO,
 		status,
-		roles,
+		roleIDs,
 		u.CreatedAt,
 		u.UpdatedAt,
 		u.DeletedAt,
@@ -66,15 +70,18 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	return user, nil
 }
 
+// ToModel converts a domain User entity to a GORM User model
 func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
 	if u == nil {
 		return nil, nil
 	}
 
-	userRoles := u.Roles()
-	roles := make(datatypes.JSONSlice[string], len(userRoles))
-	for i, r := range userRoles {
-		roles[i] = string(r)
+	// Convert roleIDs → models.Role for Many-to-Many
+	roles := make([]models.Role, len(u.RoleIDs()))
+	for i, rid := range u.RoleIDs() {
+		roles[i] = models.Role{
+			ID: rid.String(),
+		}
 	}
 
 	return &models.User{
@@ -83,5 +90,8 @@ func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
 		HashedPassword: u.HashedPassword().Value(),
 		Status:         string(u.Status()),
 		Roles:          roles,
+		CreatedAt:      u.CreatedAt(),
+		UpdatedAt:      u.UpdatedAt(),
+		DeletedAt:      u.DeletedAt(),
 	}, nil
 }
