@@ -1,7 +1,8 @@
 package use_cases
 
 import (
-	"errors"
+	"fmt"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/use_cases"
@@ -34,59 +35,51 @@ func NewManageRoleUseCase(
 func (uc *manageRoleUseCase) UpdateRole(req dto.ManageRoleInput) error {
 	uc.logger.Info("Updating user role", "userID", req.UserID, "action", req.Action, "role", req.Role)
 
-	// 1️⃣ Convert user ID
+	// 1️⃣ Convert user ID (Domain Validation)
 	userIDVO, err := valueobjects.UserIDFromString(req.UserID)
 	if err != nil {
-		uc.logger.Error("Invalid user ID", "userID", req.UserID, "error", err)
-		return err
+		return apperr.MapDomainErr(err)
 	}
 
-	// 2️⃣ Fetch user
+	// 2️⃣ Fetch user (Infrastructure)
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		uc.logger.Error("Failed to fetch user", "userID", req.UserID, "error", err)
-		return err
+		return err // Already an apperr from repository
 	}
 	if user == nil {
-		uc.logger.Warn("User not found", "userID", req.UserID)
-		return errors.New("user not found")
+		return apperr.NewNotFoundErr("user", req.UserID)
 	}
 
-	// 3️⃣ Fetch Role entity by name
+	// 3️⃣ Fetch Role entity by name (Infrastructure)
 	roleName := strings.ToUpper(req.Role)
 	roleEntity, err := uc.roleRepo.GetByName(roleName)
 	if err != nil {
-		uc.logger.Error("Failed to fetch role", "role", roleName, "error", err)
-		return err
+		return err // Already an apperr from repository
 	}
 	if roleEntity == nil {
-		uc.logger.Warn("Role not found", "role", roleName)
-		return errors.New("role not found")
+		return apperr.NewNotFoundErr("role", roleName)
 	}
 
-	// 4️⃣ Grant or revoke role
-	switch strings.ToLower(req.Action) {
+	// 4️⃣ Grant or revoke role (Business Logic)
+	action := strings.ToLower(req.Action)
+	switch action {
 	case "grant":
 		if err := user.AddRoleID(roleEntity.ID()); err != nil {
-			uc.logger.Error("Failed to add role to user", "userID", req.UserID, "role", roleName, "error", err)
-			return err
+			// Map domain logic errors (e.g., "user already has role") to Conflict
+			return apperr.NewConflictErr("role_assignment", err.Error())
 		}
-		uc.logger.Info("Role granted to user", "userID", req.UserID, "role", roleName)
 	case "revoke":
 		if err := user.RemoveRoleID(roleEntity.ID()); err != nil {
-			uc.logger.Error("Failed to remove role from user", "userID", req.UserID, "role", roleName, "error", err)
-			return err
+			// Map domain logic errors (e.g., "user doesn't have role") to Conflict/Not Found
+			return apperr.NewConflictErr("role_assignment", err.Error())
 		}
-		uc.logger.Info("Role revoked from user", "userID", req.UserID, "role", roleName)
 	default:
-		uc.logger.Warn("Unknown action for role management", "action", req.Action)
-		return errors.New("invalid action")
+		return apperr.NewValidationErr(fmt.Errorf("invalid action: %s", action))
 	}
 
-	// 5️⃣ Update user in repository
+	// 5️⃣ Persist changes (Infrastructure)
 	if err := uc.userRepo.Update(user); err != nil {
-		uc.logger.Error("Failed to update user roles", "userID", req.UserID, "error", err)
-		return err
+		return err // Already an apperr from repository
 	}
 
 	uc.logger.Info("User role update successful", "userID", req.UserID)

@@ -2,6 +2,7 @@ package fiber
 
 import (
 	"go_auth/internal/adapters/http/fiber/api/v1/routes"
+	"go_auth/internal/adapters/http/fiber/middlewares"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -11,7 +12,7 @@ import (
 func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      cfg.AppName(),
-		ErrorHandler: defaultErrorHandler,
+		ErrorHandler: middlewares.GlobalErrorHandler,
 	})
 
 	// Middlewares
@@ -26,15 +27,6 @@ func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
 	})
 
 	return app
-}
-
-func defaultErrorHandler(c *fiber.Ctx, err error) error {
-	// You can inspect err and return proper JSON
-	code := fiber.StatusInternalServerError
-	msg := err.Error()
-	return c.Status(code).JSON(fiber.Map{
-		"error": msg,
-	})
 }
 
 func registerRoutes(app *fiber.App, d *Deps) {

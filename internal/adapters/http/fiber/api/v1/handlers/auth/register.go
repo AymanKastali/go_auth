@@ -2,8 +2,8 @@ package auth_handlers
 
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
-	"go_auth/internal/adapters/http/fiber/fibererr"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,17 +22,15 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 
 	// 1. TRANSPORT: Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		// If body parsing fails, we treat it as an internal adapter error
-		// or map it to a standardized bad request response.
-		return fibererr.TranslateErr(c, err)
+		// Return a ValidationErr so the Global Handler returns a 400
+		return apperr.NewValidationErr(err)
 	}
 
 	// 2. APPLICATION: Call the use case
 	domainResp, err := h.useCase.Register(req.Email, req.Password)
 	if err != nil {
-		// Handler doesn't care about the error type.
-		// It just knows it needs to be translated for the client.
-		return fibererr.TranslateErr(c, err)
+		// The Global Error Handler handles the 409 Conflict, 400, etc.
+		return err
 	}
 
 	// 3. SUCCESS: Map domain response to adapter DTO
@@ -41,6 +39,5 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 		Email:  domainResp.Email,
 	}
 
-	return utils.Success(c, fiber.StatusCreated, adapterResp, "User registered successfully")
-
+	return utils.Created(c, adapterResp, "User registered successfully")
 }

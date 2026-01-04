@@ -1,9 +1,10 @@
 package repositories
 
 import (
-	"fmt"
+	"errors"
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
@@ -16,7 +17,6 @@ type GormRefreshTokenRepository struct {
 	mapper *mappers.RefreshTokenMapper
 }
 
-// Constructor
 func NewGormRefreshTokenRepository(db *gorm.DB, mapper *mappers.RefreshTokenMapper) *GormRefreshTokenRepository {
 	return &GormRefreshTokenRepository{
 		db:     db,
@@ -24,85 +24,77 @@ func NewGormRefreshTokenRepository(db *gorm.DB, mapper *mappers.RefreshTokenMapp
 	}
 }
 
-// Save creates or updates a refresh token
 func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
 	model := r.mapper.ToModel(token)
-
-	if err := r.db.Save(model).Error; err != nil {
-		return fmt.Errorf("refresh token repository: failed to save token: %w", err)
-	}
-
-	return nil
+	err := r.db.Save(model).Error
+	return r.handleError(err, token.ID().String())
 }
 
-// GetByID fetches a refresh token by its ID
 func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	if err := r.db.Where("id = ?", tokenID.String()).First(&model).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	err := r.db.Where("id = ?", tokenID.String()).First(&model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("refresh token repository: failed to get token by ID: %w", err)
+		return nil, r.handleError(err, tokenID.String())
 	}
-
 	return r.mapper.ToDomain(&model)
 }
 
-// GetByToken fetches a refresh token by its string value
 func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	if err := r.db.Where("token = ?", tokenStr).First(&model).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	err := r.db.Where("token = ?", tokenStr).First(&model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("refresh token repository: failed to get token by value: %w", err)
+		return nil, r.handleError(err, "token_value")
 	}
-
 	return r.mapper.ToDomain(&model)
 }
 
-// Revoke marks a refresh token as revoked
 func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
-	if err := r.db.Model(&models.RefreshToken{}).
+	result := r.db.Model(&models.RefreshToken{}).
 		Where("id = ?", tokenID.String()).
-		Update("revoked_at", revokedAt).Error; err != nil {
-		return fmt.Errorf("refresh token repository: failed to revoke token: %w", err)
-	}
+		Update("revoked_at", revokedAt)
 
+	if result.Error != nil {
+		return r.handleError(result.Error, tokenID.String())
+	}
+	if result.RowsAffected == 0 {
+		return apperr.NewNotFoundErr("refresh_token", tokenID.String())
+	}
 	return nil
 }
 
-// GetByUserID retrieves all refresh tokens for a user
 func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
 	var modelsList []models.RefreshToken
-	if err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error; err != nil {
-		return nil, fmt.Errorf("refresh token repository: failed to get tokens by user ID: %w", err)
+	err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error
+	if err != nil {
+		return nil, r.handleError(err, userID.String())
 	}
 
 	tokens := make([]*entities.RefreshToken, len(modelsList))
 	for i := range modelsList {
 		t, err := r.mapper.ToDomain(&modelsList[i])
 		if err != nil {
-			return nil, fmt.Errorf("refresh token repository: failed to map token: %w", err)
+			return nil, apperr.NewInternalErr("failed to map refresh token")
 		}
 		tokens[i] = t
 	}
-
 	return tokens, nil
 }
 
-func (r *GormRefreshTokenRepository) IsRevoked(
-	tokenID valueobjects.TokenID,
-) (bool, error) {
-
+func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bool, error) {
 	var token models.RefreshToken
-	err := r.db.First(&token, "id = ?", tokenID.String()).Error
+	err := r.db.Select("revoked_at").First(&token, "id = ?", tokenID.String()).Error
 
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return true, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, nil // If it doesn't exist, treat as revoked/invalid
 		}
-		return false, err
+		return false, r.handleError(err, tokenID.String())
 	}
 
 	return token.RevokedAt != nil, nil
@@ -113,17 +105,26 @@ func (r *GormRefreshTokenRepository) RevokeByDeviceID(
 	deviceID valueobjects.DeviceID,
 	revokedAt time.Time,
 ) error {
-	// We target records matching both IDs where revoked_at is still NULL
-	result := r.db.Model(&models.RefreshToken{}).
+	err := r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
 			userID.String(),
 			deviceID.String(),
 		).
-		Update("revoked_at", revokedAt)
+		Update("revoked_at", revokedAt).Error
 
-	if result.Error != nil {
-		return fmt.Errorf("refresh token repository: failed to revoke tokens by device: %w", result.Error)
+	return r.handleError(err, deviceID.String())
+}
+
+// Private helper for consistency
+func (r *GormRefreshTokenRepository) handleError(err error, id string) error {
+	if err == nil {
+		return nil
 	}
-
-	return nil
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return apperr.NewAlreadyExistsErr("refresh_token", id)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return apperr.NewNotFoundErr("refresh_token", id)
+	}
+	return apperr.NewInternalErr(err.Error())
 }

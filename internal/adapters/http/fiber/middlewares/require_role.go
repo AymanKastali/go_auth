@@ -1,37 +1,32 @@
 package middlewares
 
 import (
+	"go_auth/internal/core/application/apperr"
+	"slices"
+
 	"github.com/gofiber/fiber/v2"
 )
 
-// RequireRole ensures the user has the required role (by name)
 func RequireRole(requiredRoleName string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// 1️⃣ Get roles from context (populated by JWTMiddleware)
+		// 1. Adapter logic: Extract data from the Web Context
 		rolesRaw := c.Locals("roles")
 		if rolesRaw == nil {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "access denied: no roles found",
-			})
+			// Mapping a Web failure to an Application Error
+			return apperr.NewUnauthorizedErr("no session found")
 		}
 
-		roles, ok := rolesRaw.([]string) // JWT stores role names as []string
+		roles, ok := rolesRaw.([]string)
 		if !ok {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "access denied: invalid roles format",
-			})
+			return apperr.NewInternalErr("invalid session data")
 		}
 
-		// 2️⃣ Check if the required role exists in the user's roles
-		for _, r := range roles {
-			if r == requiredRoleName {
-				return c.Next()
-			}
+		// 2. Application/Business Logic: Does the user meet the criteria?
+		if slices.Contains(roles, requiredRoleName) {
+			return c.Next()
 		}
 
-		// 3️⃣ Access denied
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "access denied: insufficient permissions",
-		})
+		// 3. Application Error: Access Denied
+		return apperr.NewForbiddenErr("insufficient permissions")
 	}
 }

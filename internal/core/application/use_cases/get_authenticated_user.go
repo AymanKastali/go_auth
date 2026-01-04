@@ -1,6 +1,7 @@
 package use_cases
 
 import (
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/use_cases"
@@ -32,7 +33,7 @@ func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.Authenticate
 	// 1️⃣ Parse user ID
 	userIDVO, err := valueobjects.UserIDFromString(userID)
 	if err != nil {
-		return nil, err
+		return nil, apperr.MapDomainErr(err)
 	}
 
 	// 2️⃣ Fetch user entity
@@ -41,7 +42,7 @@ func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.Authenticate
 		return nil, err
 	}
 	if user == nil {
-		return nil, nil
+		return nil, apperr.NewNotFoundErr("user", userID)
 	}
 
 	// 3️⃣ Map role IDs -> role names
@@ -51,7 +52,7 @@ func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.Authenticate
 		role, err := h.roleRepository.GetByID(rID)
 		if err != nil {
 			h.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
-			return nil, err
+			return nil, apperr.NewInternalErr("failed to fetch user roles")
 		}
 		if role == nil {
 			h.logger.Warn("Role not found for user", "roleID", rID)

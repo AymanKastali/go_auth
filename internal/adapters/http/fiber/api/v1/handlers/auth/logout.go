@@ -29,5 +29,5 @@ func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
 
 	h.useCase.Logout(req.RefreshToken)
 
-	return utils.Success(c, fiber.StatusNoContent, nil, "")
+	return utils.NoContent(c)
 }

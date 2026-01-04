@@ -2,7 +2,7 @@ package auth_handlers
 
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
-	"go_auth/internal/adapters/http/fiber/fibererr"
+	"go_auth/internal/adapters/http/fiber/utils" // Keep success util
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -23,30 +23,27 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	// 1. TRANSPORT: Extract Device ID
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		// Use the same standardized response even for simple transport checks
-		return fibererr.TranslateErr(c, apperr.NewUnauthorizedErr("missing device id header"))
+		return apperr.NewUnauthorizedErr("missing device id header")
 	}
 
 	// 2. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
-		// We can pass a specific application for bad input
-		return fibererr.TranslateErr(c, apperr.MapDomainErr(err))
+		return apperr.NewValidationErr(err)
 	}
 
 	// 3. APPLICATION: Call use case
 	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
-		// The handler no longer cares if it's a 401, 403, or 500
-		return fibererr.TranslateErr(c, err)
+		return err
 	}
 
-	// 4. SUCCESS: Standardized response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "User token refreshed successfully",
-		"data": dto.LoginResponse{
+	// 4. SUCCESS: Standardized response using your utility
+	return utils.OK(
+		c,
+		dto.LoginResponse{
 			AccessToken:  authResp.AccessToken,
 			RefreshToken: authResp.RefreshToken,
 		},
-	})
+		"User token refreshed successfully",
+	)
 }

@@ -53,7 +53,6 @@ func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
 		userResponse.Roles[i] = string(role)
 	}
 
-	// return c.JSON(userResponse)
-	return utils.Success(c, fiber.StatusOK, userResponse, "User authenticated successfully")
+	return utils.OK(c, userResponse, "User authenticated successfully")
 
 }

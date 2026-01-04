@@ -55,8 +55,7 @@ func (h *loginUseCase) Login(
 	// 2. INFRASTRUCTURE: Fetch user
 	user, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
-		h.logger.Error("User repository failure", "error", err)
-		return nil, apperr.NewInternalErr("database connection failed")
+		return nil, err
 	}
 
 	// 3. APPLICATION: Logical check (Security: generic message)
@@ -78,7 +77,7 @@ func (h *loginUseCase) Login(
 	// 6. INFRASTRUCTURE: Fetch device
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		return nil, apperr.NewInternalErr("device lookup failed")
+		return nil, err
 	}
 
 	now := time.Now().UTC()
@@ -122,11 +121,11 @@ func (h *loginUseCase) Login(
 
 	// 11. INFRASTRUCTURE: Rotation
 	if err := h.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), now); err != nil {
-		return nil, apperr.NewInternalErr("failed to revoke old tokens")
+		return nil, err
 	}
 
 	if err := h.refreshRepo.Save(refreshTokenEntity); err != nil {
-		return nil, apperr.NewInternalErr("failed to save session")
+		return nil, err
 	}
 
 	return &dto.AuthResponse{

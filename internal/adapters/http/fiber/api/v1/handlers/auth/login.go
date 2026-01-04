@@ -2,7 +2,6 @@ package auth_handlers
 
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
-	"go_auth/internal/adapters/http/fiber/fibererr"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -13,27 +12,28 @@ type LoginHandler struct {
 	useCase use_cases.LoginUseCasePort
 }
 
-func NewLoginHandler(
-	uc use_cases.LoginUseCasePort,
-) *LoginHandler {
+func NewLoginHandler(uc use_cases.LoginUseCasePort) *LoginHandler {
 	return &LoginHandler{useCase: uc}
 }
 
 func (h *LoginHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	// Extract context (device info, etc.)
+	// 1️⃣ Extract context (Assuming you keep this utility or move it to a middleware)
+	// If ExtractRequestContext returns an error, just return it.
+	// The Global Error Handler will catch it.
 	ctx, err := utils.ExtractRequestContext(c)
 	if err != nil {
-		return utils.Failure(c, fiber.StatusBadRequest, err.Error(), "Device ID")
+		return err
 	}
 
-	// Parse request body
+	// 2️⃣ Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return utils.Failure(c, fiber.StatusBadRequest, "Invalid request body", "json")
+		// Fiber's built-in error is caught by the "case *fiber.Error" in our Global Handler
+		return fiber.ErrBadRequest
 	}
 
-	// Call use case
+	// 3️⃣ Call use case
 	authResp, err := h.useCase.Login(
 		req.Email,
 		req.Password,
@@ -43,13 +43,11 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		return fibererr.TranslateErr(c, err)
+		return err
 	}
 
-	// Success response
-	return utils.Success(
+	return utils.OK(
 		c,
-		fiber.StatusOK,
 		dto.LoginResponse{
 			AccessToken:  authResp.AccessToken,
 			RefreshToken: authResp.RefreshToken,
