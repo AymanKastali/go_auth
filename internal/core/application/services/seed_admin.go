@@ -3,9 +3,9 @@ package services
 import (
 	"go_auth/internal/adapters/config"
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
@@ -13,19 +13,22 @@ import (
 
 type SeedAdminService struct {
 	userRepo       repositories.UserRepositoryPort
+	roleRepo       repositories.RoleRepositoryPort
 	passwordHasher security.HashPasswordPort
 	cfg            *config.SeederConfig
 	logger         *slog.Logger
 }
 
 func NewSeedAdminService(
-	repo repositories.UserRepositoryPort,
+	userRepo repositories.UserRepositoryPort,
+	roleRepo repositories.RoleRepositoryPort,
 	passwordHasher security.HashPasswordPort,
 	seederConfig *config.SeederConfig,
 	logger *slog.Logger,
 ) *SeedAdminService {
 	return &SeedAdminService{
-		userRepo:       repo,
+		userRepo:       userRepo,
+		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		cfg:            seederConfig,
 		logger:         logger,
@@ -36,32 +39,29 @@ func (s *SeedAdminService) SeedAdmin() error {
 	adminEmail := s.cfg.AdminEmail
 	adminPass := s.cfg.AdminPassword
 
-	// Validation: Ensure env variables aren't empty
 	if adminEmail == "" || adminPass == "" {
 		s.logger.Error("ADMIN_EMAIL or ADMIN_PASSWORD environment variables are not set")
-		// FIX: Use factory method
 		return apperr.NewInternalErr("seeder configuration missing")
 	}
 
-	// 1. Check if admin already exists
 	emailVO, err := valueobjects.NewEmail(adminEmail)
 	if err != nil {
 		s.logger.Error("Failed to create Email value object", "error", err)
-		// FIX: Use MapDomain for Domain Rule violations
 		return apperr.MapDomainErr(err)
 	}
 
-	exists, err := s.userRepo.GetByEmail(emailVO)
+	// Check if admin exists
+	existing, err := s.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		s.logger.Error("Failed to check if admin exists", "error", err)
+		s.logger.Error("Failed to check admin existence", "error", err)
 		return apperr.NewInternalErr("failed to check admin existence")
 	}
-	if exists != nil {
+	if existing != nil {
 		s.logger.Info("Admin user already exists, skipping seeding", "email", adminEmail)
 		return nil
 	}
 
-	// 2. Hash the password from .env
+	// Hash password
 	hash, err := s.passwordHasher.Hash(adminPass)
 	if err != nil {
 		s.logger.Error("Failed to hash admin password", "error", err)
@@ -69,13 +69,24 @@ func (s *SeedAdminService) SeedAdmin() error {
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
-	// 3. Create the Admin Entity via Factory
+	// Fetch ADMIN role
+	adminRole, err := s.roleRepo.GetByName("ADMIN")
+	if err != nil {
+		s.logger.Error("Failed to fetch ADMIN role", "error", err)
+		return apperr.NewInternalErr("failed to fetch ADMIN role")
+	}
+	if adminRole == nil {
+		s.logger.Error("ADMIN role does not exist, cannot seed admin user")
+		return apperr.NewInternalErr("ADMIN role missing")
+	}
+
+	// Create admin user entity
 	admin, err := entities.NewUser(
 		valueobjects.NewUserID(),
 		emailVO,
 		pw,
 		valueobjects.UserActive,
-		[]valueobjects.Role{valueobjects.RoleAdmin},
+		[]valueobjects.RoleID{adminRole.ID()},
 		time.Now().UTC(),
 	)
 	if err != nil {
@@ -83,7 +94,7 @@ func (s *SeedAdminService) SeedAdmin() error {
 		return apperr.MapDomainErr(err)
 	}
 
-	// 4. Save to Repository
+	// Save admin
 	if err := s.userRepo.Save(admin); err != nil {
 		s.logger.Error("Failed to save admin to repository", "error", err)
 		return apperr.NewInternalErr("failed to save admin user")

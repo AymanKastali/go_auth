@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"time"
 
+	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/application/ports/use_cases"
-	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 )
 

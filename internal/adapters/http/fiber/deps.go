@@ -40,6 +40,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Mappers
 	// -------------------
 	userMapper := mappers.NewUserMapper()
+	roleMapper := mappers.NewRoleMapper()
 	deviceMapper := mappers.NewDeviceMapper()
 	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
@@ -47,6 +48,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Repositories
 	// -------------------
 	userRepo := repositories.NewGormUserRepository(db, userMapper)
+	roleRepo := repositories.NewGormRoleRepository(db, roleMapper)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper)
 	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
 
@@ -68,13 +70,22 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	if err != nil {
 		return nil, err
 	}
-	seeder := services.NewSeedAdminService(
+	rolesSeeder := services.NewSeedRolesService(
+		roleRepo,
+		logger,
+	)
+	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
+		log.Fatal(err)
+	}
+
+	adminUserSeeder := services.NewSeedAdminService(
 		userRepo,
+		roleRepo,
 		passwordHasher,
 		seederCfg,
 		logger,
 	)
-	if err := seeder.SeedAdmin(); err != nil {
+	if err := adminUserSeeder.SeedAdmin(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -83,6 +94,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	registerUC := use_cases.NewRegisterUseCase(
 		userRepo,
+		roleRepo,
 		passwordHasher,
 		logger,
 	)
@@ -106,17 +118,20 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
+		roleRepo,
 		jwtService,
 		logger,
 	)
 
 	authUserUC := use_cases.NewAuthenticatedUserUseCase(
 		userRepo,
+		roleRepo,
 		logger,
 	)
 
 	roleUC := use_cases.NewManageRoleUseCase(
 		userRepo,
+		roleRepo,
 		logger,
 	)
 

@@ -2,8 +2,8 @@ package middlewares
 
 import (
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/application/ports/repositories"
 	services "go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 	"strings"
 

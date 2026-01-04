@@ -3,10 +3,10 @@ package use_cases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
+	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/application/ports/use_cases"
 	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/ports/repositories"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
@@ -16,16 +16,19 @@ type refreshTokenUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	deviceRepo     repositories.DeviceRepositoryPort
+	roleRepo       repositories.RoleRepositoryPort
 	tokenService   security.TokenServicePort
 	logger         *slog.Logger
 }
 
 var _ use_cases.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
 
+// Constructor
 func NewRefreshTokenUseCase(
 	userRepository repositories.UserRepositoryPort,
 	refreshRepo repositories.RefreshTokenRepositoryPort,
 	deviceRepo repositories.DeviceRepositoryPort,
+	roleRepo repositories.RoleRepositoryPort,
 	tokenService security.TokenServicePort,
 	logger *slog.Logger,
 ) *refreshTokenUseCase {
@@ -33,22 +36,23 @@ func NewRefreshTokenUseCase(
 		userRepository: userRepository,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
+		roleRepo:       roleRepo,
 		tokenService:   tokenService,
 		logger:         logger,
 	}
 }
 
+// RefreshToken rotates an existing refresh token and issues new tokens
 func (h *refreshTokenUseCase) RefreshToken(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 
-	// 1. INFRASTRUCTURE: Validation
+	// 1️⃣ Validate old refresh token
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
 		return nil, apperr.NewUnauthorizedErr("session expired or invalid")
 	}
 
-	// 2. DOMAIN: Parsing
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
@@ -64,7 +68,7 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 3. INFRASTRUCTURE: Checks
+	// 2️⃣ Check revocation
 	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
 		return nil, apperr.NewInternalErr("token check failed")
@@ -73,6 +77,7 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.NewUnauthorizedErr("token revoked")
 	}
 
+	// 3️⃣ Fetch user and device
 	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil {
 		return nil, apperr.NewInternalErr("user lookup failed")
@@ -86,27 +91,38 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.NewInternalErr("device lookup failed")
 	}
 	if device == nil {
-		// APPLICATION CONCERN: Resource not found
 		return nil, apperr.NewNotFoundErr("device", deviceID.String())
 	}
 
-	// 4. APPLICATION: Security Logic
 	if claims.DeviceID != deviceID.String() {
 		return nil, apperr.NewUnauthorizedErr("device mismatch")
 	}
 
-	// 5. INFRASTRUCTURE: Issuing new tokens
-	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), user.RolesAsStrings())
+	// 4️⃣ Map role IDs to role names
+	roleNames := make([]string, len(user.RoleIDs()))
+	for i, roleID := range user.RoleIDs() {
+		role, err := h.roleRepo.GetByID(roleID)
+		if err != nil {
+			return nil, apperr.NewInternalErr("failed to fetch role for token")
+		}
+		if role == nil {
+			return nil, apperr.NewInternalErr("role missing for user")
+		}
+		roleNames[i] = role.Name()
+	}
+
+	// 5️⃣ Issue new tokens
+	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), device.ID().String(), roleNames)
 	if err != nil {
 		return nil, apperr.NewInternalErr("failed to issue access token")
 	}
 
-	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), deviceID.String())
+	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), device.ID().String())
 	if err != nil {
 		return nil, apperr.NewInternalErr("failed to issue refresh token")
 	}
 
-	// 6. DOMAIN: New Token entity
+	// 6️⃣ Create new refresh token entity
 	newClaims, _ := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
@@ -114,16 +130,22 @@ func (h *refreshTokenUseCase) RefreshToken(
 	}
 
 	now := time.Now().UTC()
-	rtEntity, err := entities.NewRefreshToken(newTokenID, user.ID(), device.ID(), newRefreshToken.Value, newClaims.ExpiresAt, now)
+	rtEntity, err := entities.NewRefreshToken(
+		newTokenID,
+		user.ID(),
+		device.ID(),
+		newRefreshToken.Value,
+		newClaims.ExpiresAt,
+		now,
+	)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 7. PERSISTENCE: Atomic Rotation
+	// 7️⃣ Persist new token and revoke old one atomically
 	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
 		return nil, apperr.NewInternalErr("failed to rotate session")
 	}
-
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
 		return nil, apperr.NewInternalErr("failed to persist session")
 	}

@@ -12,7 +12,7 @@ type User struct {
 	email        valueobjects.Email
 	passwordHash valueobjects.HashedPassword
 	status       valueobjects.UserStatus
-	roles        []valueobjects.Role
+	roleIDs      []valueobjects.RoleID
 	createdAt    time.Time
 	updatedAt    time.Time
 	deletedAt    *time.Time
@@ -24,10 +24,9 @@ func NewUser(
 	email valueobjects.Email,
 	passwordHash valueobjects.HashedPassword,
 	status valueobjects.UserStatus,
-	roles []valueobjects.Role,
+	roleIDs []valueobjects.RoleID,
 	nowUTC time.Time,
 ) (*User, error) {
-	// Strict individual required checks
 	if userID.IsEmpty() {
 		return nil, derr.NewRequiredErr("user_id")
 	}
@@ -41,8 +40,8 @@ func NewUser(
 		return nil, derr.NewRequiredErr("status")
 	}
 
-	if roles == nil {
-		roles = []valueobjects.Role{}
+	if roleIDs == nil {
+		roleIDs = []valueobjects.RoleID{}
 	}
 
 	return &User{
@@ -50,7 +49,7 @@ func NewUser(
 		email:        email,
 		passwordHash: passwordHash,
 		status:       status,
-		roles:        roles,
+		roleIDs:      slices.Clone(roleIDs),
 		createdAt:    nowUTC,
 		updatedAt:    nowUTC,
 	}, nil
@@ -61,7 +60,7 @@ func ReconstituteUser(
 	email valueobjects.Email,
 	passwordHash valueobjects.HashedPassword,
 	status valueobjects.UserStatus,
-	roles []valueobjects.Role,
+	roleIDs []valueobjects.RoleID,
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
 ) (*User, error) {
@@ -70,7 +69,7 @@ func ReconstituteUser(
 		email:        email,
 		passwordHash: passwordHash,
 		status:       status,
-		roles:        roles,
+		roleIDs:      slices.Clone(roleIDs),
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
@@ -78,60 +77,44 @@ func ReconstituteUser(
 }
 
 // Getters
-func (e *User) ID() valueobjects.UserID {
-	return e.id
+func (u *User) ID() valueobjects.UserID {
+	return u.id
 }
 
-func (e *User) Email() valueobjects.Email {
-	return e.email
+func (u *User) Email() valueobjects.Email {
+	return u.email
 }
 
-func (e *User) HashedPassword() valueobjects.HashedPassword {
-	return e.passwordHash
+func (u *User) HashedPassword() valueobjects.HashedPassword {
+	return u.passwordHash
 }
 
-func (e *User) Status() valueobjects.UserStatus {
-	return e.status
+func (u *User) Status() valueobjects.UserStatus {
+	return u.status
 }
 
-func (e *User) Roles() []valueobjects.Role {
-	return slices.Clone(e.roles) // protect internal slice
+func (u *User) RoleIDs() []valueobjects.RoleID {
+	return slices.Clone(u.roleIDs)
 }
 
-func (e *User) CreatedAt() time.Time {
-	return e.createdAt
+func (u *User) CreatedAt() time.Time {
+	return u.createdAt
 }
 
-func (e *User) UpdatedAt() time.Time {
-	return e.updatedAt
+func (u *User) UpdatedAt() time.Time {
+	return u.updatedAt
 }
 
-func (e *User) DeletedAt() *time.Time {
-	return e.deletedAt
+func (u *User) DeletedAt() *time.Time {
+	return u.deletedAt
 }
 
-func (e *User) IsDeleted() bool {
-	return e.deletedAt != nil
+func (u *User) IsDeleted() bool {
+	return u.deletedAt != nil
 }
 
-func (e *User) touch() {
-	e.updatedAt = time.Now().UTC()
-}
-
-func (e *User) IsActive() bool {
-	return e.Status() == valueobjects.UserActive
-}
-
-func (e *User) RolesAsStrings() []string {
-	if e.roles == nil {
-		return []string{}
-	}
-
-	roles := make([]string, len(e.roles))
-	for i, role := range e.roles {
-		roles[i] = string(role)
-	}
-	return roles
+func (u *User) IsActive() bool {
+	return u.Status() == valueobjects.UserActive
 }
 
 func (u *User) Activate() error {
@@ -172,30 +155,31 @@ func (u *User) MarkDeleted() error {
 	return nil
 }
 
-func (u *User) AddRole(role valueobjects.Role) error {
+func (u *User) AddRole(roleID valueobjects.RoleID) error {
 	if u.IsDeleted() {
 		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
 	}
-	if slices.Contains(u.roles, role) {
-		return nil
+	if roleID.IsEmpty() {
+		return derr.NewRequiredErr("role_id")
+	}
+	if slices.ContainsFunc(u.roleIDs, func(r valueobjects.RoleID) bool { return r.Equal(roleID) }) {
+		return nil // already assigned
 	}
 
-	u.roles = append(u.roles, role)
+	u.roleIDs = append(u.roleIDs, roleID)
 	u.touch()
 	return nil
 }
 
-func (u *User) RemoveRole(role valueobjects.Role) error {
+func (u *User) RemoveRole(roleID valueobjects.RoleID) error {
 	if u.IsDeleted() {
 		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
 	}
-	if !slices.Contains(u.roles, role) {
-		return nil
+	if !slices.ContainsFunc(u.roleIDs, func(r valueobjects.RoleID) bool { return r.Equal(roleID) }) {
+		return nil // not assigned
 	}
 
-	u.roles = slices.DeleteFunc(u.roles, func(r valueobjects.Role) bool {
-		return r == role
-	})
+	u.roleIDs = slices.DeleteFunc(u.roleIDs, func(r valueobjects.RoleID) bool { return r.Equal(roleID) })
 	u.touch()
 	return nil
 }
@@ -221,4 +205,40 @@ func (u *User) ChangeHashedPassword(hash valueobjects.HashedPassword) error {
 	u.passwordHash = hash
 	u.touch()
 	return nil
+}
+
+// Add a RoleID
+func (u *User) AddRoleID(roleID valueobjects.RoleID) error {
+	if u.IsDeleted() {
+		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
+	}
+
+	if slices.Contains(u.roleIDs, roleID) {
+		return nil
+	}
+
+	u.roleIDs = append(u.roleIDs, roleID)
+	u.touch()
+	return nil
+}
+
+// Remove a RoleID
+func (u *User) RemoveRoleID(roleID valueobjects.RoleID) error {
+	if u.IsDeleted() {
+		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
+	}
+
+	if !slices.Contains(u.roleIDs, roleID) {
+		return nil
+	}
+
+	u.roleIDs = slices.DeleteFunc(u.roleIDs, func(r valueobjects.RoleID) bool {
+		return r == roleID
+	})
+	u.touch()
+	return nil
+}
+
+func (u *User) touch() {
+	u.updatedAt = time.Now().UTC()
 }
