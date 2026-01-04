@@ -1,18 +1,9 @@
 package entities
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
-)
-
-const (
-	newDeviceOp           = "Device.New"
-	reconstituteDeviceOp  = "Device.Reconstitute"
-	updateDeviceOp        = "Device.Update"
-	revokeDeviceOp        = "Device.Revoke"
-	ensureDeviceUsableOp  = "Device.EnsureUsable"
-	validateDeviceOwnerOp = "Device.ValidateOwner"
 )
 
 type Device struct {
@@ -38,10 +29,10 @@ func NewDevice(
 	nowUTC time.Time,
 ) (*Device, error) {
 	if deviceID.IsEmpty() {
-		return nil, domainerr.NewRequired("device_id")
+		return nil, derr.NewRequiredErr("device_id")
 	}
 	if userID.IsEmpty() {
-		return nil, domainerr.NewRequired("user_id")
+		return nil, derr.NewRequiredErr("user_id")
 	}
 
 	return &Device{
@@ -103,7 +94,7 @@ func (d *Device) Update(
 ) error {
 
 	if d.revokedAt != nil {
-		return domainerr.NewRuleViolation("cannot update a revoked device")
+		return derr.NewRuleViolationErr("cannot update a revoked device")
 	}
 
 	if name != nil {
@@ -123,7 +114,7 @@ func (d *Device) Update(
 
 func (d *Device) Revoke(now time.Time) error {
 	if d.revokedAt != nil {
-		return domainerr.NewRuleViolation("device is already revoked")
+		return derr.NewRuleViolationErr("device is already revoked")
 	}
 
 	d.isActive = false
@@ -134,10 +125,10 @@ func (d *Device) Revoke(now time.Time) error {
 
 func (d *Device) EnsureUsable() error {
 	if d.revokedAt != nil {
-		return domainerr.NewRuleViolation("device is revoked")
+		return derr.NewRuleViolationErr("device is revoked")
 	}
 	if !d.isActive {
-		return domainerr.NewRuleViolation("device is inactive")
+		return derr.NewRuleViolationErr("device is inactive")
 	}
 	return nil
 }
@@ -145,7 +136,7 @@ func (d *Device) EnsureUsable() error {
 func (d *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !d.userID.Equal(userID) {
 		// If it's the wrong user, it's a violation of access/value logic
-		return domainerr.NewInvalidValue("user_id", "device ownership mismatch")
+		return derr.NewInvalidValueErr("user_id", "device ownership mismatch")
 	}
 	return nil
 }

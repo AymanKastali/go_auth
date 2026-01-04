@@ -1,7 +1,7 @@
 package valueobjects
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 	"regexp"
 )
 
@@ -14,12 +14,12 @@ type Email struct {
 // NewEmail validates and creates a new Email value object
 func NewEmail(email string) (Email, error) {
 	if email == "" {
-		return Email{}, domainerr.NewRequired("email")
+		return Email{}, derr.NewRequiredErr("email")
 	}
 
 	if !emailRegex.MatchString(email) {
 		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
-		return Email{}, domainerr.NewInvalidValue("email", "invalid email format")
+		return Email{}, derr.NewInvalidValueErr("email", "invalid email format")
 	}
 
 	return Email{value: email}, nil

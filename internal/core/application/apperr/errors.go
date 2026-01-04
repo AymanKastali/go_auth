@@ -2,72 +2,121 @@ package apperr
 
 import (
 	"errors"
-	"go_auth/internal/core/domain/domainerr"
+	"fmt"
+	"go_auth/internal/core/domain/derr"
 )
 
-type code uint16
-
-const (
-	CodeInternal      code = iota // 0
-	CodeInvalidInput              // 1
-	CodeNotFound                  // 2
-	CodeConflict                  // 3
-	CodeUnauthorized              // 4
-	CodeUnprocessable             // 5
-)
-
-type AppError struct {
-	code    code
-	message string
-	field   string
+type AppErr interface {
+	error
+	Application()
 }
 
-func (e *AppError) Error() string { return e.message }
-func (e *AppError) Code() code    { return e.code }
-func (e *AppError) Field() string { return e.field }
-
-// --- Factories (Standardized Constructors like Domain) ---
-
-func NewInternal(msg string) error {
-	return &AppError{code: CodeInternal, message: msg}
+// NotFoundErr represents a resource not found
+type NotFoundErr struct {
+	Resource string // e.g., "user"
+	ID       string // optional identifier
 }
 
-func NewNotFound(msg string) error {
-	return &AppError{code: CodeNotFound, message: msg}
-}
-
-func NewConflict(msg string) error {
-	return &AppError{code: CodeConflict, message: msg}
-}
-
-func NewUnauthorized(msg string) error {
-	return &AppError{code: CodeUnauthorized, message: msg}
-}
-
-func NewInvalidInput(msg string, field string) error {
-	return &AppError{code: CodeInvalidInput, message: msg, field: field}
-}
-
-// MapDomain converts Domain logic into Application context
-func MapDomain(err error) error {
-	if err == nil {
-		return nil
+func (e *NotFoundErr) Error() string {
+	if e.ID != "" {
+		return fmt.Sprintf("%s with ID %s not found", e.Resource, e.ID)
 	}
+	return fmt.Sprintf("%s not found", e.Resource)
+}
 
-	var dErr domainerr.DomainError
-	if errors.As(err, &dErr) {
-		code := CodeInvalidInput
-		if dErr.Code() == domainerr.CodeRuleViolation {
-			code = CodeUnprocessable
-		}
-
-		return &AppError{
-			code:    code,
-			message: dErr.Error(),
-			field:   dErr.Attr(),
-		}
+func NewNotFoundErr(resource, id string) *NotFoundErr {
+	return &NotFoundErr{
+		Resource: resource,
+		ID:       id,
 	}
+}
 
-	// Any unknown error becomes a secure Internal error
-	return NewInternal("an unexpected error occurred")
+func (*NotFoundErr) Application() {}
+
+// ConflictErr represents a business conflict (e.g., duplicate resource)
+type ConflictErr struct {
+	Resource string
+	Reason   string // optional reason
+}
+
+func (e *ConflictErr) Error() string {
+	if e.Reason != "" {
+		return fmt.Sprintf("%s conflict: %s", e.Resource, e.Reason)
+	}
+	return fmt.Sprintf("%s conflict", e.Resource)
+}
+func NewConflictErr(resource, reason string) *ConflictErr {
+	return &ConflictErr{
+		Resource: resource,
+		Reason:   reason,
+	}
+}
+
+func (*ConflictErr) Application() {}
+
+// AlreadyExistsErr is a special case of conflict when creating duplicate resources
+type AlreadyExistsErr struct {
+	Resource string
+	ID       string
+}
+
+func (e *AlreadyExistsErr) Error() string {
+	if e.ID != "" {
+		return fmt.Sprintf("%s with ID %s already exists", e.Resource, e.ID)
+	}
+	return fmt.Sprintf("%s already exists", e.Resource)
+}
+
+func NewAlreadyExistsErr(resource, id string) *AlreadyExistsErr {
+	return &AlreadyExistsErr{
+		Resource: resource,
+		ID:       id,
+	}
+}
+
+func (*AlreadyExistsErr) Application() {}
+
+// ValidationErr represents application-level validation errors
+type ValidationErr struct {
+	Cause error
+}
+
+func (e *ValidationErr) Error() string { return e.Cause.Error() }
+func (*ValidationErr) Application()    {}
+
+func NewValidationErr(err error) *ValidationErr {
+	return &ValidationErr{Cause: err}
+}
+
+// Unauthorized error for login failures
+type UnauthorizedErr struct {
+	Reason string
+}
+
+func (e *UnauthorizedErr) Error() string { return e.Reason }
+func (*UnauthorizedErr) Application()    {}
+
+func NewUnauthorizedErr(reason string) *UnauthorizedErr {
+	return &UnauthorizedErr{Reason: reason}
+}
+
+// Internal errors (e.g., infrastructure)
+type InternalErr struct {
+	Reason string
+}
+
+func (e *InternalErr) Error() string { return e.Reason }
+func (*InternalErr) Application()    {}
+
+func NewInternalErr(reason string) *InternalErr {
+	return &InternalErr{Reason: reason}
+}
+
+// MapDomainErr converts domain errors into application errors
+func MapDomainErr(err error) error {
+	var vErr derr.ValidationErr
+	if errors.As(err, &vErr) {
+		return NewValidationErr(vErr)
+	}
+	return fmt.Errorf("domain error: %w", err)
 }

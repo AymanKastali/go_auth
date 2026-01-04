@@ -1,17 +1,9 @@
 package entities
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
-)
-
-const (
-	createRefreshTokenOp        = "RefreshToken.Create"
-	reconstituteRefreshTokenOp  = "RefreshToken.Reconstitute"
-	revokeTokenOp               = "RefreshToken.Revoke"
-	ensureRefreshTokenUsableOp  = "RefreshToken.EnsureUsable"
-	validateRefreshTokenOwnerOp = "RefreshToken.ValidateOwner"
 )
 
 type RefreshToken struct {
@@ -36,24 +28,24 @@ func NewRefreshToken(
 ) (*RefreshToken, error) {
 
 	if id.IsEmpty() {
-		return nil, domainerr.NewRequired("token_id")
+		return nil, derr.NewRequiredErr("token_id")
 	}
 	if userID.IsEmpty() {
-		return nil, domainerr.NewRequired("user_id")
+		return nil, derr.NewRequiredErr("user_id")
 	}
 	if deviceID.IsEmpty() {
-		return nil, domainerr.NewRequired("device_id")
+		return nil, derr.NewRequiredErr("device_id")
 	}
 	if token == "" {
-		return nil, domainerr.NewRequired("token")
+		return nil, derr.NewRequiredErr("token")
 	}
 	if expiresAt.IsZero() {
-		return nil, domainerr.NewRequired("expires_at")
+		return nil, derr.NewRequiredErr("expires_at")
 	}
 
 	// Business Rule: Cannot issue an already expired token
 	if !expiresAt.After(now) {
-		return nil, domainerr.NewInvalidValue("expires_at", "expiration date must be in the future")
+		return nil, derr.NewInvalidValueErr("expires_at", "expiration date must be in the future")
 	}
 
 	return &RefreshToken{
@@ -128,11 +120,11 @@ func (t *RefreshToken) touch(now time.Time) {
 }
 func (t *RefreshToken) Revoke(now time.Time) error {
 	if t.deletedAt != nil {
-		return domainerr.NewRuleViolation("cannot revoke a deleted token")
+		return derr.NewRuleViolationErr("cannot revoke a deleted token")
 	}
 
 	if t.IsRevoked() {
-		return domainerr.NewRuleViolation("refresh token is already revoked")
+		return derr.NewRuleViolationErr("refresh token is already revoked")
 	}
 
 	t.revokedAt = &now
@@ -142,15 +134,15 @@ func (t *RefreshToken) Revoke(now time.Time) error {
 
 func (t *RefreshToken) EnsureUsable(now time.Time) error {
 	if t.deletedAt != nil {
-		return domainerr.NewRuleViolation("token has been deleted")
+		return derr.NewRuleViolationErr("token has been deleted")
 	}
 
 	if t.IsRevoked() {
-		return domainerr.NewRuleViolation("token has been revoked")
+		return derr.NewRuleViolationErr("token has been revoked")
 	}
 
 	if t.IsExpired(now) {
-		return domainerr.NewRuleViolation("token has expired")
+		return derr.NewRuleViolationErr("token has expired")
 	}
 
 	return nil
@@ -158,7 +150,7 @@ func (t *RefreshToken) EnsureUsable(now time.Time) error {
 
 func (t *RefreshToken) BelongsTo(userID valueobjects.UserID) error {
 	if !t.userID.Equal(userID) {
-		return domainerr.NewInvalidValue("user_id", "token ownership mismatch")
+		return derr.NewInvalidValueErr("user_id", "token ownership mismatch")
 	}
 
 	return nil
@@ -166,7 +158,7 @@ func (t *RefreshToken) BelongsTo(userID valueobjects.UserID) error {
 
 func (t *RefreshToken) SoftDelete(now time.Time) error {
 	if t.deletedAt != nil {
-		return domainerr.NewRuleViolation("token already deleted")
+		return derr.NewRuleViolationErr("token already deleted")
 	}
 
 	t.deletedAt = &now

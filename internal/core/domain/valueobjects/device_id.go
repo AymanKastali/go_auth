@@ -1,7 +1,7 @@
 package valueobjects
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +26,7 @@ func DeviceIDFromString(u string) (DeviceID, error) {
 	if err != nil {
 		// Matches V2 factory: NewInvalidValue(attr, msg string)
 		// We wrap the original error message into the domain message
-		return DeviceID{}, domainerr.NewInvalidValue("device_id", "invalid uuid format")
+		return DeviceID{}, derr.NewInvalidValueErr("device_id", err.Error())
 	}
 
 	return DeviceID{value: parsed}, nil

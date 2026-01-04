@@ -24,7 +24,7 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		// If body parsing fails, we treat it as an internal adapter error
 		// or map it to a standardized bad request response.
-		return fibererr.Translate(c, err)
+		return fibererr.TranslateErr(c, err)
 	}
 
 	// 2. APPLICATION: Call the use case
@@ -32,7 +32,7 @@ func (h *RegisterHandler) Register(c *fiber.Ctx) error {
 	if err != nil {
 		// Handler doesn't care about the error type.
 		// It just knows it needs to be translated for the client.
-		return fibererr.Translate(c, err)
+		return fibererr.TranslateErr(c, err)
 	}
 
 	// 3. SUCCESS: Map domain response to adapter DTO

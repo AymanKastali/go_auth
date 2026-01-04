@@ -9,35 +9,58 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Translate now calls utils.Failure directly to ensure unified output
-func Translate(c *fiber.Ctx, err error) error {
-	// 1. Handle Application Layer Errors
-	var aErr *apperr.AppError
-	if errors.As(err, &aErr) {
-		status := http.StatusInternalServerError
+// Translate maps application errors (and Fiber errors) to HTTP responses
+func TranslateErr(c *fiber.Ctx, err error) error {
+	// ----------------------------
+	// 1️⃣ Application Layer Errors
+	// ----------------------------
 
-		switch aErr.Code() {
-		case apperr.CodeInvalidInput:
-			status = http.StatusBadRequest
-		case apperr.CodeUnauthorized:
-			status = http.StatusUnauthorized
-		case apperr.CodeNotFound:
-			status = http.StatusNotFound
-		case apperr.CodeConflict:
-			status = http.StatusConflict
-		case apperr.CodeUnprocessable:
-			status = http.StatusUnprocessableEntity
-		}
-
-		return utils.Failure(c, status, aErr.Error(), aErr.Field())
+	// Validation → 400
+	var vErr *apperr.ValidationErr
+	if errors.As(err, &vErr) {
+		return utils.Failure(c, http.StatusBadRequest, vErr.Error(), "")
 	}
 
-	// 2. Handle Adapter/Framework Errors (Fiber Errors)
+	// Unauthorized → 401
+	var uErr *apperr.UnauthorizedErr
+	if errors.As(err, &uErr) {
+		return utils.Failure(c, http.StatusUnauthorized, uErr.Error(), "")
+	}
+
+	// Not Found → 404
+	var nErr *apperr.NotFoundErr
+	if errors.As(err, &nErr) {
+		return utils.Failure(c, http.StatusNotFound, nErr.Error(), "")
+	}
+
+	// Conflict → 409
+	var cErr *apperr.ConflictErr
+	if errors.As(err, &cErr) {
+		return utils.Failure(c, http.StatusConflict, cErr.Error(), "")
+	}
+
+	// Already Exists → 409 (special conflict)
+	var aErr *apperr.AlreadyExistsErr
+	if errors.As(err, &aErr) {
+		return utils.Failure(c, http.StatusConflict, aErr.Error(), "")
+	}
+
+	// Internal → 500
+	var iErr *apperr.InternalErr
+	if errors.As(err, &iErr) {
+		return utils.Failure(c, http.StatusInternalServerError, iErr.Error(), "")
+	}
+
+	// ----------------------------
+	// 2️⃣ Fiber Framework Errors
+	// ----------------------------
 	var fiberErr *fiber.Error
 	if errors.As(err, &fiberErr) {
 		return utils.Failure(c, fiberErr.Code, fiberErr.Message, "")
 	}
 
-	// 3. Fallback for unknown errors
-	return utils.Failure(c, http.StatusInternalServerError, "Internal Error", "")
+	// ----------------------------
+	// 3️⃣ Fallback for unknown errors
+	// ----------------------------
+	return utils.Failure(c, http.StatusInternalServerError, "internal server error", "")
 }

@@ -43,7 +43,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		return fibererr.Translate(c, err)
+		return fibererr.TranslateErr(c, err)
 	}
 
 	// Success response

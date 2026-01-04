@@ -1,22 +1,10 @@
 package entities
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"slices"
 	"time"
-)
-
-const (
-	newUserOp          = "User.Create"
-	reconstituteUserOp = "User.Reconstitute"
-	activateUserOp     = "User.Activate"
-	deactivateUserOp   = "User.Deactivate"
-	deleteUserOp       = "User.Delete"
-	changeEmailOp      = "User.ChangeEmail"
-	changePasswordOp   = "User.ChangePassword"
-	addRoleOp          = "User.AddRole"
-	removeRoleOp       = "User.RemoveRole"
 )
 
 type User struct {
@@ -41,16 +29,16 @@ func NewUser(
 ) (*User, error) {
 	// Strict individual required checks
 	if userID.IsEmpty() {
-		return nil, domainerr.NewRequired("user_id")
+		return nil, derr.NewRequiredErr("user_id")
 	}
 	if email.Value() == "" {
-		return nil, domainerr.NewRequired("email")
+		return nil, derr.NewRequiredErr("email")
 	}
 	if passwordHash.Value() == "" {
-		return nil, domainerr.NewRequired("password")
+		return nil, derr.NewRequiredErr("password")
 	}
 	if string(status) == "" {
-		return nil, domainerr.NewRequired("status")
+		return nil, derr.NewRequiredErr("status")
 	}
 
 	if roles == nil {
@@ -148,10 +136,10 @@ func (e *User) RolesAsStrings() []string {
 
 func (u *User) Activate() error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot activate a deleted user")
+		return derr.NewRuleViolationErr("cannot activate a deleted user")
 	}
 	if u.IsActive() {
-		return domainerr.NewRuleViolation("user is already active")
+		return derr.NewRuleViolationErr("user is already active")
 	}
 
 	u.status = valueobjects.UserActive
@@ -161,10 +149,10 @@ func (u *User) Activate() error {
 
 func (u *User) Deactivate() error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot deactivate a deleted user")
+		return derr.NewRuleViolationErr("cannot deactivate a deleted user")
 	}
 	if !u.IsActive() {
-		return domainerr.NewRuleViolation("user is already inactive")
+		return derr.NewRuleViolationErr("user is already inactive")
 	}
 
 	u.status = valueobjects.UserInactive
@@ -174,7 +162,7 @@ func (u *User) Deactivate() error {
 
 func (u *User) MarkDeleted() error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("user is already deleted")
+		return derr.NewRuleViolationErr("user is already deleted")
 	}
 
 	now := time.Now().UTC()
@@ -186,7 +174,7 @@ func (u *User) MarkDeleted() error {
 
 func (u *User) AddRole(role valueobjects.Role) error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot modify roles of a deleted user")
+		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
 	}
 	if slices.Contains(u.roles, role) {
 		return nil
@@ -199,7 +187,7 @@ func (u *User) AddRole(role valueobjects.Role) error {
 
 func (u *User) RemoveRole(role valueobjects.Role) error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot modify roles of a deleted user")
+		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
 	}
 	if !slices.Contains(u.roles, role) {
 		return nil
@@ -214,7 +202,7 @@ func (u *User) RemoveRole(role valueobjects.Role) error {
 
 func (u *User) ChangeEmail(email valueobjects.Email) error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot change email of a deleted user")
+		return derr.NewRuleViolationErr("cannot change email of a deleted user")
 	}
 	if u.email.Value() == email.Value() {
 		return nil
@@ -227,7 +215,7 @@ func (u *User) ChangeEmail(email valueobjects.Email) error {
 
 func (u *User) ChangeHashedPassword(hash valueobjects.HashedPassword) error {
 	if u.IsDeleted() {
-		return domainerr.NewRuleViolation("cannot change password of a deleted user")
+		return derr.NewRuleViolationErr("cannot change password of a deleted user")
 	}
 
 	u.passwordHash = hash

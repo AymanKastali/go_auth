@@ -36,23 +36,23 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 	// 1. DOMAIN: Validation
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		return nil, apperr.MapDomain(err)
+		return nil, apperr.MapDomainErr(err)
 	}
 
 	// 2. INFRASTRUCTURE & APPLICATION: Check existence
 	existing, err := h.userRepository.GetByEmail(emailVO)
 	if err != nil {
-		return nil, apperr.NewInternal("database query failed")
+		return nil, apperr.NewInternalErr("database query failed")
 	}
 	if existing != nil {
 		// APPLICATION CONCERN: Conflict
-		return nil, apperr.NewConflict("email is already registered")
+		return nil, apperr.NewConflictErr("User", "email is already registered")
 	}
 
 	// 3. INFRASTRUCTURE: Hashing
 	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
-		return nil, apperr.NewInternal("password encryption failed")
+		return nil, apperr.NewInternalErr("password encryption failed")
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
@@ -66,12 +66,12 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 		time.Now().UTC(),
 	)
 	if err != nil {
-		return nil, apperr.MapDomain(err)
+		return nil, apperr.MapDomainErr(err)
 	}
 
 	// 5. INFRASTRUCTURE: Save
 	if err := h.userRepository.Save(user); err != nil {
-		return nil, apperr.NewInternal("user creation failed")
+		return nil, apperr.NewInternalErr("user creation failed")
 	}
 
 	return &dto.RegisteredUserDTO{

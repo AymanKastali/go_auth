@@ -17,13 +17,13 @@ func JWTMiddleware(
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return apperr.NewUnauthorized("missing authorization header")
+			return apperr.NewUnauthorizedErr("missing authorization header")
 		}
 
 		// 1. TRANSPORT LOGIC: Header parsing
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return apperr.NewUnauthorized("invalid token format")
+			return apperr.NewUnauthorizedErr("invalid token format")
 		}
 
 		accessToken := parts[1]
@@ -31,7 +31,7 @@ func JWTMiddleware(
 		// 2. INFRASTRUCTURE: Token Validation
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
-			return apperr.NewUnauthorized("invalid or expired access token")
+			return apperr.NewUnauthorizedErr("invalid or expired access token")
 		}
 
 		// 3. CROSS-LAYER CHECK: Device Usability
@@ -39,20 +39,20 @@ func JWTMiddleware(
 		if deviceIDStr != "" && deviceRepo != nil {
 			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
 			if err != nil {
-				return apperr.MapDomain(err)
+				return apperr.MapDomainErr(err)
 			}
 
 			device, err := deviceRepo.GetByID(deviceIDVO)
 			if err != nil {
-				return apperr.NewInternal("failed to verify device state")
+				return apperr.NewInternalErr("failed to verify device state")
 			}
 
 			if device == nil {
-				return apperr.NewUnauthorized("device not recognized")
+				return apperr.NewUnauthorizedErr("device not recognized")
 			}
 
 			if err := device.EnsureUsable(); err != nil {
-				return apperr.MapDomain(err)
+				return apperr.MapDomainErr(err)
 			}
 		}
 

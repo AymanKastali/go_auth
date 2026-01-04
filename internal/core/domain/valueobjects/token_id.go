@@ -1,7 +1,7 @@
 package valueobjects
 
 import (
-	"go_auth/internal/core/domain/domainerr"
+	"go_auth/internal/core/domain/derr"
 
 	"github.com/google/uuid"
 )
@@ -25,7 +25,7 @@ func TokenIDFromString(u string) (TokenID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
 		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
-		return TokenID{}, domainerr.NewInvalidValue("token_id", "invalid uuid format")
+		return TokenID{}, derr.NewInvalidValueErr("token_id", err.Error())
 	}
 
 	return TokenID{value: parsed}, nil
