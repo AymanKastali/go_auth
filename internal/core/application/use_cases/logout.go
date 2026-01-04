@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
 	"go_auth/internal/core/application/ports/use_cases"
@@ -33,25 +34,28 @@ func NewLogoutUseCase(
 func (h *logoutUseCase) Logout(refreshToken string) error {
 	h.logger.Info("Starting logout process")
 
-	// 1. Validate token
+	// 1. Validate token string
 	claims, err := h.tokenService.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		h.logger.Warn("Failed to validate refresh token", "error", err)
-		return err
+		h.logger.Warn("Invalid refresh token provided for logout", "error", err)
+		// Map token validation errors to Unauthorized
+		return apperr.NewUnauthorizedErr("invalid or expired session")
 	}
-	h.logger.Info("Refresh token validated", "userID", claims.Subject, "tokenID", claims.JTI)
 
-	// 2. Convert JTI string to TokenID VO
+	// 2. Convert JTI (from claims) to TokenID Value Object
 	tokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
-		h.logger.Error("Failed to convert token ID", "jti", claims.JTI, "error", err)
-		return err
+		h.logger.Error("Token ID in claims is malformed", "jti", claims.JTI, "error", err)
+		return apperr.MapDomainErr(err)
 	}
 
 	// 3. Revoke token in repository
-	if err := h.refreshRepo.Revoke(tokenID, time.Now()); err != nil {
-		h.logger.Error("Failed to revoke refresh token", "tokenID", tokenID, "error", err)
-		return err
+	// The repository now returns apperr.NotFoundErr if the token ID doesn't exist
+	// or apperr.InternalErr if the database is down.
+	err = h.refreshRepo.Revoke(tokenID, time.Now().UTC())
+	if err != nil {
+		h.logger.Error("Failed to revoke refresh token in DB", "tokenID", tokenID, "error", err)
+		return err // Already an apperr type
 	}
 
 	h.logger.Info("Logout successful", "userID", claims.Subject, "tokenID", tokenID)

@@ -112,6 +112,18 @@ func NewInternalErr(reason string) *InternalErr {
 	return &InternalErr{Reason: reason}
 }
 
+// Forbidden Error
+type ForbiddenErr struct {
+	Reason string
+}
+
+func (e *ForbiddenErr) Error() string { return e.Reason }
+func (*ForbiddenErr) Application()    {}
+
+func NewForbiddenErr(reason string) *ForbiddenErr {
+	return &ForbiddenErr{Reason: reason}
+}
+
 // MapDomainErr converts domain errors into application errors
 func MapDomainErr(err error) error {
 	var vErr derr.ValidationErr

@@ -47,12 +47,13 @@ func (h *refreshTokenUseCase) RefreshToken(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 
-	// 1️⃣ Validate old refresh token
+	// 1️⃣ Validate old refresh token string
 	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
 		return nil, apperr.NewUnauthorizedErr("session expired or invalid")
 	}
 
+	// 2️⃣ Parse Value Objects
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
@@ -68,61 +69,63 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 2️⃣ Check revocation
+	// 3️⃣ Check revocation (Infrastructure)
 	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
-		return nil, apperr.NewInternalErr("token check failed")
+		return nil, err // Repo returns apperr
 	}
 	if isRevoked {
-		return nil, apperr.NewUnauthorizedErr("token revoked")
+		return nil, apperr.NewUnauthorizedErr("session has been revoked")
 	}
 
-	// 3️⃣ Fetch user and device
+	// 4️⃣ Fetch user and device (Infrastructure)
 	user, err := h.userRepository.GetByID(userIDVO)
 	if err != nil {
-		return nil, apperr.NewInternalErr("user lookup failed")
+		return nil, err
 	}
 	if user == nil {
-		return nil, apperr.NewUnauthorizedErr("user no longer exists")
+		return nil, apperr.NewUnauthorizedErr("user account no longer exists")
 	}
 
 	device, err := h.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		return nil, apperr.NewInternalErr("device lookup failed")
+		return nil, err
 	}
 	if device == nil {
 		return nil, apperr.NewNotFoundErr("device", deviceID.String())
 	}
 
+	// Security Check: Ensure token belongs to this device
 	if claims.DeviceID != deviceID.String() {
+		h.logger.Warn("Device mismatch during refresh", "expected", claims.DeviceID, "got", deviceID.String())
 		return nil, apperr.NewUnauthorizedErr("device mismatch")
 	}
 
-	// 4️⃣ Map role IDs to role names
+	// 5️⃣ Map role names for the new Access Token
 	roleNames := make([]string, len(user.RoleIDs()))
 	for i, roleID := range user.RoleIDs() {
 		role, err := h.roleRepo.GetByID(roleID)
 		if err != nil {
-			return nil, apperr.NewInternalErr("failed to fetch role for token")
+			return nil, err
 		}
 		if role == nil {
-			return nil, apperr.NewInternalErr("role missing for user")
+			return nil, apperr.NewInternalErr("assigned role not found")
 		}
 		roleNames[i] = role.Name()
 	}
 
-	// 5️⃣ Issue new tokens
+	// 6️⃣ Issue new tokens
 	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), device.ID().String(), roleNames)
 	if err != nil {
-		return nil, apperr.NewInternalErr("failed to issue access token")
+		return nil, apperr.NewInternalErr("failed to issue session")
 	}
 
 	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), device.ID().String())
 	if err != nil {
-		return nil, apperr.NewInternalErr("failed to issue refresh token")
+		return nil, apperr.NewInternalErr("failed to issue refresh session")
 	}
 
-	// 6️⃣ Create new refresh token entity
+	// 7️⃣ Create new refresh token entity
 	newClaims, _ := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
@@ -142,12 +145,13 @@ func (h *refreshTokenUseCase) RefreshToken(
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 7️⃣ Persist new token and revoke old one atomically
+	// 8️⃣ Rotation: Revoke old and save new
 	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
-		return nil, apperr.NewInternalErr("failed to rotate session")
+		return nil, err
 	}
+
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
-		return nil, apperr.NewInternalErr("failed to persist session")
+		return nil, err
 	}
 
 	return &dto.AuthResponse{

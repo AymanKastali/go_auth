@@ -44,34 +44,27 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 2️⃣ INFRA: Check if user exists
-	existing, err := h.userRepository.GetByEmail(emailVO)
-	if err != nil {
-		return nil, apperr.NewInternalErr("database query failed")
-	}
-	if existing != nil {
-		return nil, apperr.NewConflictErr("User", "email is already registered")
-	}
-
-	// 3️⃣ INFRA: Hash password
+	// 2️⃣ INFRA: Hash password
+	// We do this before checking roles to fail early if hashing infrastructure is down
 	hash, err := h.passwordHasher.Hash(password)
 	if err != nil {
-		return nil, apperr.NewInternalErr("password encryption failed")
+		h.logger.Error("Password hashing failed", "error", err)
+		return nil, apperr.NewInternalErr("security component failure")
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
-	// 4️⃣ DOMAIN: Fetch default USER role
+	// 3️⃣ INFRA: Fetch default USER role
+	// Your roleRepo now returns apperr, so we return err directly
 	userRole, err := h.roleRepository.GetByName("USER")
 	if err != nil {
-		h.logger.Error("Failed to fetch USER role", "error", err)
-		return nil, apperr.NewInternalErr("failed to assign default role")
+		return nil, err
 	}
 	if userRole == nil {
-		h.logger.Error("USER role does not exist")
-		return nil, apperr.NewInternalErr("USER role missing")
+		h.logger.Error("System misconfiguration: USER role missing")
+		return nil, apperr.NewInternalErr("default role assignment failed")
 	}
 
-	// 5️⃣ DOMAIN: Create user entity
+	// 4️⃣ DOMAIN: Create user entity
 	user, err := entities.NewUser(
 		valueobjects.NewUserID(),
 		emailVO,
@@ -84,12 +77,14 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 6️⃣ INFRA: Save user
+	// 5️⃣ INFRA: Save user
+	// Note: If the email already exists, userRepository.Save returns apperr.AlreadyExistsErr
+	// because it uses r.handleError(err, u.Email().String()) internally.
 	if err := h.userRepository.Save(user); err != nil {
-		return nil, apperr.NewInternalErr("user creation failed")
+		return nil, err
 	}
 
-	// 7️⃣ RETURN DTO
+	// 6️⃣ RETURN DTO
 	return &dto.RegisteredUserDTO{
 		UserID: user.ID().String(),
 		Email:  user.Email().Value(),

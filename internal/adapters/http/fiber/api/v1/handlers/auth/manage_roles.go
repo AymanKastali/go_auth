@@ -40,10 +40,6 @@ func (h *RoleHandler) HandleRoleUpdate(c *fiber.Ctx) error {
 		})
 	}
 
-	// return c.Status(fiber.StatusOK).JSON(fiber.Map{
-	// 	"message": "Role updated successfully",
-	// })
-
-	return utils.Success(c, fiber.StatusNoContent, nil, "")
+	return utils.NoContent(c)
 
 }

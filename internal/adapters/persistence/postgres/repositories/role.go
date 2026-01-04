@@ -2,10 +2,9 @@ package repositories
 
 import (
 	"errors"
-	"fmt"
-
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
@@ -30,21 +29,23 @@ func NewGormRoleRepository(db *gorm.DB, mapper *mappers.RoleMapper) repositories
 func (r *GormRoleRepository) Save(role *entities.Role) error {
 	model, err := r.mapper.ToModel(role)
 	if err != nil {
-		return fmt.Errorf("role repository: mapping failed: %w", err)
+		return apperr.NewInternalErr("role mapping failed")
 	}
-	fmt.Printf("DEBUG: Saving Role - ID: %s, Name: '%s'\n", model.ID, model.Name)
-	// return r.db.Save(model).Error
-	return r.db.Create(model).Error
+
+	// Use Create for new records; handleError will catch gorm.ErrDuplicatedKey
+	err = r.db.Create(model).Error
+	return r.handleError(err, role.Name())
 }
 
 func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*entities.Role, error) {
 	var model models.Role
 	err := r.db.Where("id = ?", id.String()).First(&model).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
+
 	if err != nil {
-		return nil, fmt.Errorf("role repository: fetch by ID failed: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, r.handleError(err, id.String())
 	}
 
 	return r.mapper.ToDomain(&model)
@@ -53,11 +54,12 @@ func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*entities.Role, er
 func (r *GormRoleRepository) GetByName(name string) (*entities.Role, error) {
 	var model models.Role
 	err := r.db.Where("name = ?", name).First(&model).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
+
 	if err != nil {
-		return nil, fmt.Errorf("role repository: fetch by name failed: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, r.handleError(err, name)
 	}
 
 	return r.mapper.ToDomain(&model)
@@ -66,14 +68,34 @@ func (r *GormRoleRepository) GetByName(name string) (*entities.Role, error) {
 func (r *GormRoleRepository) GetAll() ([]*entities.Role, error) {
 	var modelsList []models.Role
 	if err := r.db.Find(&modelsList).Error; err != nil {
-		return nil, fmt.Errorf("role repository: fetch all failed: %w", err)
+		return nil, r.handleError(err, "all_roles")
 	}
 
 	roles := make([]*entities.Role, len(modelsList))
 	for i, m := range modelsList {
-		role, _ := r.mapper.ToDomain(&m)
+		role, err := r.mapper.ToDomain(&m)
+		if err != nil {
+			return nil, apperr.NewInternalErr("failed to map role from database")
+		}
 		roles[i] = role
 	}
 
 	return roles, nil
+}
+
+// Private helper to keep error handling consistent with UserRepository
+func (r *GormRoleRepository) handleError(err error, id string) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return apperr.NewAlreadyExistsErr("role", id)
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return apperr.NewNotFoundErr("role", id)
+	}
+
+	return apperr.NewInternalErr(err.Error())
 }
