@@ -8,6 +8,7 @@
 		"docker-compose.yml"
 	],
 	// "postCreateCommand": "if [ ! -f go.mod ]; then go mod init go_auth_app; fi && go mod tidy",
+	"postCreateCommand": "go mod tidy && go vet ./...",
 	// use. Update this value and .devcontainer/docker-compose.yml to the real service name.
 	"service": "web",
 	// The optional 'workspaceFolder' property is the path VS Code should open by default when
