@@ -3,6 +3,7 @@ package auth_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	app_dto "go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/use_cases"
 
@@ -19,12 +20,10 @@ func NewRoleHandler(uc use_cases.ManageRoleUseCasePort) *RoleHandler {
 	}
 }
 
-func (h *RoleHandler) HandleRoleUpdate(c *fiber.Ctx) error {
+func (h *RoleHandler) Execute(c *fiber.Ctx) error {
 	var webReq dto.ManageRoleRequest
 	if err := c.BodyParser(&webReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "cannot parse JSON: " + err.Error(),
-		})
+		return apperr.NewBadRequestErr(err.Error())
 	}
 
 	input := app_dto.ManageRoleInput{
@@ -33,11 +32,8 @@ func (h *RoleHandler) HandleRoleUpdate(c *fiber.Ctx) error {
 		Action: webReq.Action,
 	}
 
-	// 3. Execute the Use Case
 	if err := h.useCase.UpdateRole(input); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return err
 	}
 
 	return utils.NoContent(c)

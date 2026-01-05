@@ -57,7 +57,7 @@ func (uc *manageRoleUseCase) UpdateRole(req dto.ManageRoleInput) error {
 		return err // Already an apperr from repository
 	}
 	if roleEntity == nil {
-		return apperr.NewNotFoundErr("role", roleName)
+		return apperr.NewNotFoundErr("role", req.Role)
 	}
 
 	// 4️⃣ Grant or revoke role (Business Logic)
@@ -71,7 +71,7 @@ func (uc *manageRoleUseCase) UpdateRole(req dto.ManageRoleInput) error {
 	case "revoke":
 		if err := user.RemoveRoleID(roleEntity.ID()); err != nil {
 			// Map domain logic errors (e.g., "user doesn't have role") to Conflict/Not Found
-			return apperr.NewConflictErr("role_assignment", err.Error())
+			return apperr.MapDomainErr(err)
 		}
 	default:
 		return apperr.NewValidationErr(fmt.Errorf("invalid action: %s", action))

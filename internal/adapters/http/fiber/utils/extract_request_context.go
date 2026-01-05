@@ -3,6 +3,7 @@ package utils
 
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
+	"go_auth/internal/core/application/apperr"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -10,7 +11,7 @@ import (
 func ExtractRequestContext(c *fiber.Ctx) (*dto.RequestContext, error) {
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		return nil, fiber.ErrBadRequest
+		return nil, apperr.NewBadRequestErr("device id header must be provided")
 	}
 
 	return &dto.RequestContext{

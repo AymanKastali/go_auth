@@ -24,7 +24,7 @@ func RegisterAuthRoutes(
 	authRoutes.Patch(
 		"/roles",
 		tokenMiddleware,
-		middlewares.RequireRole("ADMIN"),
-		rolesHandler.HandleRoleUpdate,
+		middlewares.RequireRole("admin"),
+		rolesHandler.Execute,
 	)
 }

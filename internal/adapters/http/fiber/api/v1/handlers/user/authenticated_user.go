@@ -3,6 +3,7 @@ package user_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,25 +22,28 @@ func NewAuthenticatedUserHandler(
 }
 
 func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
-	userID := c.Locals("sub")
-	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "unauthorized",
-		})
+	// 1. Extract adapter data
+	sub := c.Locals("sub")
+	if sub == nil {
+		return apperr.NewUnauthorizedErr("unauthorized")
 	}
 
-	profile, err := h.uc.GetAuthUser(userID.(string))
+	userID, ok := sub.(string)
+	if !ok {
+		return apperr.NewInternalErr("invalid subject in context")
+	}
+
+	// 2. Call application layer
+	profile, err := h.uc.GetAuthUser(userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-	if profile == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "user not found",
-		})
+		return err
 	}
 
+	if profile == nil {
+		return apperr.NewNotFoundErr("user", userID)
+	}
+
+	// 3. Map domain → web DTO
 	userResponse := dto.UserResponse{
 		ID:        profile.ID,
 		Email:     profile.Email,
@@ -54,5 +58,4 @@ func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	return utils.OK(c, userResponse, "User authenticated successfully")
-
 }

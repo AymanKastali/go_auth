@@ -214,7 +214,7 @@ func (u *User) AddRoleID(roleID valueobjects.RoleID) error {
 	}
 
 	if slices.Contains(u.roleIDs, roleID) {
-		return nil
+		return derr.NewRuleViolationErr("user already has this role")
 	}
 
 	u.roleIDs = append(u.roleIDs, roleID)
@@ -222,18 +222,22 @@ func (u *User) AddRoleID(roleID valueobjects.RoleID) error {
 	return nil
 }
 
-// Remove a RoleID
+// Remove a RoleID with minimum 1 role check
 func (u *User) RemoveRoleID(roleID valueobjects.RoleID) error {
 	if u.IsDeleted() {
 		return derr.NewRuleViolationErr("cannot modify roles of a deleted user")
 	}
 
-	if !slices.Contains(u.roleIDs, roleID) {
-		return nil
+	if !slices.ContainsFunc(u.roleIDs, func(r valueobjects.RoleID) bool { return r.Equal(roleID) }) {
+		return derr.NewRuleViolationErr("user does not have this role")
+	}
+
+	if len(u.roleIDs) <= 1 {
+		return derr.NewRuleViolationErr("user must have at least one role")
 	}
 
 	u.roleIDs = slices.DeleteFunc(u.roleIDs, func(r valueobjects.RoleID) bool {
-		return r == roleID
+		return r.Equal(roleID)
 	})
 	u.touch()
 	return nil

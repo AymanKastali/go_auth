@@ -11,6 +11,23 @@ type AppErr interface {
 	Application()
 }
 
+// Bad Request
+type BadRequestErr struct {
+	Reason string
+}
+
+func (e *BadRequestErr) Error() string {
+	return e.Reason
+}
+
+func NewBadRequestErr(reason string) *BadRequestErr {
+	return &BadRequestErr{
+		Reason: reason,
+	}
+}
+
+func (*BadRequestErr) Application() {}
+
 // NotFoundErr represents a resource not found
 type NotFoundErr struct {
 	Resource string // e.g., "user"
@@ -19,7 +36,7 @@ type NotFoundErr struct {
 
 func (e *NotFoundErr) Error() string {
 	if e.ID != "" {
-		return fmt.Sprintf("%s with ID %s not found", e.Resource, e.ID)
+		return fmt.Sprintf("%s '%s' not found", e.Resource, e.ID)
 	}
 	return fmt.Sprintf("%s not found", e.Resource)
 }
@@ -124,11 +141,20 @@ func NewForbiddenErr(reason string) *ForbiddenErr {
 	return &ForbiddenErr{Reason: reason}
 }
 
-// MapDomainErr converts domain errors into application errors
 func MapDomainErr(err error) error {
+	// Validation errors
 	var vErr derr.ValidationErr
 	if errors.As(err, &vErr) {
 		return NewValidationErr(vErr)
 	}
-	return fmt.Errorf("domain error: %w", err)
+
+	// Business rule violations
+	var ruleErr *derr.RuleViolationErr
+	if errors.As(err, &ruleErr) {
+		// Map to BadRequest, because breaking a business rule is usually a 400
+		return NewBadRequestErr(ruleErr.Error())
+	}
+
+	// Fallback
+	return err
 }

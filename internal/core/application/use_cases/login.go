@@ -13,9 +13,10 @@ import (
 )
 
 type loginUseCase struct {
-	userRepository repositories.UserRepositoryPort
+	userRepo       repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	deviceRepo     repositories.DeviceRepositoryPort
+	roleRepo       repositories.RoleRepositoryPort
 	passwordHasher security.HashPasswordPort
 	tokenService   security.TokenServicePort
 	logger         *slog.Logger
@@ -24,17 +25,19 @@ type loginUseCase struct {
 var _ use_cases.LoginUseCasePort = (*loginUseCase)(nil)
 
 func NewLoginUseCase(
-	userRepository repositories.UserRepositoryPort,
+	userRepo repositories.UserRepositoryPort,
 	refreshRepo repositories.RefreshTokenRepositoryPort,
 	deviceRepo repositories.DeviceRepositoryPort,
+	roleRepo repositories.RoleRepositoryPort,
 	passwordHasher security.HashPasswordPort,
 	tokenService security.TokenServicePort,
 	logger *slog.Logger,
 ) *loginUseCase {
 	return &loginUseCase{
-		userRepository: userRepository,
+		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
+		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
 		logger:         logger,
@@ -53,7 +56,7 @@ func (h *loginUseCase) Login(
 	}
 
 	// 2. INFRASTRUCTURE: Fetch user
-	user, err := h.userRepository.GetByEmail(emailVO)
+	user, err := h.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +98,21 @@ func (h *loginUseCase) Login(
 		return nil, apperr.NewInternalErr("failed to update device info")
 	}
 
+	userRoleIDs := user.RoleIDs()
+	roleNames := make([]string, 0, len(userRoleIDs))
+	for _, roleID := range userRoleIDs {
+		role, err := h.roleRepo.GetByID(roleID)
+		if err != nil {
+			return nil, err
+		}
+		if role == nil {
+			continue // or return error, depending on your invariants
+		}
+
+		roleNames = append(roleNames, role.Name())
+	}
 	// 8. INFRASTRUCTURE: Token Issuance
-	accessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), nil)
+	accessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), deviceID.String(), roleNames)
 	if err != nil {
 		return nil, apperr.NewInternalErr("token generation failed")
 	}
