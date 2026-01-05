@@ -16,6 +16,7 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 
 	// 2️⃣ Check for Custom Application Errors
 	var (
+		badRequest   *apperr.BadRequestErr
 		notFound     *apperr.NotFoundErr
 		conflict     *apperr.ConflictErr
 		exists       *apperr.AlreadyExistsErr
@@ -41,6 +42,11 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 		errType = "Forbidden"
 		message = forbidden.Error()
 
+	case errors.As(err, &badRequest):
+		code = http.StatusBadRequest
+		errType = "Bad Request"
+		message = badRequest.Error()
+
 	case errors.As(err, &notFound):
 		code = http.StatusNotFound
 		errType = "Not Found"
@@ -60,14 +66,6 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 		code = http.StatusInternalServerError
 		errType = "Internal Error"
 		message = internal.Error()
-
-	// 3️⃣ Check for Fiber Framework Errors (e.g. 404 Route Not Found)
-	case errors.As(err, new(*fiber.Error)):
-		var fiberErr *fiber.Error
-		errors.As(err, &fiberErr)
-		code = fiberErr.Code
-		errType = "Framework Error"
-		message = fiberErr.Message
 	}
 
 	return c.Status(code).JSON(fiber.Map{

@@ -3,6 +3,7 @@ package auth_handlers
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/use_cases"
 
 	"github.com/gofiber/fiber/v2"
@@ -29,8 +30,7 @@ func (h *LoginHandler) Login(c *fiber.Ctx) error {
 
 	// 2️⃣ Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		// Fiber's built-in error is caught by the "case *fiber.Error" in our Global Handler
-		return fiber.ErrBadRequest
+		return apperr.NewBadRequestErr(err.Error())
 	}
 
 	// 3️⃣ Call use case

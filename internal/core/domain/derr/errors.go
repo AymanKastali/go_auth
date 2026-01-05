@@ -71,8 +71,3 @@ func NewRuleViolationErr(rule string) *RuleViolationErr {
 }
 
 func (*RuleViolationErr) Domain() {}
-
-// var dErr domain.DomainErr
-// if errors.As(err, &dErr) {
-// 	// This error came from the domain layer
-// }

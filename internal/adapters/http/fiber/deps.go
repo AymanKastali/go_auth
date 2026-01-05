@@ -103,6 +103,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
+		roleRepo,
 		passwordHasher,
 		jwtService,
 		logger,
