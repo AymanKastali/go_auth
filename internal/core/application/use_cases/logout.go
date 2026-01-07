@@ -7,31 +7,28 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/application/ports/use_cases"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type logoutUseCase struct {
+type LogoutUseCase struct {
 	refreshRepo  repositories.RefreshTokenRepositoryPort
 	tokenService security.TokenServicePort
 	logger       *slog.Logger
 }
 
-var _ use_cases.LogoutUserUseCasePort = (*logoutUseCase)(nil)
-
 func NewLogoutUseCase(
 	refreshRepo repositories.RefreshTokenRepositoryPort,
 	tokenService security.TokenServicePort,
 	logger *slog.Logger,
-) *logoutUseCase {
-	return &logoutUseCase{
+) *LogoutUseCase {
+	return &LogoutUseCase{
 		refreshRepo:  refreshRepo,
 		tokenService: tokenService,
 		logger:       logger,
 	}
 }
 
-func (h *logoutUseCase) Logout(refreshToken string) error {
+func (h *LogoutUseCase) Execute(refreshToken string) error {
 	h.logger.Info("Starting logout process")
 
 	// 1. Validate token string
@@ -58,6 +55,6 @@ func (h *logoutUseCase) Logout(refreshToken string) error {
 		return err // Already an apperr type
 	}
 
-	h.logger.Info("Logout successful", "userID", claims.Subject, "tokenID", tokenID)
+	h.logger.Info("Execute successful", "userID", claims.Subject, "tokenID", tokenID)
 	return nil
 }

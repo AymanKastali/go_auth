@@ -5,30 +5,26 @@ import (
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/application/ports/use_cases"
-	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type registerUseCase struct {
+type RegisterUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	roleRepository repositories.RoleRepositoryPort
 	passwordHasher security.HashPasswordPort
 	logger         *slog.Logger
 }
 
-var _ use_cases.RegisterUseCasePort = (*registerUseCase)(nil)
-
-// Constructor
 func NewRegisterUseCase(
 	userRepo repositories.UserRepositoryPort,
 	roleRepo repositories.RoleRepositoryPort,
 	passwordHasher security.HashPasswordPort,
 	logger *slog.Logger,
-) *registerUseCase {
-	return &registerUseCase{
+) *RegisterUseCase {
+	return &RegisterUseCase{
 		userRepository: userRepo,
 		roleRepository: roleRepo,
 		passwordHasher: passwordHasher,
@@ -36,8 +32,8 @@ func NewRegisterUseCase(
 	}
 }
 
-// Register creates a new user with the default USER role
-func (h *registerUseCase) Register(email string, password string) (*dto.RegisteredUserDTO, error) {
+// Register creates a new user with the default user role
+func (h *RegisterUseCase) Register(email string, password string) (*dto.RegisteredUserDTO, error) {
 	// 1️⃣ DOMAIN: Validate email
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
@@ -53,19 +49,19 @@ func (h *registerUseCase) Register(email string, password string) (*dto.Register
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
-	// 3️⃣ INFRA: Fetch default USER role
+	// 3️⃣ INFRA: Fetch default user role
 	// Your roleRepo now returns apperr, so we return err directly
-	userRole, err := h.roleRepository.GetByName("USER")
+	userRole, err := h.roleRepository.GetByName("user")
 	if err != nil {
 		return nil, err
 	}
 	if userRole == nil {
-		h.logger.Error("System misconfiguration: USER role missing")
+		h.logger.Error("System misconfiguration: user role missing")
 		return nil, apperr.NewInternalErr("default role assignment failed")
 	}
 
 	// 4️⃣ DOMAIN: Create user entity
-	user, err := entities.NewUser(
+	user, err := aggregates.NewUser(
 		valueobjects.NewUserID(),
 		emailVO,
 		pw,

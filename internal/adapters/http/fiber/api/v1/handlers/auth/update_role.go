@@ -5,19 +5,17 @@ import (
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
 	app_dto "go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/use_cases"
+	"go_auth/internal/core/application/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type RoleHandler struct {
-	useCase use_cases.ManageRoleUseCasePort
+	uc *use_cases.UpdateRoleUseCase
 }
 
-func NewRoleHandler(uc use_cases.ManageRoleUseCasePort) *RoleHandler {
-	return &RoleHandler{
-		useCase: uc,
-	}
+func NewUpdateRoleHandler(uc *use_cases.UpdateRoleUseCase) *RoleHandler {
+	return &RoleHandler{uc: uc}
 }
 
 func (h *RoleHandler) Execute(c *fiber.Ctx) error {
@@ -32,7 +30,7 @@ func (h *RoleHandler) Execute(c *fiber.Ctx) error {
 		Action: webReq.Action,
 	}
 
-	if err := h.useCase.UpdateRole(input); err != nil {
+	if err := h.uc.Execute(input); err != nil {
 		return err
 	}
 

@@ -8,7 +8,7 @@ import (
 
 func RegisterUserRoutes(
 	app *fiber.App,
-	getAuthUserHandler *user_handlers.AuthenticatedUserHandler,
+	getAuthUserHandler *user_handlers.AuthUserHandler,
 	tokenMiddleware fiber.Handler,
 ) {
 	userRoutes := app.Group("/api/v1/users")

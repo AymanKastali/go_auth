@@ -4,17 +4,17 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils" // Keep success util
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/use_cases"
+	"go_auth/internal/core/application/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type RefreshTokenHandler struct {
-	useCase use_cases.RefreshTokenUseCasePort
+	uc *use_cases.RefreshTokenUseCase
 }
 
-func NewRefreshTokenHandler(uc use_cases.RefreshTokenUseCasePort) *RefreshTokenHandler {
-	return &RefreshTokenHandler{useCase: uc}
+func NewRefreshTokenHandler(uc *use_cases.RefreshTokenUseCase) *RefreshTokenHandler {
+	return &RefreshTokenHandler{uc: uc}
 }
 
 func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
@@ -32,7 +32,7 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	// 3. APPLICATION: Call use case
-	authResp, err := h.useCase.RefreshToken(req.RefreshToken, deviceID)
+	authResp, err := h.uc.RefreshToken(req.RefreshToken, deviceID)
 	if err != nil {
 		return err
 	}

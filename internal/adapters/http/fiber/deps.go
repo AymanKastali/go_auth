@@ -25,7 +25,7 @@ type Deps struct {
 	RefreshTokenHandler *auth_handlers.RefreshTokenHandler
 	LogoutHandler       *auth_handlers.LogoutHandler
 	RoleHandler         *auth_handlers.RoleHandler
-	AuthUserHandler     *user_handlers.AuthenticatedUserHandler
+	AuthUserHandler     *user_handlers.AuthUserHandler
 	AuthMiddleware      fiber.Handler
 	Logger              *slog.Logger
 }
@@ -124,13 +124,13 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		logger,
 	)
 
-	authUserUC := use_cases.NewAuthenticatedUserUseCase(
+	authUserUC := use_cases.NewAuthUserUseCase(
 		userRepo,
 		roleRepo,
 		logger,
 	)
 
-	roleUC := use_cases.NewManageRoleUseCase(
+	roleUC := use_cases.NewUpdateRoleUseCase(
 		userRepo,
 		roleRepo,
 		logger,
@@ -144,8 +144,8 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		LoginHandler:        auth_handlers.NewLoginHandler(loginUC),
 		RefreshTokenHandler: auth_handlers.NewRefreshTokenHandler(refreshUC),
 		LogoutHandler:       auth_handlers.NewLogoutHandler(logoutUC),
-		RoleHandler:         auth_handlers.NewRoleHandler(roleUC),
-		AuthUserHandler:     user_handlers.NewAuthenticatedUserHandler(authUserUC),
+		RoleHandler:         auth_handlers.NewUpdateRoleHandler(roleUC),
+		AuthUserHandler:     user_handlers.NewAuthUserHandler(authUserUC),
 		AuthMiddleware:      middlewares.JWTMiddleware(jwtService, deviceRepo),
 		Logger:              logger,
 	}, nil

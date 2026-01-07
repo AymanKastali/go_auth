@@ -5,14 +5,13 @@ import (
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/application/ports/use_cases"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type refreshTokenUseCase struct {
+type RefreshTokenUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	deviceRepo     repositories.DeviceRepositoryPort
@@ -20,8 +19,6 @@ type refreshTokenUseCase struct {
 	tokenService   security.TokenServicePort
 	logger         *slog.Logger
 }
-
-var _ use_cases.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
 
 // Constructor
 func NewRefreshTokenUseCase(
@@ -31,8 +28,8 @@ func NewRefreshTokenUseCase(
 	roleRepo repositories.RoleRepositoryPort,
 	tokenService security.TokenServicePort,
 	logger *slog.Logger,
-) *refreshTokenUseCase {
-	return &refreshTokenUseCase{
+) *RefreshTokenUseCase {
+	return &RefreshTokenUseCase{
 		userRepository: userRepository,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
@@ -43,7 +40,7 @@ func NewRefreshTokenUseCase(
 }
 
 // RefreshToken rotates an existing refresh token and issues new tokens
-func (h *refreshTokenUseCase) RefreshToken(
+func (h *RefreshTokenUseCase) RefreshToken(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 
