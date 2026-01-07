@@ -2,30 +2,32 @@ package services
 
 import (
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/repositories"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type SeedRolesService struct {
-	roleRepo repositories.RoleRepositoryPort
+type seedRolesService struct {
+	roleRepo ports.RoleRepositoryPort
 	logger   *slog.Logger
 }
 
+var _ ports.SeedRolesServicePort = (*seedRolesService)(nil)
+
 func NewSeedRolesService(
-	roleRepo repositories.RoleRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
 	logger *slog.Logger,
-) *SeedRolesService {
-	return &SeedRolesService{
+) ports.SeedRolesServicePort {
+	return &seedRolesService{
 		roleRepo: roleRepo,
 		logger:   logger,
 	}
 }
 
 // SeedDefaultRoles creates user, admin, STAFF roles if they don't exist
-func (s *SeedRolesService) SeedDefaultRoles() error {
+func (s *seedRolesService) SeedDefaultRoles() error {
 	defaultRoles := []string{"admin", "user"}
 
 	for _, name := range defaultRoles {

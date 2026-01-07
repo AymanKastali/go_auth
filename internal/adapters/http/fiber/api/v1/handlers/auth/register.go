@@ -1,23 +1,28 @@
 package auth_handlers
 
 import (
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/use_cases"
+	"go_auth/internal/core/application/ports"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-type RegisterHandler struct {
-	uc *use_cases.RegisterUseCase
+type registerHandler struct {
+	uc ports.RegisterUseCasePort
 }
 
-func NewRegisterHandler(uc *use_cases.RegisterUseCase) *RegisterHandler {
-	return &RegisterHandler{uc: uc}
+var _ interfaces.IRegisterHandler = (*registerHandler)(nil)
+
+func NewRegisterHandler(
+	uc ports.RegisterUseCasePort,
+) interfaces.IRegisterHandler {
+	return &registerHandler{uc: uc}
 }
 
-func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
+func (h *registerHandler) Execute(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 
 	// 1. TRANSPORT: Parse request body
@@ -27,7 +32,7 @@ func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	// 2. APPLICATION: Call the use case
-	domainResp, err := h.uc.Register(req.Email, req.Password)
+	domainResp, err := h.uc.Execute(req.Email, req.Password)
 	if err != nil {
 		// The Global Error Handler handles the 409 Conflict, 400, etc.
 		return err

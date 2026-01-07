@@ -1,51 +1,50 @@
-package use_cases
+package usecases
 
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type RefreshTokenUseCase struct {
-	userRepository repositories.UserRepositoryPort
-	refreshRepo    repositories.RefreshTokenRepositoryPort
-	deviceRepo     repositories.DeviceRepositoryPort
-	roleRepo       repositories.RoleRepositoryPort
-	tokenService   security.TokenServicePort
-	logger         *slog.Logger
+type refreshTokenUseCase struct {
+	userRepo    ports.UserRepositoryPort
+	refreshRepo ports.RefreshTokenRepositoryPort
+	deviceRepo  ports.DeviceRepositoryPort
+	roleRepo    ports.RoleRepositoryPort
+	tokenSvc    ports.TokenServicePort
+	logger      *slog.Logger
 }
 
-// Constructor
+var _ ports.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
+
 func NewRefreshTokenUseCase(
-	userRepository repositories.UserRepositoryPort,
-	refreshRepo repositories.RefreshTokenRepositoryPort,
-	deviceRepo repositories.DeviceRepositoryPort,
-	roleRepo repositories.RoleRepositoryPort,
-	tokenService security.TokenServicePort,
+	userRepo ports.UserRepositoryPort,
+	refreshRepo ports.RefreshTokenRepositoryPort,
+	deviceRepo ports.DeviceRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
+	tokenSvc ports.TokenServicePort,
 	logger *slog.Logger,
-) *RefreshTokenUseCase {
-	return &RefreshTokenUseCase{
-		userRepository: userRepository,
-		refreshRepo:    refreshRepo,
-		deviceRepo:     deviceRepo,
-		roleRepo:       roleRepo,
-		tokenService:   tokenService,
-		logger:         logger,
+) ports.RefreshTokenUseCasePort {
+	return &refreshTokenUseCase{
+		userRepo:    userRepo,
+		refreshRepo: refreshRepo,
+		deviceRepo:  deviceRepo,
+		roleRepo:    roleRepo,
+		tokenSvc:    tokenSvc,
+		logger:      logger,
 	}
 }
 
-// RefreshToken rotates an existing refresh token and issues new tokens
-func (h *RefreshTokenUseCase) RefreshToken(
+func (h *refreshTokenUseCase) Execute(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 
 	// 1️⃣ Validate old refresh token string
-	claims, err := h.tokenService.ValidateRefreshToken(oldRefreshToken)
+	claims, err := h.tokenSvc.ValidateRefreshToken(oldRefreshToken)
 	if err != nil {
 		return nil, apperr.NewUnauthorizedErr("session expired or invalid")
 	}
@@ -76,7 +75,7 @@ func (h *RefreshTokenUseCase) RefreshToken(
 	}
 
 	// 4️⃣ Fetch user and device (Infrastructure)
-	user, err := h.userRepository.GetByID(userIDVO)
+	user, err := h.userRepo.GetByID(userIDVO)
 	if err != nil {
 		return nil, err
 	}
@@ -112,18 +111,18 @@ func (h *RefreshTokenUseCase) RefreshToken(
 	}
 
 	// 6️⃣ Issue new tokens
-	newAccessToken, err := h.tokenService.IssueAccessToken(user.ID().String(), device.ID().String(), roleNames)
+	newAccessToken, err := h.tokenSvc.IssueAccessToken(user.ID().String(), device.ID().String(), roleNames)
 	if err != nil {
 		return nil, apperr.NewInternalErr("failed to issue session")
 	}
 
-	newRefreshToken, err := h.tokenService.IssueRefreshToken(user.ID().String(), device.ID().String())
+	newRefreshToken, err := h.tokenSvc.IssueRefreshToken(user.ID().String(), device.ID().String())
 	if err != nil {
 		return nil, apperr.NewInternalErr("failed to issue refresh session")
 	}
 
 	// 7️⃣ Create new refresh token entity
-	newClaims, _ := h.tokenService.ValidateRefreshToken(newRefreshToken.Value)
+	newClaims, _ := h.tokenSvc.ValidateRefreshToken(newRefreshToken.Value)
 	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)

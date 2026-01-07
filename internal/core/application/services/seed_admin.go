@@ -3,30 +3,31 @@ package services
 import (
 	"go_auth/internal/adapters/config"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type SeedAdminService struct {
-	userRepo       repositories.UserRepositoryPort
-	roleRepo       repositories.RoleRepositoryPort
-	passwordHasher security.HashPasswordPort
+type seedAdminService struct {
+	userRepo       ports.UserRepositoryPort
+	roleRepo       ports.RoleRepositoryPort
+	passwordHasher ports.HashPasswordServicePort
 	cfg            *config.SeederConfig
 	logger         *slog.Logger
 }
 
+var _ ports.SeedAdminServicePort = (*seedAdminService)(nil)
+
 func NewSeedAdminService(
-	userRepo repositories.UserRepositoryPort,
-	roleRepo repositories.RoleRepositoryPort,
-	passwordHasher security.HashPasswordPort,
+	userRepo ports.UserRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
+	passwordHasher ports.HashPasswordServicePort,
 	seederConfig *config.SeederConfig,
 	logger *slog.Logger,
-) *SeedAdminService {
-	return &SeedAdminService{
+) ports.SeedAdminServicePort {
+	return &seedAdminService{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
@@ -35,7 +36,7 @@ func NewSeedAdminService(
 	}
 }
 
-func (s *SeedAdminService) SeedAdmin() error {
+func (s *seedAdminService) SeedAdmin() error {
 	adminEmail := s.cfg.AdminEmail
 	adminPass := s.cfg.AdminPassword
 

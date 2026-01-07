@@ -1,38 +1,39 @@
-package use_cases
+package usecases
 
 import (
 	"log/slog"
 	"time"
 
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type LogoutUseCase struct {
-	refreshRepo  repositories.RefreshTokenRepositoryPort
-	tokenService security.TokenServicePort
-	logger       *slog.Logger
+type logoutUseCase struct {
+	refreshRepo ports.RefreshTokenRepositoryPort
+	tokenSvc    ports.TokenServicePort
+	logger      *slog.Logger
 }
 
+var _ ports.LogoutUseCasePort = (*logoutUseCase)(nil)
+
 func NewLogoutUseCase(
-	refreshRepo repositories.RefreshTokenRepositoryPort,
-	tokenService security.TokenServicePort,
+	refreshRepo ports.RefreshTokenRepositoryPort,
+	tokenSvc ports.TokenServicePort,
 	logger *slog.Logger,
-) *LogoutUseCase {
-	return &LogoutUseCase{
-		refreshRepo:  refreshRepo,
-		tokenService: tokenService,
-		logger:       logger,
+) ports.LogoutUseCasePort {
+	return &logoutUseCase{
+		refreshRepo: refreshRepo,
+		tokenSvc:    tokenSvc,
+		logger:      logger,
 	}
 }
 
-func (h *LogoutUseCase) Execute(refreshToken string) error {
+func (h *logoutUseCase) Execute(refreshToken string) error {
 	h.logger.Info("Starting logout process")
 
 	// 1. Validate token string
-	claims, err := h.tokenService.ValidateRefreshToken(refreshToken)
+	claims, err := h.tokenSvc.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		h.logger.Warn("Invalid refresh token provided for logout", "error", err)
 		// Map token validation errors to Unauthorized

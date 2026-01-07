@@ -1,36 +1,37 @@
-package use_cases
+package usecases
 
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type LoginUseCase struct {
-	userRepo       repositories.UserRepositoryPort
-	refreshRepo    repositories.RefreshTokenRepositoryPort
-	deviceRepo     repositories.DeviceRepositoryPort
-	roleRepo       repositories.RoleRepositoryPort
-	passwordHasher security.HashPasswordPort
-	tokenService   security.TokenServicePort
+type loginUseCase struct {
+	userRepo       ports.UserRepositoryPort
+	refreshRepo    ports.RefreshTokenRepositoryPort
+	deviceRepo     ports.DeviceRepositoryPort
+	roleRepo       ports.RoleRepositoryPort
+	passwordHasher ports.HashPasswordServicePort
+	tokenService   ports.TokenServicePort
 	logger         *slog.Logger
 }
 
+var _ ports.LoginUseCasePort = (*loginUseCase)(nil)
+
 func NewLoginUseCase(
-	userRepo repositories.UserRepositoryPort,
-	refreshRepo repositories.RefreshTokenRepositoryPort,
-	deviceRepo repositories.DeviceRepositoryPort,
-	roleRepo repositories.RoleRepositoryPort,
-	passwordHasher security.HashPasswordPort,
-	tokenService security.TokenServicePort,
+	userRepo ports.UserRepositoryPort,
+	refreshRepo ports.RefreshTokenRepositoryPort,
+	deviceRepo ports.DeviceRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
+	passwordHasher ports.HashPasswordServicePort,
+	tokenService ports.TokenServicePort,
 	logger *slog.Logger,
-) *LoginUseCase {
-	return &LoginUseCase{
+) ports.LoginUseCasePort {
+	return &loginUseCase{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
@@ -41,7 +42,7 @@ func NewLoginUseCase(
 	}
 }
 
-func (h *LoginUseCase) Login(
+func (h *loginUseCase) Execute(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 	h.logger.Info("Starting user login", "email", email)

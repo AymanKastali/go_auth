@@ -36,7 +36,7 @@ func registerRoutes(app *fiber.App, d *Deps) {
 		d.LoginHandler,
 		d.RefreshTokenHandler,
 		d.LogoutHandler,
-		d.RoleHandler,
+		d.UpdateRoleHandler,
 		d.AuthMiddleware,
 	)
 	routes.RegisterUserRoutes(app,

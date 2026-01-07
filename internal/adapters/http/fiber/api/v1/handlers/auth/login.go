@@ -1,23 +1,28 @@
 package auth_handlers
 
 import (
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/use_cases"
+	"go_auth/internal/core/application/ports"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-type LoginHandler struct {
-	uc *use_cases.LoginUseCase
+type loginHandler struct {
+	uc ports.LoginUseCasePort
 }
 
-func NewLoginHandler(uc *use_cases.LoginUseCase) *LoginHandler {
-	return &LoginHandler{uc: uc}
+var _ interfaces.ILoginHandler = (*loginHandler)(nil)
+
+func NewLoginHandler(
+	uc ports.LoginUseCasePort,
+) interfaces.ILoginHandler {
+	return &loginHandler{uc: uc}
 }
 
-func (h *LoginHandler) Execute(c *fiber.Ctx) error {
+func (h *loginHandler) Execute(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
 	// 1️⃣ Extract context (Assuming you keep this utility or move it to a middleware)
@@ -34,7 +39,7 @@ func (h *LoginHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	// 3️⃣ Call use case
-	authResp, err := h.uc.Login(
+	authResp, err := h.uc.Execute(
 		req.Email,
 		req.Password,
 		ctx.DeviceID,
