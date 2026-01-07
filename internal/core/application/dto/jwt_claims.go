@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type AccessTokenClaimsDto struct {
+type AccessTokenClaims struct {
 	// Standard Registered Claims
 	Issuer    string    // iss
 	Subject   string    // sub
@@ -16,7 +16,7 @@ type AccessTokenClaimsDto struct {
 	Roles     []string  // roles (only for access tokens)
 }
 
-type RefreshTokenClaimsDto struct {
+type RefreshTokenClaims struct {
 	Issuer    string    // iss
 	Subject   string    // sub
 	DeviceID  string    // did

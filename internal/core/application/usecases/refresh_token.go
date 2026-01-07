@@ -4,6 +4,7 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -42,116 +43,132 @@ func NewRefreshTokenUseCase(
 func (h *refreshTokenUseCase) Execute(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
+	now := time.Now().UTC()
 
-	// 1️⃣ Validate old refresh token string
-	claims, err := h.tokenSvc.ValidateRefreshToken(oldRefreshToken)
+	// 1. Validate Token & Context
+	claims, oldTokenID, err := h.validateSession(oldRefreshToken, deviceIDStr)
 	if err != nil {
-		return nil, apperr.NewUnauthorizedErr("session expired or invalid")
+		return nil, err
 	}
 
-	// 2️⃣ Parse Value Objects
+	// 2. Fetch Entities
+	user, device, err := h.fetchRequiredEntities(claims.Subject, deviceIDStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Authorization Context
+	roleNames, err := h.getRoleNames(user.RoleIDs())
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Token Rotation (Issue new, revoke old)
+	return h.rotateTokens(user, device, oldTokenID, roleNames, now)
+}
+
+// --- Internal Helper Methods ---
+
+func (h *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
+	// JWT Validation
+	claims, err := h.tokenSvc.ValidateRefreshToken(tokenStr)
+	if err != nil {
+		return nil, valueobjects.TokenID{}, err // Already returns apperr via adapter
+	}
+
+	// Security check: Device binding
+	if claims.DeviceID != deviceIDStr {
+		h.logger.Warn("Device mismatch", "expected", claims.DeviceID, "got", deviceIDStr)
+		return nil, valueobjects.TokenID{}, apperr.NewUnauthorizedErr("invalid session context")
+	}
+
+	// Token ID Validation
 	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
 	if err != nil {
-		return nil, apperr.MapDomainErr(err)
+		return nil, valueobjects.TokenID{}, apperr.MapDomainErr(err)
 	}
 
-	userIDVO, err := valueobjects.UserIDFromString(claims.Subject)
-	if err != nil {
-		return nil, apperr.MapDomainErr(err)
-	}
-
-	deviceID, err := valueobjects.DeviceIDFromString(deviceIDStr)
-	if err != nil {
-		return nil, apperr.MapDomainErr(err)
-	}
-
-	// 3️⃣ Check revocation (Infrastructure)
+	// Revocation check
 	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
-		return nil, err // Repo returns apperr
+		return nil, valueobjects.TokenID{}, apperr.NewInternalErr("persistence error")
 	}
 	if isRevoked {
-		return nil, apperr.NewUnauthorizedErr("session has been revoked")
+		return nil, valueobjects.TokenID{}, apperr.NewUnauthorizedErr("session has been revoked")
 	}
 
-	// 4️⃣ Fetch user and device (Infrastructure)
-	user, err := h.userRepo.GetByID(userIDVO)
-	if err != nil {
-		return nil, err
-	}
-	if user == nil {
-		return nil, apperr.NewUnauthorizedErr("user account no longer exists")
+	return claims, oldTokenID, nil
+}
+
+func (h *refreshTokenUseCase) fetchRequiredEntities(uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
+	uID, _ := valueobjects.UserIDFromString(uIDStr)
+	dID, _ := valueobjects.DeviceIDFromString(dIDStr)
+
+	user, err := h.userRepo.GetByID(uID)
+	if err != nil || user == nil {
+		return nil, nil, apperr.NewUnauthorizedErr("user no longer exists")
 	}
 
-	device, err := h.deviceRepo.GetByID(deviceID)
-	if err != nil {
-		return nil, err
-	}
-	if device == nil {
-		return nil, apperr.NewNotFoundErr("device", deviceID.String())
+	device, err := h.deviceRepo.GetByID(dID)
+	if err != nil || device == nil {
+		return nil, nil, apperr.NewNotFoundErr("device", dIDStr)
 	}
 
-	// Security Check: Ensure token belongs to this device
-	if claims.DeviceID != deviceID.String() {
-		h.logger.Warn("Device mismatch during refresh", "expected", claims.DeviceID, "got", deviceID.String())
-		return nil, apperr.NewUnauthorizedErr("device mismatch")
-	}
+	return user, device, nil
+}
 
-	// 5️⃣ Map role names for the new Access Token
-	roleNames := make([]string, len(user.RoleIDs()))
-	for i, roleID := range user.RoleIDs() {
-		role, err := h.roleRepo.GetByID(roleID)
+func (h *refreshTokenUseCase) getRoleNames(roleIDs []valueobjects.RoleID) ([]string, error) {
+	names := make([]string, 0, len(roleIDs))
+	for _, id := range roleIDs {
+		role, err := h.roleRepo.GetByID(id)
 		if err != nil {
-			return nil, err
+			return nil, apperr.NewInternalErr("failed to fetch roles")
 		}
-		if role == nil {
-			return nil, apperr.NewInternalErr("assigned role not found")
+		if role != nil {
+			names = append(names, role.Name())
 		}
-		roleNames[i] = role.Name()
 	}
+	return names, nil
+}
 
-	// 6️⃣ Issue new tokens
-	newAccessToken, err := h.tokenSvc.IssueAccessToken(user.ID().String(), device.ID().String(), roleNames)
+func (h *refreshTokenUseCase) rotateTokens(
+	user *aggregates.User,
+	device *entities.Device,
+	oldID valueobjects.TokenID,
+	roles []string,
+	now time.Time,
+) (*dto.AuthResponse, error) {
+	// 1. Issue New Tokens
+	at, _, err := h.tokenSvc.IssueAccessToken(user.ID().String(), device.ID().String(), roles)
 	if err != nil {
-		return nil, apperr.NewInternalErr("failed to issue session")
+		return nil, err
 	}
 
-	newRefreshToken, err := h.tokenSvc.IssueRefreshToken(user.ID().String(), device.ID().String())
+	rt, rtClaims, err := h.tokenSvc.IssueRefreshToken(user.ID().String(), device.ID().String())
 	if err != nil {
-		return nil, apperr.NewInternalErr("failed to issue refresh session")
+		return nil, err
 	}
 
-	// 7️⃣ Create new refresh token entity
-	newClaims, _ := h.tokenSvc.ValidateRefreshToken(newRefreshToken.Value)
-	newTokenID, err := valueobjects.TokenIDFromString(newClaims.JTI)
-	if err != nil {
-		return nil, apperr.MapDomainErr(err)
-	}
-
-	now := time.Now().UTC()
+	// 2. Map to Entity
+	newTokenID, _ := valueobjects.TokenIDFromString(rtClaims.JTI)
 	rtEntity, err := entities.NewRefreshToken(
-		newTokenID,
-		user.ID(),
-		device.ID(),
-		newRefreshToken.Value,
-		newClaims.ExpiresAt,
-		now,
+		newTokenID, user.ID(), device.ID(), rt.Value(), rtClaims.ExpiresAt, now,
 	)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// 8️⃣ Rotation: Revoke old and save new
-	if err := h.refreshRepo.Revoke(oldTokenID, now); err != nil {
-		return nil, err
+	// 3. Persist Rotation (Revoke old, save new)
+	if err := h.refreshRepo.Revoke(oldID, now); err != nil {
+		return nil, apperr.NewInternalErr("failed to revoke old session")
 	}
 
 	if err := h.refreshRepo.Save(rtEntity); err != nil {
-		return nil, err
+		return nil, apperr.NewInternalErr("failed to save new session")
 	}
 
 	return &dto.AuthResponse{
-		AccessToken:  newAccessToken.Value,
-		RefreshToken: newRefreshToken.Value,
+		AccessToken:  at.Value(),
+		RefreshToken: rt.Value(),
 	}, nil
 }

@@ -19,8 +19,15 @@ type HashPasswordServicePort interface {
 }
 
 type TokenServicePort interface {
-	IssueAccessToken(userID, deviceID string, roles []string) (valueobjects.JWTToken, error)
-	IssueRefreshToken(userID, deviceID string) (valueobjects.JWTToken, error)
-	ValidateAccessToken(accessToken string) (*dto.AccessTokenClaimsDto, error)
-	ValidateRefreshToken(refreshToken string) (*dto.RefreshTokenClaimsDto, error)
+	// IssueAccessToken generates a signed access token and returns both the token string and its claims
+	IssueAccessToken(userID, deviceID string, roles []string) (token valueobjects.JWTToken, claims dto.AccessTokenClaims, err error)
+
+	// IssueRefreshToken generates a signed refresh token and returns both the token string and its claims
+	IssueRefreshToken(userID, deviceID string) (token valueobjects.JWTToken, claims dto.RefreshTokenClaims, err error)
+
+	// ValidateAccessToken parses & validates a signed access token and returns the claims
+	ValidateAccessToken(token string) (*dto.AccessTokenClaims, error)
+
+	// ValidateRefreshToken parses & validates a signed refresh token and returns the claims
+	ValidateRefreshToken(token string) (*dto.RefreshTokenClaims, error)
 }
