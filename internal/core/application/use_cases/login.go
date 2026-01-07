@@ -5,14 +5,13 @@ import (
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/application/ports/use_cases"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type loginUseCase struct {
+type LoginUseCase struct {
 	userRepo       repositories.UserRepositoryPort
 	refreshRepo    repositories.RefreshTokenRepositoryPort
 	deviceRepo     repositories.DeviceRepositoryPort
@@ -22,8 +21,6 @@ type loginUseCase struct {
 	logger         *slog.Logger
 }
 
-var _ use_cases.LoginUseCasePort = (*loginUseCase)(nil)
-
 func NewLoginUseCase(
 	userRepo repositories.UserRepositoryPort,
 	refreshRepo repositories.RefreshTokenRepositoryPort,
@@ -32,8 +29,8 @@ func NewLoginUseCase(
 	passwordHasher security.HashPasswordPort,
 	tokenService security.TokenServicePort,
 	logger *slog.Logger,
-) *loginUseCase {
-	return &loginUseCase{
+) *LoginUseCase {
+	return &LoginUseCase{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
 		deviceRepo:     deviceRepo,
@@ -44,7 +41,7 @@ func NewLoginUseCase(
 	}
 }
 
-func (h *loginUseCase) Login(
+func (h *LoginUseCase) Login(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 	h.logger.Info("Starting user login", "email", email)

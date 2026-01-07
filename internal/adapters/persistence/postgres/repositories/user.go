@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
@@ -30,7 +30,7 @@ func NewGormUserRepository(
 	}
 }
 
-func (r *GormUserRepository) Save(u *entities.User) error {
+func (r *GormUserRepository) Save(u *aggregates.User) error {
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return apperr.NewInternalErr("mapping failed")
@@ -40,7 +40,7 @@ func (r *GormUserRepository) Save(u *entities.User) error {
 	return r.handleError(err, u.Email().String())
 }
 
-func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*entities.User, error) {
+func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.User, error) {
 	var model models.User
 	err := r.db.Preload("Roles").Where("email = ?", email.Value()).First(&model).Error
 
@@ -55,7 +55,7 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*entities.Use
 	return r.mapper.ToDomain(&model)
 }
 
-func (r *GormUserRepository) Update(u *entities.User) error {
+func (r *GormUserRepository) Update(u *aggregates.User) error {
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return apperr.NewInternalErr("mapping failed")
@@ -71,7 +71,7 @@ func (r *GormUserRepository) Update(u *entities.User) error {
 	// Map the transaction error (e.g. unique constraint or connection loss)
 	return r.handleError(err, u.ID().String())
 }
-func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*entities.User, error) {
+func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, error) {
 	var model models.User
 	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -4,24 +4,20 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/use_cases"
+	"go_auth/internal/core/application/use_cases"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-type AuthenticatedUserHandler struct {
-	uc use_cases.AuthenticatedUserUseCasePort
+type AuthUserHandler struct {
+	uc *use_cases.AuthUserUseCase
 }
 
-func NewAuthenticatedUserHandler(
-	authenticatedUserUseCase use_cases.AuthenticatedUserUseCasePort,
-) *AuthenticatedUserHandler {
-	return &AuthenticatedUserHandler{
-		uc: authenticatedUserUseCase,
-	}
+func NewAuthUserHandler(uc *use_cases.AuthUserUseCase) *AuthUserHandler {
+	return &AuthUserHandler{uc: uc}
 }
 
-func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
+func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
 	// 1. Extract adapter data
 	sub := c.Locals("sub")
 	if sub == nil {
@@ -34,7 +30,7 @@ func (h *AuthenticatedUserHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	// 2. Call application layer
-	profile, err := h.uc.GetAuthUser(userID)
+	profile, err := h.uc.Execute(userID)
 	if err != nil {
 		return err
 	}

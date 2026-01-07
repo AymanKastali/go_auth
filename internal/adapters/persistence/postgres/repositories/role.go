@@ -6,7 +6,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
@@ -26,7 +26,7 @@ func NewGormRoleRepository(db *gorm.DB, mapper *mappers.RoleMapper) repositories
 	}
 }
 
-func (r *GormRoleRepository) Save(role *entities.Role) error {
+func (r *GormRoleRepository) Save(role *aggregates.Role) error {
 	model, err := r.mapper.ToModel(role)
 	if err != nil {
 		return apperr.NewInternalErr("role mapping failed")
@@ -37,7 +37,7 @@ func (r *GormRoleRepository) Save(role *entities.Role) error {
 	return r.handleError(err, role.Name())
 }
 
-func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*entities.Role, error) {
+func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, error) {
 	var model models.Role
 	err := r.db.Where("id = ?", id.String()).First(&model).Error
 
@@ -51,7 +51,7 @@ func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*entities.Role, er
 	return r.mapper.ToDomain(&model)
 }
 
-func (r *GormRoleRepository) GetByName(name string) (*entities.Role, error) {
+func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 	var model models.Role
 	err := r.db.Where("name = ?", name).First(&model).Error
 
@@ -65,13 +65,13 @@ func (r *GormRoleRepository) GetByName(name string) (*entities.Role, error) {
 	return r.mapper.ToDomain(&model)
 }
 
-func (r *GormRoleRepository) GetAll() ([]*entities.Role, error) {
+func (r *GormRoleRepository) GetAll() ([]*aggregates.Role, error) {
 	var modelsList []models.Role
 	if err := r.db.Find(&modelsList).Error; err != nil {
 		return nil, r.handleError(err, "all_roles")
 	}
 
-	roles := make([]*entities.Role, len(modelsList))
+	roles := make([]*aggregates.Role, len(modelsList))
 	for i, m := range modelsList {
 		role, err := r.mapper.ToDomain(&m)
 		if err != nil {

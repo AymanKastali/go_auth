@@ -4,32 +4,29 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/use_cases"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
-type AuthenticatedUserUseCase struct {
+type AuthUserUseCase struct {
 	userRepository repositories.UserRepositoryPort
 	roleRepository repositories.RoleRepositoryPort
 	logger         *slog.Logger
 }
 
-var _ use_cases.AuthenticatedUserUseCasePort = (*AuthenticatedUserUseCase)(nil)
-
-func NewAuthenticatedUserUseCase(
+func NewAuthUserUseCase(
 	userRepo repositories.UserRepositoryPort,
 	roleRepo repositories.RoleRepositoryPort,
 	logger *slog.Logger,
-) *AuthenticatedUserUseCase {
-	return &AuthenticatedUserUseCase{
+) *AuthUserUseCase {
+	return &AuthUserUseCase{
 		userRepository: userRepo,
 		roleRepository: roleRepo,
 		logger:         logger,
 	}
 }
 
-func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.AuthenticatedUser, error) {
+func (h *AuthUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 	// 1️⃣ Parse user ID
 	userIDVO, err := valueobjects.UserIDFromString(userID)
 	if err != nil {
@@ -63,7 +60,7 @@ func (h *AuthenticatedUserUseCase) GetAuthUser(userID string) (*dto.Authenticate
 	}
 
 	// 4️⃣ Return DTO
-	return &dto.AuthenticatedUser{
+	return &dto.AuthUser{
 		ID:        user.ID().String(),
 		Email:     user.Email().String(),
 		Status:    string(user.Status()),

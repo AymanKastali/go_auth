@@ -1,4 +1,4 @@
-package entities
+package aggregates
 
 import (
 	"go_auth/internal/core/domain/derr"

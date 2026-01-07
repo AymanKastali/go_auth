@@ -5,7 +5,7 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports/repositories"
 	"go_auth/internal/core/application/ports/security"
-	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
@@ -69,19 +69,19 @@ func (s *SeedAdminService) SeedAdmin() error {
 	}
 	pw := valueobjects.NewHashedPassword(hash)
 
-	// Fetch ADMIN role
-	adminRole, err := s.roleRepo.GetByName("ADMIN")
+	// Fetch admin role
+	adminRole, err := s.roleRepo.GetByName("admin")
 	if err != nil {
-		s.logger.Error("Failed to fetch ADMIN role", "error", err)
-		return apperr.NewInternalErr("failed to fetch ADMIN role")
+		s.logger.Error("Failed to fetch admin role", "error", err)
+		return apperr.NewInternalErr("failed to fetch admin role")
 	}
 	if adminRole == nil {
-		s.logger.Error("ADMIN role does not exist, cannot seed admin user")
-		return apperr.NewInternalErr("ADMIN role missing")
+		s.logger.Error("admin role does not exist, cannot seed admin user")
+		return apperr.NewInternalErr("admin role missing")
 	}
 
 	// Create admin user entity
-	admin, err := entities.NewUser(
+	admin, err := aggregates.NewUser(
 		valueobjects.NewUserID(),
 		emailVO,
 		pw,

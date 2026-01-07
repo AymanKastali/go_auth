@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
@@ -15,7 +15,7 @@ func NewUserMapper() *UserMapper {
 }
 
 // ToDomain converts a GORM User model (with Roles) to a domain entity
-func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
+func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	if u == nil {
 		return nil, nil
 	}
@@ -53,7 +53,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 	}
 
 	// Rehydrate the domain User
-	user, err := entities.ReconstituteUser(
+	user, err := aggregates.ReconstituteUser(
 		userID,
 		emailVO,
 		pwHashVO,
@@ -71,7 +71,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*entities.User, error) {
 }
 
 // ToModel converts a domain User entity to a GORM User model
-func (m *UserMapper) ToModel(u *entities.User) (*models.User, error) {
+func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
 	if u == nil {
 		return nil, nil
 	}
