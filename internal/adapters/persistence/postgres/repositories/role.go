@@ -5,7 +5,7 @@ import (
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/repositories"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 
@@ -17,9 +17,9 @@ type GormRoleRepository struct {
 	mapper *mappers.RoleMapper
 }
 
-var _ repositories.RoleRepositoryPort = (*GormRoleRepository)(nil)
+var _ ports.RoleRepositoryPort = (*GormRoleRepository)(nil)
 
-func NewGormRoleRepository(db *gorm.DB, mapper *mappers.RoleMapper) repositories.RoleRepositoryPort {
+func NewGormRoleRepository(db *gorm.DB, mapper *mappers.RoleMapper) ports.RoleRepositoryPort {
 	return &GormRoleRepository{
 		db:     db,
 		mapper: mapper,

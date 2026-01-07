@@ -6,7 +6,7 @@ import (
 	"go_auth/internal/adapters/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports/repositories"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 
@@ -18,12 +18,12 @@ type GormUserRepository struct {
 	mapper *mappers.UserMapper
 }
 
-var _ repositories.UserRepositoryPort = (*GormUserRepository)(nil)
+var _ ports.UserRepositoryPort = (*GormUserRepository)(nil)
 
 func NewGormUserRepository(
 	db *gorm.DB,
 	mapper *mappers.UserMapper,
-) repositories.UserRepositoryPort {
+) ports.UserRepositoryPort {
 	return &GormUserRepository{
 		db:     db,
 		mapper: mapper,

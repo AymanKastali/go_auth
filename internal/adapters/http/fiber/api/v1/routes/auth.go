@@ -1,7 +1,7 @@
 package routes
 
 import (
-	auth_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,11 +9,11 @@ import (
 
 func RegisterAuthRoutes(
 	app *fiber.App,
-	registerHandler *auth_handlers.RegisterHandler,
-	loginHandler *auth_handlers.LoginHandler,
-	refreshTokenHandler *auth_handlers.RefreshTokenHandler,
-	logoutHandler *auth_handlers.LogoutHandler,
-	rolesHandler *auth_handlers.RoleHandler,
+	registerHandler interfaces.IRegisterHandler,
+	loginHandler interfaces.ILoginHandler,
+	refreshTokenHandler interfaces.IRefreshTokenHandler,
+	logoutHandler interfaces.ILogoutHandler,
+	rolesHandler interfaces.IUpdateRoleHandler,
 	tokenMiddleware fiber.Handler,
 ) {
 	authRoutes := app.Group("/api/v1/auth")

@@ -1,32 +1,34 @@
-package use_cases
+package usecases
 
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/repositories"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
-type AuthUserUseCase struct {
-	userRepository repositories.UserRepositoryPort
-	roleRepository repositories.RoleRepositoryPort
-	logger         *slog.Logger
+type authUserUseCase struct {
+	userRepo ports.UserRepositoryPort
+	roleRepo ports.RoleRepositoryPort
+	logger   *slog.Logger
 }
 
+var _ ports.AuthUserUseCasePort = (*authUserUseCase)(nil)
+
 func NewAuthUserUseCase(
-	userRepo repositories.UserRepositoryPort,
-	roleRepo repositories.RoleRepositoryPort,
+	userRepo ports.UserRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
 	logger *slog.Logger,
-) *AuthUserUseCase {
-	return &AuthUserUseCase{
-		userRepository: userRepo,
-		roleRepository: roleRepo,
-		logger:         logger,
+) ports.AuthUserUseCasePort {
+	return &authUserUseCase{
+		userRepo: userRepo,
+		roleRepo: roleRepo,
+		logger:   logger,
 	}
 }
 
-func (h *AuthUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
+func (h *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 	// 1️⃣ Parse user ID
 	userIDVO, err := valueobjects.UserIDFromString(userID)
 	if err != nil {
@@ -34,7 +36,7 @@ func (h *AuthUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 	}
 
 	// 2️⃣ Fetch user entity
-	user, err := h.userRepository.GetByID(userIDVO)
+	user, err := h.userRepo.GetByID(userIDVO)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +48,7 @@ func (h *AuthUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 	roleIDs := user.RoleIDs()
 	roles := make([]string, len(roleIDs))
 	for i, rID := range roleIDs {
-		role, err := h.roleRepository.GetByID(rID)
+		role, err := h.roleRepo.GetByID(rID)
 		if err != nil {
 			h.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
 			return nil, apperr.NewInternalErr("failed to fetch user roles")

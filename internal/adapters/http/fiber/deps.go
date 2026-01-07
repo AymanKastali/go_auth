@@ -3,6 +3,7 @@ package fiber
 import (
 	"go_auth/internal/adapters/config"
 	auth_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	user_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/user"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/mappers"
@@ -10,7 +11,7 @@ import (
 	"go_auth/internal/adapters/security/jwt"
 	"go_auth/internal/adapters/security/password"
 	"go_auth/internal/core/application/services"
-	"go_auth/internal/core/application/use_cases"
+	"go_auth/internal/core/application/usecases"
 	"log"
 	"log/slog"
 	"os"
@@ -20,11 +21,11 @@ import (
 )
 
 type Deps struct {
-	RegisterHandler     *auth_handlers.RegisterHandler
-	LoginHandler        *auth_handlers.LoginHandler
-	RefreshTokenHandler *auth_handlers.RefreshTokenHandler
-	LogoutHandler       *auth_handlers.LogoutHandler
-	RoleHandler         *auth_handlers.RoleHandler
+	RegisterHandler     interfaces.IRegisterHandler
+	LoginHandler        interfaces.ILoginHandler
+	RefreshTokenHandler interfaces.IRefreshTokenHandler
+	LogoutHandler       interfaces.ILogoutHandler
+	UpdateRoleHandler   interfaces.IUpdateRoleHandler
 	AuthUserHandler     *user_handlers.AuthUserHandler
 	AuthMiddleware      fiber.Handler
 	Logger              *slog.Logger
@@ -92,14 +93,14 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Use cases
 	// -------------------
-	registerUC := use_cases.NewRegisterUseCase(
+	registerUC := usecases.NewRegisterUseCase(
 		userRepo,
 		roleRepo,
 		passwordHasher,
 		logger,
 	)
 
-	loginUC := use_cases.NewLoginUseCase(
+	loginUC := usecases.NewLoginUseCase(
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
@@ -109,13 +110,13 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		logger,
 	)
 
-	logoutUC := use_cases.NewLogoutUseCase(
+	logoutUC := usecases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
 		logger,
 	)
 
-	refreshUC := use_cases.NewRefreshTokenUseCase(
+	refreshUC := usecases.NewRefreshTokenUseCase(
 		userRepo,
 		refreshTokenRepo,
 		deviceRepo,
@@ -124,13 +125,13 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		logger,
 	)
 
-	authUserUC := use_cases.NewAuthUserUseCase(
+	authUserUC := usecases.NewAuthUserUseCase(
 		userRepo,
 		roleRepo,
 		logger,
 	)
 
-	roleUC := use_cases.NewUpdateRoleUseCase(
+	roleUC := usecases.NewUpdateRoleUseCase(
 		userRepo,
 		roleRepo,
 		logger,
@@ -144,7 +145,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		LoginHandler:        auth_handlers.NewLoginHandler(loginUC),
 		RefreshTokenHandler: auth_handlers.NewRefreshTokenHandler(refreshUC),
 		LogoutHandler:       auth_handlers.NewLogoutHandler(logoutUC),
-		RoleHandler:         auth_handlers.NewUpdateRoleHandler(roleUC),
+		UpdateRoleHandler:   auth_handlers.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     user_handlers.NewAuthUserHandler(authUserUC),
 		AuthMiddleware:      middlewares.JWTMiddleware(jwtService, deviceRepo),
 		Logger:              logger,

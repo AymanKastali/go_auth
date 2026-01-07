@@ -1,39 +1,40 @@
-package use_cases
+package usecases
 
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/repositories"
-	"go_auth/internal/core/application/ports/security"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
-type RegisterUseCase struct {
-	userRepository repositories.UserRepositoryPort
-	roleRepository repositories.RoleRepositoryPort
-	passwordHasher security.HashPasswordPort
+type registerUseCase struct {
+	userRepo       ports.UserRepositoryPort
+	roleRepo       ports.RoleRepositoryPort
+	passwordHasher ports.HashPasswordServicePort
 	logger         *slog.Logger
 }
 
+var _ ports.RegisterUseCasePort = (*registerUseCase)(nil)
+
 func NewRegisterUseCase(
-	userRepo repositories.UserRepositoryPort,
-	roleRepo repositories.RoleRepositoryPort,
-	passwordHasher security.HashPasswordPort,
+	userRepo ports.UserRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
+	passwordHasher ports.HashPasswordServicePort,
 	logger *slog.Logger,
-) *RegisterUseCase {
-	return &RegisterUseCase{
-		userRepository: userRepo,
-		roleRepository: roleRepo,
+) ports.RegisterUseCasePort {
+	return &registerUseCase{
+		userRepo:       userRepo,
+		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		logger:         logger,
 	}
 }
 
 // Register creates a new user with the default user role
-func (h *RegisterUseCase) Register(email string, password string) (*dto.RegisteredUserDTO, error) {
+func (h *registerUseCase) Execute(email, password string) (*dto.RegisteredUserDTO, error) {
 	// 1️⃣ DOMAIN: Validate email
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
@@ -51,7 +52,7 @@ func (h *RegisterUseCase) Register(email string, password string) (*dto.Register
 
 	// 3️⃣ INFRA: Fetch default user role
 	// Your roleRepo now returns apperr, so we return err directly
-	userRole, err := h.roleRepository.GetByName("user")
+	userRole, err := h.roleRepo.GetByName("user")
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func (h *RegisterUseCase) Register(email string, password string) (*dto.Register
 	// 5️⃣ INFRA: Save user
 	// Note: If the email already exists, userRepository.Save returns apperr.AlreadyExistsErr
 	// because it uses r.handleError(err, u.Email().String()) internally.
-	if err := h.userRepository.Save(user); err != nil {
+	if err := h.userRepo.Save(user); err != nil {
 		return nil, err
 	}
 

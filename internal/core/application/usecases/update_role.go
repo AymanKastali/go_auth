@@ -1,35 +1,37 @@
-package use_cases
+package usecases
 
 import (
 	"fmt"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports/repositories"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"strings"
 )
 
-type UpdateRoleUseCase struct {
-	userRepo repositories.UserRepositoryPort
-	roleRepo repositories.RoleRepositoryPort
+type updateRoleUseCase struct {
+	userRepo ports.UserRepositoryPort
+	roleRepo ports.RoleRepositoryPort
 	logger   *slog.Logger
 }
 
+var _ ports.UpdateRoleUseCasePort = (*updateRoleUseCase)(nil)
+
 func NewUpdateRoleUseCase(
-	userRepository repositories.UserRepositoryPort,
-	roleRepository repositories.RoleRepositoryPort,
+	userRepo ports.UserRepositoryPort,
+	roleRepo ports.RoleRepositoryPort,
 	logger *slog.Logger,
-) *UpdateRoleUseCase {
-	return &UpdateRoleUseCase{
-		userRepo: userRepository,
-		roleRepo: roleRepository,
+) ports.UpdateRoleUseCasePort {
+	return &updateRoleUseCase{
+		userRepo: userRepo,
+		roleRepo: roleRepo,
 		logger:   logger,
 	}
 }
 
 // Execute grants or revokes a role for a user
-func (uc *UpdateRoleUseCase) Execute(req dto.ManageRoleInput) error {
+func (uc *updateRoleUseCase) Execute(req dto.ManageRoleInput) error {
 	uc.logger.Info("Updating user role", "userID", req.UserID, "action", req.Action, "role", req.Role)
 
 	// 1️⃣ Convert user ID (Domain Validation)

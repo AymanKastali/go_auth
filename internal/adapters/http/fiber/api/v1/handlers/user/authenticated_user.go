@@ -4,16 +4,16 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/use_cases"
+	"go_auth/internal/core/application/ports"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type AuthUserHandler struct {
-	uc *use_cases.AuthUserUseCase
+	uc ports.AuthUserUseCasePort
 }
 
-func NewAuthUserHandler(uc *use_cases.AuthUserUseCase) *AuthUserHandler {
+func NewAuthUserHandler(uc ports.AuthUserUseCasePort) *AuthUserHandler {
 	return &AuthUserHandler{uc: uc}
 }
 
