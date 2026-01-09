@@ -6,7 +6,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	user_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/user"
 	"go_auth/internal/adapters/http/fiber/middlewares"
-	"go_auth/internal/adapters/mappers"
+	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/security/jwt"
 	"go_auth/internal/adapters/security/password"
@@ -58,7 +58,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	passwordHasher := password.NewBcryptHashedPassworder(12)
 
-	jwtCfg, err := config.LoadJWTConfigFromEnv()
+	jwtCfg, err := jwt.LoadJWTConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}

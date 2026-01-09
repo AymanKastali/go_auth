@@ -3,7 +3,6 @@ package jwt
 import (
 	"crypto/rsa"
 	"fmt"
-	"go_auth/internal/adapters/config"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports"
@@ -27,7 +26,7 @@ type jwtService struct {
 
 var _ ports.TokenServicePort = (*jwtService)(nil)
 
-func NewJWTService(cfg *config.JWTConfig) ports.TokenServicePort {
+func NewJWTService(cfg *JWTConfig) ports.TokenServicePort {
 	return &jwtService{
 		privateKey: cfg.PrivateKey,
 		publicKey:  cfg.PublicKey,
