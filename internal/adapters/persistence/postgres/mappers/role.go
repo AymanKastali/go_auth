@@ -1,8 +1,8 @@
 package mappers
 
 import (
-	"fmt"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 )
@@ -13,15 +13,15 @@ func NewRoleMapper() *RoleMapper {
 	return &RoleMapper{}
 }
 
-// ToDomain converts a GORM Role model to domain Role entity
 func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
+	entity := "Role"
 	if r == nil {
 		return nil, nil
 	}
 
 	roleID, err := valueobjects.RoleIDFromString(r.ID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Role ID '%s': %w", r.ID, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, "ID", err)
 	}
 
 	role, err := aggregates.ReconstituteRole(
@@ -32,13 +32,12 @@ func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
 		r.DeletedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to reconstitute role: %w", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, "Aggregate", err)
 	}
 
 	return role, nil
 }
 
-// ToModel converts a domain Role entity to GORM Role model
 func (m *RoleMapper) ToModel(role *aggregates.Role) (*models.Role, error) {
 	if role == nil {
 		return nil, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 )
@@ -14,24 +15,29 @@ func NewUserMapper() *UserMapper {
 	return &UserMapper{}
 }
 
-// ToDomain converts a GORM User model (with Roles) to a domain entity
 func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
+	entity := "User"
+
 	if u == nil {
 		return nil, nil
 	}
 
+	// 1. Map ID
 	userID, err := valueobjects.UserIDFromString(u.ID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid User ID '%s': %w", u.ID, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "ID", err)
 	}
 
+	// 2. Map Email
 	emailVO, err := valueobjects.NewEmail(u.Email)
 	if err != nil {
-		return nil, fmt.Errorf("invalid email '%s': %w", u.Email, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Email", err)
 	}
 
+	// 3. Map Password Hash (Missing in your code)
 	pwHashVO := valueobjects.NewHashedPassword(u.HashedPassword)
 
+	// 4. Map Status
 	var status valueobjects.UserStatus
 	switch u.Status {
 	case string(valueobjects.UserActive):
@@ -39,20 +45,20 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	case string(valueobjects.UserInactive):
 		status = valueobjects.UserInactive
 	default:
-		return nil, fmt.Errorf("unknown status '%s'", u.Status)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Status", fmt.Errorf("unknown: %s", u.Status))
 	}
 
-	// Map roles from models.Role → valueobjects.RoleID
+	// 5. Map Roles (The reason roles were missing)
 	roleIDs := make([]valueobjects.RoleID, len(u.Roles))
 	for i, r := range u.Roles {
-		roleID, err := valueobjects.RoleIDFromString(r.ID)
+		rid, err := valueobjects.RoleIDFromString(r.ID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid Role ID '%s': %w", r.ID, err)
+			return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "RoleID", err)
 		}
-		roleIDs[i] = roleID
+		roleIDs[i] = rid
 	}
 
-	// Rehydrate the domain User
+	// 6. Reconstitute Aggregate
 	user, err := aggregates.ReconstituteUser(
 		userID,
 		emailVO,
@@ -63,14 +69,14 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 		u.UpdatedAt,
 		u.DeletedAt,
 	)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to reconstitute user: %w", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Aggregate", err)
 	}
 
 	return user, nil
 }
 
-// ToModel converts a domain User entity to a GORM User model
 func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
 	if u == nil {
 		return nil, nil
