@@ -5,6 +5,7 @@ import (
 
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
@@ -33,11 +34,12 @@ func NewGormUserRepository(
 func (r *GormUserRepository) Save(u *aggregates.User) error {
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
-		return apperr.NewInternalErr("mapping failed")
+		// Mapping TO model usually fails only on logic bugs; map it to Internal
+		return apperr.NewInternalErr("failed to prepare user for persistence")
 	}
 
 	err = r.db.Omit("Roles.*").Create(model).Error
-	return r.handleError(err, u.Email().String())
+	return r.mapPGErr(err, u.Email().String())
 }
 
 func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.User, error) {
@@ -45,20 +47,45 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 	err := r.db.Preload("Roles").Where("email = ?", email.Value()).First(&model).Error
 
 	if err != nil {
-		// Return nil, nil if not found (standard Go repository pattern)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, r.handleError(err, email.Value())
+		return nil, r.mapPGErr(err, email.Value())
 	}
 
-	return r.mapper.ToDomain(&model)
+	domainUser, err := r.mapper.ToDomain(&model)
+	if err != nil {
+		// FIX: Map the pgerr.DataCorruptionErr to an apperr
+		return nil, r.mapPGErr(err, email.Value())
+	}
+
+	return domainUser, nil
+}
+
+func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, error) {
+	var model models.User
+	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, r.mapPGErr(err, id.String())
+	}
+
+	domainUser, err := r.mapper.ToDomain(&model)
+	if err != nil {
+		// FIX: Map the pgerr.DataCorruptionErr to an apperr
+		return nil, r.mapPGErr(err, id.String())
+	}
+
+	return domainUser, nil
 }
 
 func (r *GormUserRepository) Update(u *aggregates.User) error {
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
-		return apperr.NewInternalErr("mapping failed")
+		return apperr.NewInternalErr("failed to prepare user for update")
 	}
 
 	err = r.db.Transaction(func(tx *gorm.DB) error {
@@ -68,28 +95,23 @@ func (r *GormUserRepository) Update(u *aggregates.User) error {
 		return tx.Model(model).Association("Roles").Replace(model.Roles)
 	})
 
-	// Map the transaction error (e.g. unique constraint or connection loss)
-	return r.handleError(err, u.ID().String())
-}
-func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, error) {
-	var model models.User
-	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return r.mapper.ToDomain(&model)
+	return r.mapPGErr(err, u.ID().String())
 }
 
-func (r *GormUserRepository) handleError(err error, id string) error {
+func (r *GormUserRepository) mapPGErr(err error, id string) error {
 	if err == nil {
 		return nil
 	}
 
-	// GORM translates "23505" into gorm.ErrDuplicatedKey automatically
+	// 1. Handle Infrastructure Invariants (PostgresErr / PersistenceErr)
+	// This catches the pgerr.DataCorruptionErr returned by your Mapper.
+	var pgErr pgerr.PostgresErr
+	if errors.As(err, &pgErr) {
+		// log.Error("Critical data integrity issue", "err", pgErr.Error())
+		return apperr.NewInternalErr("internal data integrity violation")
+	}
+
+	// 2. Handle Known GORM/Postgres Constraint Errors
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return apperr.NewAlreadyExistsErr("user", id)
 	}
@@ -98,6 +120,8 @@ func (r *GormUserRepository) handleError(err error, id string) error {
 		return apperr.NewNotFoundErr("user", id)
 	}
 
-	// Fallback for everything else
-	return apperr.NewInternalErr(err.Error())
+	// 3. Professional Fallback
+	// We log the raw err.Error() internally, but NEVER return it to the App layer.
+	// log.Error("Unexpected database failure", "err", err)
+	return apperr.NewInternalErr("an unexpected error occurred while accessing the data store")
 }
