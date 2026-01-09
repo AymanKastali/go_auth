@@ -3,7 +3,7 @@ package repositories
 import (
 	"errors"
 
-	"go_auth/internal/adapters/mappers"
+	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"

@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
 type SeederConfig struct {
 	AdminEmail    string
@@ -8,8 +11,15 @@ type SeederConfig struct {
 }
 
 func LoadSeederConfig() (*SeederConfig, error) {
+	email := os.Getenv("ADMIN_EMAIL")
+	password := os.Getenv("ADMIN_PASSWORD")
+
+	if email == "" || password == "" {
+		return nil, errors.New("seeder config: missing required env vars")
+	}
+
 	return &SeederConfig{
-		AdminEmail:    os.Getenv("ADMIN_EMAIL"),
-		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		AdminEmail:    email,
+		AdminPassword: password,
 	}, nil
 }
