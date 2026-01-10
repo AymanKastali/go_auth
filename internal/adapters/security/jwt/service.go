@@ -92,7 +92,7 @@ func (s *jwtService) sign(claims jwt.Claims) (valueobjects.JWTToken, error) {
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.JWTToken{}, NewServiceError(err)
+		return valueobjects.JWTToken{}, NewSignErr(err)
 	}
 	return valueobjects.NewJWTToken(signed), nil
 }
@@ -100,24 +100,27 @@ func (s *jwtService) sign(claims jwt.Claims) (valueobjects.JWTToken, error) {
 func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType string) error {
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, NewServiceError(ErrUnexpectedMethod)
+			return nil, NewUnexpectedMethodErr()
 		}
 		return s.publicKey, nil
 	})
 
 	if err != nil {
-		return NewServiceError(err)
+		return NewInvalidTokenErr(err)
 	}
 
 	if !token.Valid {
-		return NewServiceError(ErrInvalidToken)
+		return NewInvalidTokenErr(errInvalidToken)
 	}
 
 	if c, ok := claims.(interface{ GetType() string }); ok {
 		if c.GetType() != expectedType {
-			return NewServiceError(ErrTypeMismatch)
+			return NewTypeMismatchErr()
 		}
+	} else {
+		return NewMissingTypeErr()
 	}
+
 	return nil
 }
 

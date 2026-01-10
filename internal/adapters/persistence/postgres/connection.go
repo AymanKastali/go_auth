@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"fmt"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -10,7 +10,7 @@ import (
 func NewPostgresConnection(cfg *PostgresConfig) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{TranslateError: true})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
+		return nil, pgerr.NewConnErr(err)
 	}
 	return db, nil
 }

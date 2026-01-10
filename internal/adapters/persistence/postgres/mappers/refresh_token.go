@@ -21,17 +21,17 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 
 	tokenID, err := valueobjects.TokenIDFromString(rt.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, "ID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
 
 	userID, err := valueobjects.UserIDFromString(rt.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, "UserID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
 
 	deviceID, err := valueobjects.DeviceIDFromString(rt.DeviceID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, "DeviceID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
 
 	// Rehydrate the entity (using NewRefreshToken as a Reconstitutor here)
@@ -44,7 +44,7 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		rt.CreatedAt, // Use DB time for consistency
 	)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, "Entity", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
 
 	if rt.RevokedAt != nil {

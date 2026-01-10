@@ -25,13 +25,13 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	// 1. Map ID
 	userID, err := valueobjects.UserIDFromString(u.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "ID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
 	}
 
 	// 2. Map Email
 	emailVO, err := valueobjects.NewEmail(u.Email)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Email", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
 	}
 
 	// 3. Map Password Hash (Missing in your code)
@@ -45,7 +45,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	case string(valueobjects.UserInactive):
 		status = valueobjects.UserInactive
 	default:
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Status", fmt.Errorf("unknown: %s", u.Status))
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, fmt.Errorf("unknown: %s", u.Status))
 	}
 
 	// 5. Map Roles (The reason roles were missing)
@@ -53,7 +53,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	for i, r := range u.Roles {
 		rid, err := valueobjects.RoleIDFromString(r.ID)
 		if err != nil {
-			return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "RoleID", err)
+			return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
 		}
 		roleIDs[i] = rid
 	}
@@ -71,7 +71,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	)
 
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, "Aggregate", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
 	}
 
 	return user, nil

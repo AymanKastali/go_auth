@@ -21,7 +21,7 @@ func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
 
 	roleID, err := valueobjects.RoleIDFromString(r.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, "ID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
 	}
 
 	role, err := aggregates.ReconstituteRole(
@@ -32,7 +32,7 @@ func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
 		r.DeletedAt,
 	)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, "Aggregate", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
 	}
 
 	return role, nil
