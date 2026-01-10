@@ -19,7 +19,7 @@ func NewEmail(email string) (Email, error) {
 
 	if !emailRegex.MatchString(email) {
 		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
-		return Email{}, derr.NewInvalidValueErr("email", "invalid email format")
+		return Email{}, derr.NewInvalidValueErr("Email")
 	}
 
 	return Email{value: email}, nil

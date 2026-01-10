@@ -14,12 +14,12 @@ import (
 
 type GormDeviceRepository struct {
 	db     *gorm.DB
-	mapper *mappers.DeviceMapper
+	mapper mappers.IDeviceMapper
 }
 
 func NewGormDeviceRepository(
 	db *gorm.DB,
-	mapper *mappers.DeviceMapper,
+	mapper mappers.IDeviceMapper,
 ) *GormDeviceRepository {
 	return &GormDeviceRepository{
 		db:     db,
@@ -68,9 +68,9 @@ func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt 
 
 func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error) {
 	var modelsList []models.Device
-	err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error
+	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
 	if err != nil {
-		return nil, r.handleError(err, userID.String())
+		return nil, r.handleError(err, userID.Value())
 	}
 
 	devices := make([]*entities.Device, len(modelsList))

@@ -25,7 +25,7 @@ func TokenIDFromString(u string) (TokenID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
 		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
-		return TokenID{}, derr.NewInvalidValueErr("token_id", err.Error())
+		return TokenID{}, derr.NewInvalidValueErr("TokenID")
 	}
 
 	return TokenID{value: parsed}, nil

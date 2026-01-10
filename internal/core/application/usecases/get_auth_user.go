@@ -3,40 +3,43 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/valueobjects"
+	"go_auth/internal/core/application/interfaces"
+	aports "go_auth/internal/core/application/ports"
+	dports "go_auth/internal/core/domain/ports"
 	"log/slog"
 )
 
 type authUserUseCase struct {
-	userRepo ports.UserRepositoryPort
-	roleRepo ports.RoleRepositoryPort
-	logger   *slog.Logger
+	userRepo   dports.UserRepositoryPort
+	roleRepo   dports.RoleRepositoryPort
+	uuidParser interfaces.IUUIDParserService
+	logger     *slog.Logger
 }
 
-var _ ports.AuthUserUseCasePort = (*authUserUseCase)(nil)
+var _ aports.AuthUserUseCasePort = (*authUserUseCase)(nil)
 
 func NewAuthUserUseCase(
-	userRepo ports.UserRepositoryPort,
-	roleRepo ports.RoleRepositoryPort,
+	userRepo dports.UserRepositoryPort,
+	roleRepo dports.RoleRepositoryPort,
+	uuidParser interfaces.IUUIDParserService,
 	logger *slog.Logger,
-) ports.AuthUserUseCasePort {
+) aports.AuthUserUseCasePort {
 	return &authUserUseCase{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		logger:   logger,
+		userRepo:   userRepo,
+		roleRepo:   roleRepo,
+		uuidParser: uuidParser,
+		logger:     logger,
 	}
 }
 
-func (h *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
-	// 1️⃣ Parse user ID
-	userIDVO, err := valueobjects.UserIDFromString(userID)
+func (uc *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
+	userIDVO, err := uc.uuidParser.ParseUserID(userID)
 	if err != nil {
-		return nil, apperr.MapDomainErr(err)
+		uc.logger.Error("Failed to generate user ID", "error", err)
+		return nil, apperr.NewInternalErr("failed to generate user id")
 	}
 
-	// 2️⃣ Fetch user entity
-	user, err := h.userRepo.GetByID(userIDVO)
+	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
 		return nil, err
 	}
@@ -44,26 +47,24 @@ func (h *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 		return nil, apperr.NewNotFoundErr("user", userID)
 	}
 
-	// 3️⃣ Map role IDs -> role names
 	roleIDs := user.RoleIDs()
 	roles := make([]string, len(roleIDs))
 	for i, rID := range roleIDs {
-		role, err := h.roleRepo.GetByID(rID)
+		role, err := uc.roleRepo.GetByID(rID)
 		if err != nil {
-			h.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
+			uc.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
 			return nil, apperr.NewInternalErr("failed to fetch user roles")
 		}
 		if role == nil {
-			h.logger.Warn("Role not found for user", "roleID", rID)
+			uc.logger.Warn("Role not found for user", "roleID", rID)
 			roles[i] = "UNKNOWN"
 			continue
 		}
 		roles[i] = role.Name()
 	}
 
-	// 4️⃣ Return DTO
 	return &dto.AuthUser{
-		ID:        user.ID().String(),
+		ID:        user.ID().Value(),
 		Email:     user.Email().String(),
 		Status:    string(user.Status()),
 		Roles:     roles,

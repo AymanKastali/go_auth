@@ -45,7 +45,7 @@ func NewRefreshToken(
 
 	// Business Rule: Cannot issue an already expired token
 	if expiresAt.Before(now) {
-		return nil, derr.NewInvalidValueErr("expires_at", "expiration date must not be in the past")
+		return nil, derr.NewInvalidValueErr("ExpiresAt")
 	}
 
 	return &RefreshToken{
@@ -150,7 +150,7 @@ func (t *RefreshToken) EnsureUsable(now time.Time) error {
 
 func (t *RefreshToken) BelongsTo(userID valueobjects.UserID) error {
 	if !t.userID.Equal(userID) {
-		return derr.NewInvalidValueErr("user_id", "token ownership mismatch")
+		return derr.NewInvalidValueErr("UserID")
 	}
 
 	return nil

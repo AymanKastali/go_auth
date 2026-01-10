@@ -136,7 +136,7 @@ func (d *Device) EnsureUsable() error {
 func (d *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !d.userID.Equal(userID) {
 		// If it's the wrong user, it's a violation of access/value logic
-		return derr.NewInvalidValueErr("user_id", "device ownership mismatch")
+		return derr.NewInvalidValueErr("UserID")
 	}
 	return nil
 }

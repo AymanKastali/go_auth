@@ -2,7 +2,8 @@ package middlewares
 
 import (
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
+	aports "go_auth/internal/core/application/ports"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"strings"
 
@@ -10,8 +11,8 @@ import (
 )
 
 func JWTMiddleware(
-	tokenService ports.TokenServicePort,
-	deviceRepo ports.DeviceRepositoryPort,
+	tokenService aports.TokenServicePort,
+	deviceRepo dports.DeviceRepositoryPort,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")

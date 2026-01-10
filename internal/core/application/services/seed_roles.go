@@ -2,24 +2,25 @@ package services
 
 import (
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
+	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
 type seedRolesService struct {
-	roleRepo ports.RoleRepositoryPort
+	roleRepo dports.RoleRepositoryPort
 	logger   *slog.Logger
 }
 
-var _ ports.SeedRolesServicePort = (*seedRolesService)(nil)
+var _ aports.SeedRolesServicePort = (*seedRolesService)(nil)
 
 func NewSeedRolesService(
-	roleRepo ports.RoleRepositoryPort,
+	roleRepo dports.RoleRepositoryPort,
 	logger *slog.Logger,
-) ports.SeedRolesServicePort {
+) aports.SeedRolesServicePort {
 	return &seedRolesService{
 		roleRepo: roleRepo,
 		logger:   logger,

@@ -3,82 +3,87 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports"
+	"go_auth/internal/core/application/interfaces"
+	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
 type refreshTokenUseCase struct {
-	userRepo    ports.UserRepositoryPort
-	refreshRepo ports.RefreshTokenRepositoryPort
-	deviceRepo  ports.DeviceRepositoryPort
-	roleRepo    ports.RoleRepositoryPort
-	tokenSvc    ports.TokenServicePort
+	userRepo    dports.UserRepositoryPort
+	refreshRepo dports.RefreshTokenRepositoryPort
+	deviceRepo  dports.DeviceRepositoryPort
+	roleRepo    dports.RoleRepositoryPort
+	tokenSvc    aports.TokenServicePort
+	uuidParser  interfaces.IUUIDParserService
 	logger      *slog.Logger
 }
 
-var _ ports.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
+var _ aports.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
 
 func NewRefreshTokenUseCase(
-	userRepo ports.UserRepositoryPort,
-	refreshRepo ports.RefreshTokenRepositoryPort,
-	deviceRepo ports.DeviceRepositoryPort,
-	roleRepo ports.RoleRepositoryPort,
-	tokenSvc ports.TokenServicePort,
+	userRepo dports.UserRepositoryPort,
+	refreshRepo dports.RefreshTokenRepositoryPort,
+	deviceRepo dports.DeviceRepositoryPort,
+	roleRepo dports.RoleRepositoryPort,
+	tokenSvc aports.TokenServicePort,
+	uuidParser interfaces.IUUIDParserService,
 	logger *slog.Logger,
-) ports.RefreshTokenUseCasePort {
+) aports.RefreshTokenUseCasePort {
 	return &refreshTokenUseCase{
 		userRepo:    userRepo,
 		refreshRepo: refreshRepo,
 		deviceRepo:  deviceRepo,
 		roleRepo:    roleRepo,
 		tokenSvc:    tokenSvc,
+		uuidParser:  uuidParser,
 		logger:      logger,
 	}
 }
 
-func (h *refreshTokenUseCase) Execute(
+func (uc *refreshTokenUseCase) Execute(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
 	now := time.Now().UTC()
 
 	// 1. Validate Token & Context
-	claims, oldTokenID, err := h.validateSession(oldRefreshToken, deviceIDStr)
+	claims, oldTokenID, err := uc.validateSession(oldRefreshToken, deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Fetch Entities
-	user, device, err := h.fetchRequiredEntities(claims.Subject, deviceIDStr)
+	user, device, err := uc.fetchRequiredEntities(claims.Subject, deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Authorization Context
-	roleNames, err := h.getRoleNames(user.RoleIDs())
+	roleNames, err := uc.getRoleNames(user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
 
 	// 4. Token Rotation (Issue new, revoke old)
-	return h.rotateTokens(user, device, oldTokenID, roleNames, now)
+	return uc.rotateTokens(user, device, oldTokenID, roleNames, now)
 }
 
 // --- Internal Helper Methods ---
 
-func (h *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
+func (uc *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
 	// JWT Validation
-	claims, err := h.tokenSvc.ValidateRefreshToken(tokenStr)
+	claims, err := uc.tokenSvc.ValidateRefreshToken(tokenStr)
 	if err != nil {
 		return nil, valueobjects.TokenID{}, err // Already returns apperr via adapter
 	}
 
 	// Security check: Device binding
 	if claims.DeviceID != deviceIDStr {
-		h.logger.Warn("Device mismatch", "expected", claims.DeviceID, "got", deviceIDStr)
+		uc.logger.Warn("Device mismatch", "expected", claims.DeviceID, "got", deviceIDStr)
 		return nil, valueobjects.TokenID{}, apperr.NewUnauthorizedErr("invalid session context")
 	}
 
@@ -89,7 +94,7 @@ func (h *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*dt
 	}
 
 	// Revocation check
-	isRevoked, err := h.refreshRepo.IsRevoked(oldTokenID)
+	isRevoked, err := uc.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
 		return nil, valueobjects.TokenID{}, apperr.NewInternalErr("persistence error")
 	}
@@ -100,16 +105,20 @@ func (h *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*dt
 	return claims, oldTokenID, nil
 }
 
-func (h *refreshTokenUseCase) fetchRequiredEntities(uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
-	uID, _ := valueobjects.UserIDFromString(uIDStr)
+func (uc *refreshTokenUseCase) fetchRequiredEntities(uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
+	uID, err := uc.uuidParser.ParseUserID(uIDStr)
+	if err != nil {
+		uc.logger.Error("Failed to generate user ID", "error", err)
+		return nil, nil, apperr.NewInternalErr("failed to generate user id")
+	}
 	dID, _ := valueobjects.DeviceIDFromString(dIDStr)
 
-	user, err := h.userRepo.GetByID(uID)
+	user, err := uc.userRepo.GetByID(uID)
 	if err != nil || user == nil {
 		return nil, nil, apperr.NewUnauthorizedErr("user no longer exists")
 	}
 
-	device, err := h.deviceRepo.GetByID(dID)
+	device, err := uc.deviceRepo.GetByID(dID)
 	if err != nil || device == nil {
 		return nil, nil, apperr.NewNotFoundErr("device", dIDStr)
 	}
@@ -117,10 +126,10 @@ func (h *refreshTokenUseCase) fetchRequiredEntities(uIDStr, dIDStr string) (*agg
 	return user, device, nil
 }
 
-func (h *refreshTokenUseCase) getRoleNames(roleIDs []valueobjects.RoleID) ([]string, error) {
+func (uc *refreshTokenUseCase) getRoleNames(roleIDs []valueobjects.RoleID) ([]string, error) {
 	names := make([]string, 0, len(roleIDs))
 	for _, id := range roleIDs {
-		role, err := h.roleRepo.GetByID(id)
+		role, err := uc.roleRepo.GetByID(id)
 		if err != nil {
 			return nil, apperr.NewInternalErr("failed to fetch roles")
 		}
@@ -131,7 +140,7 @@ func (h *refreshTokenUseCase) getRoleNames(roleIDs []valueobjects.RoleID) ([]str
 	return names, nil
 }
 
-func (h *refreshTokenUseCase) rotateTokens(
+func (uc *refreshTokenUseCase) rotateTokens(
 	user *aggregates.User,
 	device *entities.Device,
 	oldID valueobjects.TokenID,
@@ -139,12 +148,12 @@ func (h *refreshTokenUseCase) rotateTokens(
 	now time.Time,
 ) (*dto.AuthResponse, error) {
 	// 1. Issue New Tokens
-	at, _, err := h.tokenSvc.IssueAccessToken(user.ID().String(), device.ID().String(), roles)
+	at, _, err := uc.tokenSvc.IssueAccessToken(user.ID().Value(), device.ID().String(), roles)
 	if err != nil {
 		return nil, err
 	}
 
-	rt, rtClaims, err := h.tokenSvc.IssueRefreshToken(user.ID().String(), device.ID().String())
+	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(user.ID().Value(), device.ID().String())
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +168,11 @@ func (h *refreshTokenUseCase) rotateTokens(
 	}
 
 	// 3. Persist Rotation (Revoke old, save new)
-	if err := h.refreshRepo.Revoke(oldID, now); err != nil {
+	if err := uc.refreshRepo.Revoke(oldID, now); err != nil {
 		return nil, apperr.NewInternalErr("failed to revoke old session")
 	}
 
-	if err := h.refreshRepo.Save(rtEntity); err != nil {
+	if err := uc.refreshRepo.Save(rtEntity); err != nil {
 		return nil, apperr.NewInternalErr("failed to save new session")
 	}
 

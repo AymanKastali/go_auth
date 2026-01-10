@@ -14,10 +14,13 @@ import (
 
 type GormRefreshTokenRepository struct {
 	db     *gorm.DB
-	mapper *mappers.RefreshTokenMapper
+	mapper mappers.IRefreshTokenMapper
 }
 
-func NewGormRefreshTokenRepository(db *gorm.DB, mapper *mappers.RefreshTokenMapper) *GormRefreshTokenRepository {
+func NewGormRefreshTokenRepository(
+	db *gorm.DB,
+	mapper mappers.IRefreshTokenMapper,
+) *GormRefreshTokenRepository {
 	return &GormRefreshTokenRepository{
 		db:     db,
 		mapper: mapper,
@@ -70,9 +73,9 @@ func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revoke
 
 func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
 	var modelsList []models.RefreshToken
-	err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error
+	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
 	if err != nil {
-		return nil, r.handleError(err, userID.String())
+		return nil, r.handleError(err, userID.Value())
 	}
 
 	tokens := make([]*entities.RefreshToken, len(modelsList))
@@ -107,7 +110,7 @@ func (r *GormRefreshTokenRepository) RevokeByDeviceID(
 ) error {
 	err := r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
-			userID.String(),
+			userID.Value(),
 			deviceID.String(),
 		).
 		Update("revoked_at", revokedAt).Error

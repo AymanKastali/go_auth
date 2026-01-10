@@ -26,7 +26,7 @@ func DeviceIDFromString(u string) (DeviceID, error) {
 	if err != nil {
 		// Matches V2 factory: NewInvalidValue(attr, msg string)
 		// We wrap the original error message into the domain message
-		return DeviceID{}, derr.NewInvalidValueErr("device_id", err.Error())
+		return DeviceID{}, derr.NewInvalidValueErr("DeviceID")
 	}
 
 	return DeviceID{value: parsed}, nil

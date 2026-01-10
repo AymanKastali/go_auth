@@ -5,23 +5,24 @@ import (
 	"time"
 
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
+	aports "go_auth/internal/core/application/ports"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
 type logoutUseCase struct {
-	refreshRepo ports.RefreshTokenRepositoryPort
-	tokenSvc    ports.TokenServicePort
+	refreshRepo dports.RefreshTokenRepositoryPort
+	tokenSvc    aports.TokenServicePort
 	logger      *slog.Logger
 }
 
-var _ ports.LogoutUseCasePort = (*logoutUseCase)(nil)
+var _ aports.LogoutUseCasePort = (*logoutUseCase)(nil)
 
 func NewLogoutUseCase(
-	refreshRepo ports.RefreshTokenRepositoryPort,
-	tokenSvc ports.TokenServicePort,
+	refreshRepo dports.RefreshTokenRepositoryPort,
+	tokenSvc aports.TokenServicePort,
 	logger *slog.Logger,
-) ports.LogoutUseCasePort {
+) aports.LogoutUseCasePort {
 	return &logoutUseCase{
 		refreshRepo: refreshRepo,
 		tokenSvc:    tokenSvc,

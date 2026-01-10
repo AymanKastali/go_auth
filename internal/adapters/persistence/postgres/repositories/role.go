@@ -5,8 +5,8 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
+	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"

@@ -3,14 +3,23 @@ package mappers
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type DeviceMapper struct{}
+type DeviceMapper struct {
+	uuidParser interfaces.IUUIDParserService
+}
 
-func NewDeviceMapper() *DeviceMapper {
-	return &DeviceMapper{}
+var _ IDeviceMapper = (*DeviceMapper)(nil)
+
+func NewDeviceMapper(
+	uuidParser interfaces.IUUIDParserService,
+) IDeviceMapper {
+	return &DeviceMapper{
+		uuidParser: uuidParser,
+	}
 }
 
 func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
@@ -24,9 +33,9 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
 	}
 
-	userID, err := valueobjects.UserIDFromString(d.UserID)
+	userID, err := m.uuidParser.ParseUserID(d.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, d.UserID, err)
 	}
 
 	device, err := entities.ReconstituteDevice(
@@ -55,7 +64,7 @@ func (m *DeviceMapper) ToModel(d *entities.Device) *models.Device {
 
 	return &models.Device{
 		ID:         d.ID().String(),
-		UserID:     d.UserID().String(),
+		UserID:     d.UserID().Value(),
 		Name:       d.Name(),
 		UserAgent:  d.UserAgent(),
 		IPAddress:  d.IPAddress(),
