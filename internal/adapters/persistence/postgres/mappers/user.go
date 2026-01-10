@@ -60,11 +60,11 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	// 5. Map Roles (The reason roles were missing)
 	roleIDs := make([]valueobjects.RoleID, len(u.Roles))
 	for i, r := range u.Roles {
-		rid, err := valueobjects.RoleIDFromString(r.ID)
+		roleID, err := m.uuidParser.ParseRoleID(r.ID)
 		if err != nil {
-			return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
+			return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
 		}
-		roleIDs[i] = rid
+		roleIDs[i] = roleID
 	}
 
 	// 6. Reconstitute Aggregate
@@ -95,7 +95,7 @@ func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
 	roles := make([]models.Role, len(u.RoleIDs()))
 	for i, rid := range u.RoleIDs() {
 		roles[i] = models.Role{
-			ID: rid.String(),
+			ID: rid.Value(),
 		}
 	}
 

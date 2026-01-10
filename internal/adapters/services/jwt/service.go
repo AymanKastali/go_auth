@@ -36,12 +36,12 @@ func NewJWTService(cfg *JWTConfig) ports.TokenServicePort {
 	}
 }
 
-func (s *jwtService) IssueAccessToken(userID, deviceID string, roles []string) (valueobjects.JWTToken, dto.AccessTokenClaims, error) {
+func (s *jwtService) IssueAccessToken(tokenID, userID, deviceID string, roles []string) (valueobjects.JWTToken, dto.AccessTokenClaims, error) {
 	claims := AccessTokenClaims{
 		Type:             TokenTypeAccess,
 		Roles:            roles,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(userID, s.accessTTL),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.accessTTL),
 	}
 
 	token, err := s.sign(claims)
@@ -52,11 +52,11 @@ func (s *jwtService) IssueAccessToken(userID, deviceID string, roles []string) (
 	return token, s.mapToAccessDTO(claims), nil
 }
 
-func (s *jwtService) IssueRefreshToken(userID, deviceID string) (valueobjects.JWTToken, dto.RefreshTokenClaims, error) {
+func (s *jwtService) IssueRefreshToken(tokenID, userID, deviceID string) (valueobjects.JWTToken, dto.RefreshTokenClaims, error) {
 	claims := RefreshTokenClaims{
 		Type:             TokenTypeRefresh,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(userID, s.refreshTTL),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.refreshTTL),
 	}
 
 	token, err := s.sign(claims)
@@ -124,13 +124,13 @@ func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType stri
 	return nil
 }
 
-func (s *jwtService) newRegisteredClaims(userID string, ttl time.Duration) jwt.RegisteredClaims {
+func (s *jwtService) newRegisteredClaims(tokenID, userID string, ttl time.Duration) jwt.RegisteredClaims {
 	now := time.Now().UTC()
 	return jwt.RegisteredClaims{
 		Issuer:    s.issuer,
 		Subject:   userID,
 		Audience:  []string{s.audience},
-		ID:        valueobjects.NewTokenID().String(),
+		ID:        tokenID,
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),

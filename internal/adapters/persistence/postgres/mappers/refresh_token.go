@@ -5,7 +5,6 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/valueobjects"
 )
 
 type RefreshTokenMapper struct {
@@ -24,7 +23,7 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		return nil, nil
 	}
 
-	tokenID, err := valueobjects.TokenIDFromString(rt.ID)
+	tokenID, err := m.uuidParser.ParseTokenID(rt.ID)
 	if err != nil {
 		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
@@ -34,9 +33,9 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		return nil, pgerr.NewDataCorruptionErr(entity, rt.UserID, err)
 	}
 
-	deviceID, err := valueobjects.DeviceIDFromString(rt.DeviceID)
+	deviceID, err := m.uuidParser.ParseDeviceID(rt.DeviceID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.DeviceID, err)
 	}
 
 	// Rehydrate the entity (using NewRefreshToken as a Reconstitutor here)
@@ -65,9 +64,9 @@ func (m *RefreshTokenMapper) ToModel(rt *entities.RefreshToken) *models.RefreshT
 	}
 
 	return &models.RefreshToken{
-		ID:        rt.ID().String(),
+		ID:        rt.ID().Value(),
 		UserID:    rt.UserID().Value(),
-		DeviceID:  rt.DeviceID().String(),
+		DeviceID:  rt.DeviceID().Value(),
 		Token:     rt.Token(),
 		ExpiresAt: rt.ExpiresAt(),
 		RevokedAt: rt.RevokedAt(),

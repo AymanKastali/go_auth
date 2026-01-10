@@ -3,14 +3,22 @@ package mappers
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
-	"go_auth/internal/core/domain/valueobjects"
 )
 
-type RoleMapper struct{}
+type RoleMapper struct {
+	uuidParser interfaces.IUUIDParserService
+}
 
-func NewRoleMapper() *RoleMapper {
-	return &RoleMapper{}
+var _ IRoleMapper = (*RoleMapper)(nil)
+
+func NewRoleMapper(
+	p interfaces.IUUIDParserService,
+) IRoleMapper {
+	return &RoleMapper{
+		uuidParser: p,
+	}
 }
 
 func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
@@ -19,7 +27,7 @@ func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
 		return nil, nil
 	}
 
-	roleID, err := valueobjects.RoleIDFromString(r.ID)
+	roleID, err := m.uuidParser.ParseRoleID(r.ID)
 	if err != nil {
 		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
 	}
@@ -44,7 +52,7 @@ func (m *RoleMapper) ToModel(role *aggregates.Role) (*models.Role, error) {
 	}
 
 	return &models.Role{
-		ID:        role.ID().String(),
+		ID:        role.ID().Value(),
 		Name:      role.Name(),
 		CreatedAt: role.CreatedAt(),
 		UpdatedAt: role.UpdatedAt(),

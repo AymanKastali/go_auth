@@ -30,17 +30,17 @@ func NewGormRefreshTokenRepository(
 func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
 	model := r.mapper.ToModel(token)
 	err := r.db.Save(model).Error
-	return r.handleError(err, token.ID().String())
+	return r.handleError(err, token.ID().Value())
 }
 
 func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	err := r.db.Where("id = ?", tokenID.String()).First(&model).Error
+	err := r.db.Where("id = ?", tokenID.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, r.handleError(err, tokenID.String())
+		return nil, r.handleError(err, tokenID.Value())
 	}
 	return r.mapper.ToDomain(&model)
 }
@@ -59,14 +59,14 @@ func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.Refr
 
 func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
 	result := r.db.Model(&models.RefreshToken{}).
-		Where("id = ?", tokenID.String()).
+		Where("id = ?", tokenID.Value()).
 		Update("revoked_at", revokedAt)
 
 	if result.Error != nil {
-		return r.handleError(result.Error, tokenID.String())
+		return r.handleError(result.Error, tokenID.Value())
 	}
 	if result.RowsAffected == 0 {
-		return apperr.NewNotFoundErr("refresh_token", tokenID.String())
+		return apperr.NewNotFoundErr("refresh_token", tokenID.Value())
 	}
 	return nil
 }
@@ -91,13 +91,13 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]
 
 func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bool, error) {
 	var token models.RefreshToken
-	err := r.db.Select("revoked_at").First(&token, "id = ?", tokenID.String()).Error
+	err := r.db.Select("revoked_at").First(&token, "id = ?", tokenID.Value()).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return true, nil // If it doesn't exist, treat as revoked/invalid
 		}
-		return false, r.handleError(err, tokenID.String())
+		return false, r.handleError(err, tokenID.Value())
 	}
 
 	return token.RevokedAt != nil, nil
@@ -111,11 +111,11 @@ func (r *GormRefreshTokenRepository) RevokeByDeviceID(
 	err := r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
 			userID.Value(),
-			deviceID.String(),
+			deviceID.Value(),
 		).
 		Update("revoked_at", revokedAt).Error
 
-	return r.handleError(err, deviceID.String())
+	return r.handleError(err, deviceID.Value())
 }
 
 // Private helper for consistency

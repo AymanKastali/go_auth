@@ -2,9 +2,9 @@ package middlewares
 
 import (
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
 	dports "go_auth/internal/core/domain/ports"
-	"go_auth/internal/core/domain/valueobjects"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,6 +13,7 @@ import (
 func JWTMiddleware(
 	tokenService aports.TokenServicePort,
 	deviceRepo dports.DeviceRepositoryPort,
+	uuidParser interfaces.IUUIDParserService,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
@@ -37,12 +38,12 @@ func JWTMiddleware(
 		// 3. CROSS-LAYER CHECK: Device Usability
 		deviceIDStr := claims.DeviceID
 		if deviceIDStr != "" && deviceRepo != nil {
-			deviceIDVO, err := valueobjects.DeviceIDFromString(deviceIDStr)
+			deviceID, err := uuidParser.ParseDeviceID(deviceIDStr)
 			if err != nil {
 				return apperr.MapDomainErr(err)
 			}
 
-			device, err := deviceRepo.GetByID(deviceIDVO)
+			device, err := deviceRepo.GetByID(deviceID)
 			if err != nil {
 				return apperr.NewInternalErr("failed to verify device state")
 			}
