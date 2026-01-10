@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"go_auth/internal/adapters/shared/errors/cfgerr"
 	"os"
 	"time"
 )
@@ -30,38 +29,31 @@ func LoadJWTConfigFromEnv() (*JWTConfig, error) {
 }
 
 func loadJWTConfig(getenv func(string) string) (*JWTConfig, error) {
-	const module = "JWT"
-
 	issuer := getenv("GA_JWT_ISSUER")
 	if issuer == "" {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_ISSUER", cfgerr.ErrRequired)
+		return nil, NewConfigError("GA_JWT_ISSUER", ErrRequired)
 	}
 
 	audience := getenv("GA_JWT_AUDIENCE")
 	if audience == "" {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_AUDIENCE", cfgerr.ErrRequired)
+		return nil, NewConfigError("GA_JWT_AUDIENCE", ErrRequired)
 	}
 
 	accessTTLStr := getenv("GA_JWT_ACCESS_TTL")
 	accessTTL, err := time.ParseDuration(accessTTLStr)
 	if err != nil {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_ACCESS_TTL", cfgerr.ErrInvalidFormat)
+		return nil, NewConfigError("GA_JWT_ACCESS_TTL", ErrInvalidFormat)
 	}
 
-	refreshTTLStr := getenv("GA_JWT_REFRESH_TTL")
-	refreshTTL, err := time.ParseDuration(refreshTTLStr)
-	if err != nil {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_REFRESH_TTL", cfgerr.ErrInvalidFormat)
-	}
-
+	// Loading keys using the explicit constructor
 	priv, err := loadRSAPrivateKey(getenv("GA_JWT_PRIVATE_KEY"))
 	if err != nil {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_PRIVATE_KEY", err)
+		return nil, NewConfigError("GA_JWT_PRIVATE_KEY", err)
 	}
 
 	pub, err := loadRSAPublicKey(getenv("GA_JWT_PUBLIC_KEY"))
 	if err != nil {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_PUBLIC_KEY", err)
+		return nil, NewConfigError("GA_JWT_PUBLIC_KEY", err)
 	}
 
 	return &JWTConfig{
@@ -70,18 +62,17 @@ func loadJWTConfig(getenv func(string) string) (*JWTConfig, error) {
 		issuer:     issuer,
 		audience:   audience,
 		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
 	}, nil
 }
 
 func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 	if pemValue == "" {
-		return nil, cfgerr.ErrRequired
+		return nil, ErrRequired
 	}
 
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, cfgerr.ErrInvalidPEM
+		return nil, ErrInvalidPEM
 	}
 
 	var key *rsa.PrivateKey
@@ -92,11 +83,11 @@ func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 		// Try PKCS8
 		pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, cfgerr.ErrInvalidFormat
+			return nil, ErrInvalidFormat
 		}
 		k8, ok := pk.(*rsa.PrivateKey)
 		if !ok {
-			return nil, cfgerr.ErrNotRSAPrivateKey
+			return nil, ErrNotRSAPrivateKey
 		}
 		key = k8
 	}
@@ -109,22 +100,22 @@ func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 
 func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
 	if pemValue == "" {
-		return nil, cfgerr.ErrRequired
+		return nil, ErrRequired
 	}
 
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, cfgerr.ErrInvalidPEM
+		return nil, ErrInvalidPEM
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, cfgerr.ErrInvalidFormat
+		return nil, ErrInvalidFormat
 	}
 
 	rsaPub, ok := pub.(*rsa.PublicKey)
 	if !ok {
-		return nil, cfgerr.ErrNotRSAPublicKey
+		return nil, ErrNotRSAPublicKey
 	}
 
 	if err := validateRSAKeySize(rsaPub.N.BitLen()); err != nil {
@@ -135,7 +126,7 @@ func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
 
 func validateRSAKeySize(bits int) error {
 	if bits < 2048 {
-		return cfgerr.ErrInsecureKeySize
+		return ErrInsecureKeySize
 	}
 	return nil
 }

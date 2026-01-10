@@ -1,7 +1,6 @@
 package fiber
 
 import (
-	"go_auth/internal/adapters/config"
 	auth_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	user_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/user"
@@ -10,6 +9,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/security/jwt"
 	"go_auth/internal/adapters/security/password"
+	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
 	"log"
@@ -67,7 +67,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Seed admin
 	// -------------------
-	seederCfg, err := config.LoadSeederConfig()
+	seederCfg, err := seed.LoadSeederConfig()
 	if err != nil {
 		return nil, err
 	}

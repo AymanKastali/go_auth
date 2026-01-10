@@ -1,7 +1,6 @@
-package config
+package seed
 
 import (
-	"go_auth/internal/adapters/shared/errors/cfgerr"
 	"os"
 )
 
@@ -18,12 +17,12 @@ func LoadSeederConfig() (*SeederConfig, error) {
 
 	email := os.Getenv("GA_ADMIN_EMAIL")
 	if email == "" {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_ADMIN_EMAIL", cfgerr.ErrRequired)
+		return nil, NewConfigError("GA_ADMIN_EMAIL", ErrRequired)
 	}
 
 	password := os.Getenv("GA_ADMIN_PASSWORD")
 	if password == "" {
-		return nil, cfgerr.NewInvalidConfigErr(module, "GA_ADMIN_PASSWORD", cfgerr.ErrRequired)
+		return nil, NewConfigError("GA_ADMIN_PASSWORD", ErrRequired)
 	}
 
 	return &SeederConfig{

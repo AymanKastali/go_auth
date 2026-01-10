@@ -44,8 +44,8 @@ func NewRefreshToken(
 	}
 
 	// Business Rule: Cannot issue an already expired token
-	if !expiresAt.After(now) {
-		return nil, derr.NewInvalidValueErr("expires_at", "expiration date must be in the future")
+	if expiresAt.Before(now) {
+		return nil, derr.NewInvalidValueErr("expires_at", "expiration date must not be in the past")
 	}
 
 	return &RefreshToken{

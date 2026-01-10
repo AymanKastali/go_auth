@@ -133,34 +133,39 @@ func (h *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string, 
 	return roleNames, nil
 }
 
-func (h *loginUseCase) issueTokensAndSaveSession(user *aggregates.User, device *entities.Device, roles []string, now time.Time) (*dto.AuthResponse, error) {
-	// 1. Generate Access Token
+func (h *loginUseCase) issueTokensAndSaveSession(user *aggregates.User, device *entities.Device, roles []string, nowUTC time.Time) (*dto.AuthResponse, error) {
+	// 1. Generate Tokens first (Infrastructure)
 	accessToken, _, err := h.tokenService.IssueAccessToken(user.ID().String(), device.ID().String(), roles)
 	if err != nil {
-		return nil, err // JWT adapter now returns apperr.NewInternalErr or NewUnauthorizedErr
+		return nil, err
 	}
 
-	// 2. Generate Refresh Token
 	refreshToken, refreshClaims, err := h.tokenService.IssueRefreshToken(user.ID().String(), device.ID().String())
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Persist Session
+	// 3. Create Entity (Domain Logic)
 	tokenID, err := valueobjects.TokenIDFromString(refreshClaims.JTI)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
 
 	refreshTokenEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), refreshToken.Value(), refreshClaims.ExpiresAt, now,
+		tokenID,
+		user.ID(),
+		device.ID(),
+		refreshToken.Value(),
+		refreshClaims.ExpiresAt,
+		nowUTC,
 	)
 	if err != nil {
+		// This will no longer fail because persistenceNow >= refreshClaims.IssuedAt
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	// Cleanup: Invalidate other sessions for this specific device (Rotate tokens)
-	if err := h.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), now); err != nil {
+	// 4. Persistence (Infrastructure)
+	if err := h.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), nowUTC); err != nil {
 		return nil, err
 	}
 
