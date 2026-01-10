@@ -46,7 +46,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Mappers
 	// -------------------
 	userMapper := mappers.NewUserMapper(uuidParser)
-	roleMapper := mappers.NewRoleMapper()
+	roleMapper := mappers.NewRoleMapper(uuidParser)
 	deviceMapper := mappers.NewDeviceMapper(uuidParser)
 	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
@@ -78,6 +78,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	}
 	rolesSeeder := services.NewSeedRolesService(
 		roleRepo,
+		uuidGenerator,
 		logger,
 	)
 	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
@@ -114,12 +115,15 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		roleRepo,
 		passwordHasher,
 		jwtService,
+		uuidGenerator,
+		uuidParser,
 		logger,
 	)
 
 	logoutUC := usecases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
+		uuidParser,
 		logger,
 	)
 
@@ -129,6 +133,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		deviceRepo,
 		roleRepo,
 		jwtService,
+		uuidGenerator,
 		uuidParser,
 		logger,
 	)
@@ -157,7 +162,11 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		LogoutHandler:       auth_handlers.NewLogoutHandler(logoutUC),
 		UpdateRoleHandler:   auth_handlers.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     user_handlers.NewAuthUserHandler(authUserUC),
-		AuthMiddleware:      middlewares.JWTMiddleware(jwtService, deviceRepo),
-		Logger:              logger,
+		AuthMiddleware: middlewares.JWTMiddleware(
+			jwtService,
+			deviceRepo,
+			uuidParser,
+		),
+		Logger: logger,
 	}, nil
 }

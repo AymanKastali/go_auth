@@ -14,13 +14,14 @@ import (
 )
 
 type refreshTokenUseCase struct {
-	userRepo    dports.UserRepositoryPort
-	refreshRepo dports.RefreshTokenRepositoryPort
-	deviceRepo  dports.DeviceRepositoryPort
-	roleRepo    dports.RoleRepositoryPort
-	tokenSvc    aports.TokenServicePort
-	uuidParser  interfaces.IUUIDParserService
-	logger      *slog.Logger
+	userRepo      dports.UserRepositoryPort
+	refreshRepo   dports.RefreshTokenRepositoryPort
+	deviceRepo    dports.DeviceRepositoryPort
+	roleRepo      dports.RoleRepositoryPort
+	tokenSvc      aports.TokenServicePort
+	uuidGenerator interfaces.IUUIDGeneratorService
+	uuidParser    interfaces.IUUIDParserService
+	logger        *slog.Logger
 }
 
 var _ aports.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
@@ -31,17 +32,19 @@ func NewRefreshTokenUseCase(
 	deviceRepo dports.DeviceRepositoryPort,
 	roleRepo dports.RoleRepositoryPort,
 	tokenSvc aports.TokenServicePort,
+	uuidGenerator interfaces.IUUIDGeneratorService,
 	uuidParser interfaces.IUUIDParserService,
 	logger *slog.Logger,
 ) aports.RefreshTokenUseCasePort {
 	return &refreshTokenUseCase{
-		userRepo:    userRepo,
-		refreshRepo: refreshRepo,
-		deviceRepo:  deviceRepo,
-		roleRepo:    roleRepo,
-		tokenSvc:    tokenSvc,
-		uuidParser:  uuidParser,
-		logger:      logger,
+		userRepo:      userRepo,
+		refreshRepo:   refreshRepo,
+		deviceRepo:    deviceRepo,
+		roleRepo:      roleRepo,
+		tokenSvc:      tokenSvc,
+		uuidGenerator: uuidGenerator,
+		uuidParser:    uuidParser,
+		logger:        logger,
 	}
 }
 
@@ -88,7 +91,7 @@ func (uc *refreshTokenUseCase) validateSession(tokenStr, deviceIDStr string) (*d
 	}
 
 	// Token ID Validation
-	oldTokenID, err := valueobjects.TokenIDFromString(claims.JTI)
+	oldTokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
 	if err != nil {
 		return nil, valueobjects.TokenID{}, apperr.MapDomainErr(err)
 	}
@@ -111,7 +114,11 @@ func (uc *refreshTokenUseCase) fetchRequiredEntities(uIDStr, dIDStr string) (*ag
 		uc.logger.Error("Failed to generate user ID", "error", err)
 		return nil, nil, apperr.NewInternalErr("failed to generate user id")
 	}
-	dID, _ := valueobjects.DeviceIDFromString(dIDStr)
+
+	dID, err := uc.uuidParser.ParseDeviceID(dIDStr)
+	if err != nil {
+		return nil, nil, apperr.NewInternalErr("failed to generate user id")
+	}
 
 	user, err := uc.userRepo.GetByID(uID)
 	if err != nil || user == nil {
@@ -148,20 +155,23 @@ func (uc *refreshTokenUseCase) rotateTokens(
 	now time.Time,
 ) (*dto.AuthResponse, error) {
 	// 1. Issue New Tokens
-	at, _, err := uc.tokenSvc.IssueAccessToken(user.ID().Value(), device.ID().String(), roles)
+	tokenID, err := uc.uuidGenerator.NewTokenID()
+	if err != nil {
+		return nil, apperr.MapDomainErr(err)
+	}
+
+	at, _, err := uc.tokenSvc.IssueAccessToken(tokenID.Value(), user.ID().Value(), device.ID().Value(), roles)
 	if err != nil {
 		return nil, err
 	}
 
-	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(user.ID().Value(), device.ID().String())
+	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(tokenID.Value(), user.ID().Value(), device.ID().Value())
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Map to Entity
-	newTokenID, _ := valueobjects.TokenIDFromString(rtClaims.JTI)
 	rtEntity, err := entities.NewRefreshToken(
-		newTokenID, user.ID(), device.ID(), rt.Value(), rtClaims.ExpiresAt, now,
+		tokenID, user.ID(), device.ID(), rt.Value(), rtClaims.ExpiresAt, now,
 	)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)

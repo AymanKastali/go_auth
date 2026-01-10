@@ -29,12 +29,12 @@ func NewGormDeviceRepository(
 
 func (r *GormDeviceRepository) GetByID(deviceID valueobjects.DeviceID) (*entities.Device, error) {
 	var model models.Device
-	err := r.db.Where("id = ?", deviceID.String()).First(&model).Error
+	err := r.db.Where("id = ?", deviceID.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, r.handleError(err, deviceID.String())
+		return nil, r.handleError(err, deviceID.Value())
 	}
 
 	return r.mapper.ToDomain(&model)
@@ -44,23 +44,23 @@ func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
 	model := r.mapper.ToModel(device)
 	// Save handles both INSERT and UPDATE based on Primary Key
 	err := r.db.Save(model).Error
-	return r.handleError(err, device.ID().String())
+	return r.handleError(err, device.ID().Value())
 }
 
 func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt time.Time) error {
 	result := r.db.Model(&models.Device{}).
-		Where("id = ?", deviceID.String()).
+		Where("id = ?", deviceID.Value()).
 		Updates(map[string]any{
 			"is_active":  false,
 			"revoked_at": revokedAt,
 		})
 
 	if result.Error != nil {
-		return r.handleError(result.Error, deviceID.String())
+		return r.handleError(result.Error, deviceID.Value())
 	}
 
 	if result.RowsAffected == 0 {
-		return apperr.NewNotFoundErr("device", deviceID.String())
+		return apperr.NewNotFoundErr("device", deviceID.Value())
 	}
 
 	return nil

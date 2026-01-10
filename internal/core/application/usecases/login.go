@@ -3,6 +3,7 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
+	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
@@ -19,6 +20,8 @@ type loginUseCase struct {
 	roleRepo       dports.RoleRepositoryPort
 	passwordHasher aports.HashPasswordServicePort
 	tokenService   aports.TokenServicePort
+	uuidGenerator  interfaces.IUUIDGeneratorService
+	uuidParser     interfaces.IUUIDParserService
 	logger         *slog.Logger
 }
 
@@ -31,6 +34,8 @@ func NewLoginUseCase(
 	roleRepo dports.RoleRepositoryPort,
 	passwordHasher aports.HashPasswordServicePort,
 	tokenService aports.TokenServicePort,
+	uuidGenerator interfaces.IUUIDGeneratorService,
+	uuidParser interfaces.IUUIDParserService,
 	logger *slog.Logger,
 ) aports.LoginUseCasePort {
 	return &loginUseCase{
@@ -40,64 +45,71 @@ func NewLoginUseCase(
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
+		uuidGenerator:  uuidGenerator,
+		uuidParser:     uuidParser,
 		logger:         logger,
 	}
 }
 
-func (h *loginUseCase) Execute(
+func (uc *loginUseCase) Execute(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
-	h.logger.Info("Starting user login", "email", email)
+	uc.logger.Info("Starting user login", "email", email)
 	nowUTC := time.Now().UTC()
 
 	// 1. Authentication
-	user, err := h.authenticate(email, password)
+	user, err := uc.authenticate(email, password)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Device Identity Management
-	device, err := h.resolveDevice(user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, nowUTC)
+	device, err := uc.resolveDevice(user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, nowUTC)
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Authorization Context (Fetch Roles)
-	roleNames, err := h.fetchRoleNames(user.RoleIDs())
+	roleNames, err := uc.fetchRoleNames(user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
 
+	tokenID, err := uc.uuidGenerator.NewTokenID()
+	if err != nil {
+		return nil, apperr.MapDomainErr(err)
+	}
+
 	// 4. Token Issuance and Session Persistence
-	return h.issueTokensAndSaveSession(user, device, roleNames, nowUTC)
+	return uc.issueTokensAndSaveSession(tokenID, user, device, roleNames, nowUTC)
 }
 
 // --- Internal Helper Methods ---
 
-func (h *loginUseCase) authenticate(email, password string) (*aggregates.User, error) {
+func (uc *loginUseCase) authenticate(email, password string) (*aggregates.User, error) {
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	user, err := h.userRepo.GetByEmail(emailVO)
+	user, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil || !h.passwordHasher.Compare(password, user.HashedPassword().Value()) {
+	if user == nil || !uc.passwordHasher.Compare(password, user.HashedPassword().Value()) {
 		return nil, apperr.NewUnauthorizedErr("invalid credentials")
 	}
 
 	return user, nil
 }
 
-func (h *loginUseCase) resolveDevice(userID valueobjects.UserID, dIDStr, name, ua, ip string, now time.Time) (*entities.Device, error) {
-	deviceID, err := valueobjects.DeviceIDFromString(dIDStr)
+func (uc *loginUseCase) resolveDevice(userID valueobjects.UserID, dIDStr, name, ua, ip string, now time.Time) (*entities.Device, error) {
+	deviceID, err := uc.uuidParser.ParseDeviceID(dIDStr)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	device, err := h.deviceRepo.GetByID(deviceID)
+	device, err := uc.deviceRepo.GetByID(deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,19 +123,19 @@ func (h *loginUseCase) resolveDevice(userID valueobjects.UserID, dIDStr, name, u
 		device.Update(now, &name, &ua, &ip)
 	}
 
-	if err := h.deviceRepo.Upsert(device); err != nil {
+	if err := uc.deviceRepo.Upsert(device); err != nil {
 		return nil, apperr.NewInternalErr("failed to save device info")
 	}
 
 	return device, nil
 }
 
-func (h *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string, error) {
+func (uc *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string, error) {
 	roleNames := make([]string, 0, len(roleIDs))
 	// Optimization: If your repository supports GetByIDs([]RoleID), use it here.
 	// Otherwise, this loop is acceptable if the number of roles per user is small.
 	for _, roleID := range roleIDs {
-		role, err := h.roleRepo.GetByID(roleID)
+		role, err := uc.roleRepo.GetByID(roleID)
 		if err != nil {
 			return nil, err
 		}
@@ -134,22 +146,16 @@ func (h *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string, 
 	return roleNames, nil
 }
 
-func (h *loginUseCase) issueTokensAndSaveSession(user *aggregates.User, device *entities.Device, roles []string, nowUTC time.Time) (*dto.AuthResponse, error) {
+func (uc *loginUseCase) issueTokensAndSaveSession(tokenID valueobjects.TokenID, user *aggregates.User, device *entities.Device, roles []string, nowUTC time.Time) (*dto.AuthResponse, error) {
 	// 1. Generate Tokens first (Infrastructure)
-	accessToken, _, err := h.tokenService.IssueAccessToken(user.ID().Value(), device.ID().String(), roles)
+	accessToken, _, err := uc.tokenService.IssueAccessToken(tokenID.Value(), user.ID().Value(), device.ID().Value(), roles)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, refreshClaims, err := h.tokenService.IssueRefreshToken(user.ID().Value(), device.ID().String())
+	refreshToken, refreshClaims, err := uc.tokenService.IssueRefreshToken(tokenID.Value(), user.ID().Value(), device.ID().Value())
 	if err != nil {
 		return nil, err
-	}
-
-	// 3. Create Entity (Domain Logic)
-	tokenID, err := valueobjects.TokenIDFromString(refreshClaims.JTI)
-	if err != nil {
-		return nil, apperr.MapDomainErr(err)
 	}
 
 	refreshTokenEntity, err := entities.NewRefreshToken(
@@ -166,11 +172,11 @@ func (h *loginUseCase) issueTokensAndSaveSession(user *aggregates.User, device *
 	}
 
 	// 4. Persistence (Infrastructure)
-	if err := h.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), nowUTC); err != nil {
+	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), nowUTC); err != nil {
 		return nil, err
 	}
 
-	if err := h.refreshRepo.Save(refreshTokenEntity); err != nil {
+	if err := uc.refreshRepo.Save(refreshTokenEntity); err != nil {
 		return nil, err
 	}
 

@@ -20,3 +20,8 @@ type IDeviceMapper interface {
 	ToDomain(m *models.Device) (*entities.Device, error)
 	ToModel(e *entities.Device) *models.Device
 }
+
+type IRoleMapper interface {
+	ToDomain(m *models.Role) (*aggregates.Role, error)
+	ToModel(a *aggregates.Role) (*models.Role, error)
+}

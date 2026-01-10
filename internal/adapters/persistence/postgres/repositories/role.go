@@ -14,12 +14,12 @@ import (
 
 type GormRoleRepository struct {
 	db     *gorm.DB
-	mapper *mappers.RoleMapper
+	mapper mappers.IRoleMapper
 }
 
 var _ ports.RoleRepositoryPort = (*GormRoleRepository)(nil)
 
-func NewGormRoleRepository(db *gorm.DB, mapper *mappers.RoleMapper) ports.RoleRepositoryPort {
+func NewGormRoleRepository(db *gorm.DB, mapper mappers.IRoleMapper) ports.RoleRepositoryPort {
 	return &GormRoleRepository{
 		db:     db,
 		mapper: mapper,
@@ -39,13 +39,13 @@ func (r *GormRoleRepository) Save(role *aggregates.Role) error {
 
 func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, error) {
 	var model models.Role
-	err := r.db.Where("id = ?", id.String()).First(&model).Error
+	err := r.db.Where("id = ?", id.Value()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, r.handleError(err, id.String())
+		return nil, r.handleError(err, id.Value())
 	}
 
 	return r.mapper.ToDomain(&model)

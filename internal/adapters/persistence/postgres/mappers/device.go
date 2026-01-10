@@ -5,7 +5,6 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/valueobjects"
 )
 
 type DeviceMapper struct {
@@ -28,7 +27,7 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 		return nil, nil
 	}
 
-	deviceID, err := valueobjects.DeviceIDFromString(d.ID)
+	deviceID, err := m.uuidParser.ParseDeviceID(d.ID)
 	if err != nil {
 		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
 	}
@@ -63,7 +62,7 @@ func (m *DeviceMapper) ToModel(d *entities.Device) *models.Device {
 	}
 
 	return &models.Device{
-		ID:         d.ID().String(),
+		ID:         d.ID().Value(),
 		UserID:     d.UserID().Value(),
 		Name:       d.Name(),
 		UserAgent:  d.UserAgent(),

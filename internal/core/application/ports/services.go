@@ -20,11 +20,11 @@ type HashPasswordServicePort interface {
 
 type TokenServicePort interface {
 	IssueAccessToken(
-		userID, deviceID string,
+		tokenID, userID, deviceID string,
 		roles []string,
 	) (token valueobjects.JWTToken, claims dto.AccessTokenClaims, err error)
 	IssueRefreshToken(
-		userID, deviceID string,
+		tokenID, userID, deviceID string,
 	) (token valueobjects.JWTToken, claims dto.RefreshTokenClaims, err error)
 	ValidateAccessToken(token string) (*dto.AccessTokenClaims, error)
 	ValidateRefreshToken(token string) (*dto.RefreshTokenClaims, error)
