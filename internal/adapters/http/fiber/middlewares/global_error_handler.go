@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"errors"
+	"go_auth/internal/adapters/shared/errors/cfgerr"
 	"go_auth/internal/core/application/apperr"
 	"net/http"
 
@@ -16,6 +17,8 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 
 	// 2️⃣ Check for Custom Application Errors
 	var (
+		configErr cfgerr.ConfigErr
+
 		badRequest   *apperr.BadRequestErr
 		notFound     *apperr.NotFoundErr
 		conflict     *apperr.ConflictErr
@@ -27,6 +30,11 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 	)
 
 	switch {
+	case errors.As(err, &configErr):
+		code = http.StatusInternalServerError
+		errType = "Configuration Error"
+		message = "The server is improperly configured."
+
 	case errors.As(err, &validation):
 		code = http.StatusBadRequest
 		errType = "Validation Error"

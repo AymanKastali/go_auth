@@ -28,12 +28,12 @@ var _ ports.TokenServicePort = (*jwtService)(nil)
 
 func NewJWTService(cfg *JWTConfig) ports.TokenServicePort {
 	return &jwtService{
-		privateKey: cfg.PrivateKey,
-		publicKey:  cfg.PublicKey,
-		issuer:     cfg.Issuer,
-		audience:   cfg.Audience,
-		accessTTL:  cfg.AccessTTL,
-		refreshTTL: cfg.RefreshTTL,
+		privateKey: cfg.PrivateKey(),
+		publicKey:  cfg.PublicKey(),
+		issuer:     cfg.Issuer(),
+		audience:   cfg.Audience(),
+		accessTTL:  cfg.AccessTTL(),
+		refreshTTL: cfg.RefreshTTL(),
 		signingAlg: defaultSigningMethod,
 	}
 }

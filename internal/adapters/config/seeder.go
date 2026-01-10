@@ -1,25 +1,33 @@
 package config
 
 import (
-	"errors"
+	"go_auth/internal/adapters/shared/errors/cfgerr"
 	"os"
 )
 
 type SeederConfig struct {
-	AdminEmail    string
-	AdminPassword string
+	adminEmail    string
+	adminPassword string
 }
 
-func LoadSeederConfig() (*SeederConfig, error) {
-	email := os.Getenv("ADMIN_EMAIL")
-	password := os.Getenv("ADMIN_PASSWORD")
+func (c *SeederConfig) AdminEmail() string    { return c.adminEmail }
+func (c *SeederConfig) AdminPassword() string { return c.adminPassword }
 
-	if email == "" || password == "" {
-		return nil, errors.New("seeder config: missing required env vars")
+func LoadSeederConfig() (*SeederConfig, error) {
+	const module = "Seeder"
+
+	email := os.Getenv("GA_ADMIN_EMAIL")
+	if email == "" {
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_ADMIN_EMAIL", cfgerr.ErrRequired)
+	}
+
+	password := os.Getenv("GA_ADMIN_PASSWORD")
+	if password == "" {
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_ADMIN_PASSWORD", cfgerr.ErrRequired)
 	}
 
 	return &SeederConfig{
-		AdminEmail:    email,
-		AdminPassword: password,
+		adminEmail:    email,
+		adminPassword: password,
 	}, nil
 }

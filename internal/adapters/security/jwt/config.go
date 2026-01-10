@@ -4,122 +4,138 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
-	"fmt"
+	"go_auth/internal/adapters/shared/errors/cfgerr"
 	"os"
 	"time"
 )
 
 type JWTConfig struct {
-	PrivateKey *rsa.PrivateKey
-	PublicKey  *rsa.PublicKey
-	Issuer     string
-	Audience   string
-	AccessTTL  time.Duration
-	RefreshTTL time.Duration
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+	issuer     string
+	audience   string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
+
+func (c *JWTConfig) PrivateKey() *rsa.PrivateKey { return c.privateKey }
+func (c *JWTConfig) PublicKey() *rsa.PublicKey   { return c.publicKey }
+func (c *JWTConfig) Issuer() string              { return c.issuer }
+func (c *JWTConfig) Audience() string            { return c.audience }
+func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
+func (c *JWTConfig) RefreshTTL() time.Duration   { return c.refreshTTL }
 
 func LoadJWTConfigFromEnv() (*JWTConfig, error) {
 	return loadJWTConfig(os.Getenv)
 }
 
 func loadJWTConfig(getenv func(string) string) (*JWTConfig, error) {
-	issuer := getenv("JWT_ISSUER")
+	const module = "JWT"
+
+	issuer := getenv("GA_JWT_ISSUER")
 	if issuer == "" {
-		return nil, errors.New("JWT_ISSUER not set")
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_ISSUER", cfgerr.ErrRequired)
 	}
 
-	audience := getenv("JWT_AUDIENCE")
+	audience := getenv("GA_JWT_AUDIENCE")
 	if audience == "" {
-		return nil, errors.New("JWT_AUDIENCE not set")
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_AUDIENCE", cfgerr.ErrRequired)
 	}
 
-	accessTTL, err := time.ParseDuration(getenv("JWT_ACCESS_TTL"))
+	accessTTLStr := getenv("GA_JWT_ACCESS_TTL")
+	accessTTL, err := time.ParseDuration(accessTTLStr)
 	if err != nil {
-		return nil, fmt.Errorf("JWT_ACCESS_TTL: %w", err)
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_ACCESS_TTL", cfgerr.ErrInvalidFormat)
 	}
 
-	refreshTTL, err := time.ParseDuration(getenv("JWT_REFRESH_TTL"))
+	refreshTTLStr := getenv("GA_JWT_REFRESH_TTL")
+	refreshTTL, err := time.ParseDuration(refreshTTLStr)
 	if err != nil {
-		return nil, fmt.Errorf("JWT_REFRESH_TTL: %w", err)
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_REFRESH_TTL", cfgerr.ErrInvalidFormat)
 	}
 
-	priv, err := loadRSAPrivateKey(getenv("JWT_PRIVATE_KEY"))
+	priv, err := loadRSAPrivateKey(getenv("GA_JWT_PRIVATE_KEY"))
 	if err != nil {
-		return nil, fmt.Errorf("JWT_PRIVATE_KEY: %w", err)
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_PRIVATE_KEY", err)
 	}
 
-	pub, err := loadRSAPublicKey(getenv("JWT_PUBLIC_KEY"))
+	pub, err := loadRSAPublicKey(getenv("GA_JWT_PUBLIC_KEY"))
 	if err != nil {
-		return nil, fmt.Errorf("JWT_PUBLIC_KEY: %w", err)
+		return nil, cfgerr.NewInvalidConfigErr(module, "GA_JWT_PUBLIC_KEY", err)
 	}
 
 	return &JWTConfig{
-		PrivateKey: priv,
-		PublicKey:  pub,
-		Issuer:     issuer,
-		Audience:   audience,
-		AccessTTL:  accessTTL,
-		RefreshTTL: refreshTTL,
+		privateKey: priv,
+		publicKey:  pub,
+		issuer:     issuer,
+		audience:   audience,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
 	}, nil
 }
 
 func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 	if pemValue == "" {
-		return nil, errors.New("not set")
+		return nil, cfgerr.ErrRequired
 	}
 
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, errors.New("invalid PEM data")
+		return nil, cfgerr.ErrInvalidPEM
 	}
 
-	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		validateRSAKeySize(key.N.BitLen())
-		return key, nil
+	var key *rsa.PrivateKey
+	// Try PKCS1
+	if k, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		key = k
+	} else {
+		// Try PKCS8
+		pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, cfgerr.ErrInvalidFormat
+		}
+		k8, ok := pk.(*rsa.PrivateKey)
+		if !ok {
+			return nil, cfgerr.ErrNotRSAPrivateKey
+		}
+		key = k8
 	}
 
-	pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
+	if err := validateRSAKeySize(key.N.BitLen()); err != nil {
 		return nil, err
 	}
-
-	key, ok := pk.(*rsa.PrivateKey)
-	if !ok {
-		return nil, errors.New("not an RSA private key")
-	}
-
-	validateRSAKeySize(key.N.BitLen())
 	return key, nil
 }
 
 func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
 	if pemValue == "" {
-		return nil, errors.New("not set")
+		return nil, cfgerr.ErrRequired
 	}
 
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, errors.New("invalid PEM data")
+		return nil, cfgerr.ErrInvalidPEM
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, cfgerr.ErrInvalidFormat
 	}
 
 	rsaPub, ok := pub.(*rsa.PublicKey)
 	if !ok {
-		return nil, errors.New("not an RSA public key")
+		return nil, cfgerr.ErrNotRSAPublicKey
 	}
 
-	validateRSAKeySize(rsaPub.N.BitLen())
+	if err := validateRSAKeySize(rsaPub.N.BitLen()); err != nil {
+		return nil, err
+	}
 	return rsaPub, nil
 }
 
 func validateRSAKeySize(bits int) error {
 	if bits < 2048 {
-		return errors.New("RSA key size < 2048 bits")
+		return cfgerr.ErrInsecureKeySize
 	}
 	return nil
 }

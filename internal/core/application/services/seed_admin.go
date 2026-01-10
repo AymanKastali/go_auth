@@ -37,11 +37,11 @@ func NewSeedAdminService(
 }
 
 func (s *seedAdminService) SeedAdmin() error {
-	adminEmail := s.cfg.AdminEmail
-	adminPass := s.cfg.AdminPassword
+	adminEmail := s.cfg.AdminEmail()
+	adminPass := s.cfg.AdminPassword()
 
 	if adminEmail == "" || adminPass == "" {
-		s.logger.Error("ADMIN_EMAIL or ADMIN_PASSWORD environment variables are not set")
+		s.logger.Error("GA_ADMIN_EMAIL or GA_ADMIN_PASSWORD environment variables are not set")
 		return apperr.NewInternalErr("seeder configuration missing")
 	}
 

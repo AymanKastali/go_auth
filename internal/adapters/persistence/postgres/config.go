@@ -16,12 +16,12 @@ type PostgresConfig struct {
 
 func LoadPostgresConfig() (*PostgresConfig, error) {
 	cfg := &PostgresConfig{
-		Host:     os.Getenv("POSTGRES_HOST"),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
-		Port:     os.Getenv("POSTGRES_PORT"),
-		SSLMode:  os.Getenv("POSTGRES_SSLMODE"),
+		Host:     os.Getenv("GA_POSTGRES_HOST"),
+		User:     os.Getenv("GA_POSTGRES_USER"),
+		Password: os.Getenv("GA_POSTGRES_PASSWORD"),
+		DBName:   os.Getenv("GA_POSTGRES_DB"),
+		Port:     os.Getenv("GA_POSTGRES_PORT"),
+		SSLMode:  os.Getenv("GA_POSTGRES_SSLMODE"),
 	}
 
 	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.DBName == "" || cfg.Port == "" {
