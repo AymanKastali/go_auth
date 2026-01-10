@@ -3,35 +3,36 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/ports"
+	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
 type loginUseCase struct {
-	userRepo       ports.UserRepositoryPort
-	refreshRepo    ports.RefreshTokenRepositoryPort
-	deviceRepo     ports.DeviceRepositoryPort
-	roleRepo       ports.RoleRepositoryPort
-	passwordHasher ports.HashPasswordServicePort
-	tokenService   ports.TokenServicePort
+	userRepo       dports.UserRepositoryPort
+	refreshRepo    dports.RefreshTokenRepositoryPort
+	deviceRepo     dports.DeviceRepositoryPort
+	roleRepo       dports.RoleRepositoryPort
+	passwordHasher aports.HashPasswordServicePort
+	tokenService   aports.TokenServicePort
 	logger         *slog.Logger
 }
 
-var _ ports.LoginUseCasePort = (*loginUseCase)(nil)
+var _ aports.LoginUseCasePort = (*loginUseCase)(nil)
 
 func NewLoginUseCase(
-	userRepo ports.UserRepositoryPort,
-	refreshRepo ports.RefreshTokenRepositoryPort,
-	deviceRepo ports.DeviceRepositoryPort,
-	roleRepo ports.RoleRepositoryPort,
-	passwordHasher ports.HashPasswordServicePort,
-	tokenService ports.TokenServicePort,
+	userRepo dports.UserRepositoryPort,
+	refreshRepo dports.RefreshTokenRepositoryPort,
+	deviceRepo dports.DeviceRepositoryPort,
+	roleRepo dports.RoleRepositoryPort,
+	passwordHasher aports.HashPasswordServicePort,
+	tokenService aports.TokenServicePort,
 	logger *slog.Logger,
-) ports.LoginUseCasePort {
+) aports.LoginUseCasePort {
 	return &loginUseCase{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
@@ -135,12 +136,12 @@ func (h *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string, 
 
 func (h *loginUseCase) issueTokensAndSaveSession(user *aggregates.User, device *entities.Device, roles []string, nowUTC time.Time) (*dto.AuthResponse, error) {
 	// 1. Generate Tokens first (Infrastructure)
-	accessToken, _, err := h.tokenService.IssueAccessToken(user.ID().String(), device.ID().String(), roles)
+	accessToken, _, err := h.tokenService.IssueAccessToken(user.ID().Value(), device.ID().String(), roles)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, refreshClaims, err := h.tokenService.IssueRefreshToken(user.ID().String(), device.ID().String())
+	refreshToken, refreshClaims, err := h.tokenService.IssueRefreshToken(user.ID().Value(), device.ID().String())
 	if err != nil {
 		return nil, err
 	}

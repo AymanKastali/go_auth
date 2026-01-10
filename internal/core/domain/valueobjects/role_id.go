@@ -21,7 +21,7 @@ func RoleIDFromUUID(u uuid.UUID) RoleID {
 func RoleIDFromString(u string) (RoleID, error) {
 	parsed, err := uuid.Parse(u)
 	if err != nil {
-		return RoleID{}, derr.NewInvalidValueErr("RoleID", err.Error())
+		return RoleID{}, derr.NewInvalidValueErr("RoleID")
 	}
 
 	return RoleID{value: parsed}, nil

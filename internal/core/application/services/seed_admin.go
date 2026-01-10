@@ -3,34 +3,39 @@ package services
 import (
 	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
+	"go_auth/internal/core/application/interfaces"
+	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
+	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"time"
 )
 
 type seedAdminService struct {
-	userRepo       ports.UserRepositoryPort
-	roleRepo       ports.RoleRepositoryPort
-	passwordHasher ports.HashPasswordServicePort
+	userRepo       dports.UserRepositoryPort
+	roleRepo       dports.RoleRepositoryPort
+	passwordHasher aports.HashPasswordServicePort
+	uuidGenerator  interfaces.IUUIDGeneratorService
 	cfg            *seed.SeederConfig
 	logger         *slog.Logger
 }
 
-var _ ports.SeedAdminServicePort = (*seedAdminService)(nil)
+var _ aports.SeedAdminServicePort = (*seedAdminService)(nil)
 
 func NewSeedAdminService(
-	userRepo ports.UserRepositoryPort,
-	roleRepo ports.RoleRepositoryPort,
-	passwordHasher ports.HashPasswordServicePort,
+	userRepo dports.UserRepositoryPort,
+	roleRepo dports.RoleRepositoryPort,
+	passwordHasher aports.HashPasswordServicePort,
+	uuidGenerator interfaces.IUUIDGeneratorService,
 	seederConfig *seed.SeederConfig,
 	logger *slog.Logger,
-) ports.SeedAdminServicePort {
+) aports.SeedAdminServicePort {
 	return &seedAdminService{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
+		uuidGenerator:  uuidGenerator,
 		cfg:            seederConfig,
 		logger:         logger,
 	}
@@ -81,9 +86,15 @@ func (s *seedAdminService) SeedAdmin() error {
 		return apperr.NewInternalErr("admin role missing")
 	}
 
+	userID, err := s.uuidGenerator.NewUserID()
+	if err != nil {
+		s.logger.Error("Failed to generate user ID", "error", err)
+		return apperr.NewInternalErr("failed to generate user id")
+	}
+
 	// Create admin user entity
 	admin, err := aggregates.NewUser(
-		valueobjects.NewUserID(),
+		userID,
 		emailVO,
 		pw,
 		valueobjects.UserActive,

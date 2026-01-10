@@ -7,8 +7,8 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
+	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
@@ -16,14 +16,14 @@ import (
 
 type GormUserRepository struct {
 	db     *gorm.DB
-	mapper *mappers.UserMapper
+	mapper mappers.IUserMapper
 }
 
 var _ ports.UserRepositoryPort = (*GormUserRepository)(nil)
 
 func NewGormUserRepository(
 	db *gorm.DB,
-	mapper *mappers.UserMapper,
+	mapper mappers.IUserMapper,
 ) ports.UserRepositoryPort {
 	return &GormUserRepository{
 		db:     db,
@@ -64,19 +64,19 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 
 func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, error) {
 	var model models.User
-	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
+	err := r.db.Preload("Roles").Where("id = ?", id.Value()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, r.mapPGErr(err, id.String())
+		return nil, r.mapPGErr(err, id.Value())
 	}
 
 	domainUser, err := r.mapper.ToDomain(&model)
 	if err != nil {
 		// FIX: Map the pgerr.DataCorruptionErr to an apperr
-		return nil, r.mapPGErr(err, id.String())
+		return nil, r.mapPGErr(err, id.Value())
 	}
 
 	return domainUser, nil
@@ -95,7 +95,7 @@ func (r *GormUserRepository) Update(u *aggregates.User) error {
 		return tx.Model(model).Association("Roles").Replace(model.Roles)
 	})
 
-	return r.mapPGErr(err, u.ID().String())
+	return r.mapPGErr(err, u.ID().Value())
 }
 
 func (r *GormUserRepository) mapPGErr(err error, id string) error {

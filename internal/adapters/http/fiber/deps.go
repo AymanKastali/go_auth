@@ -7,9 +7,10 @@ import (
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
-	"go_auth/internal/adapters/security/jwt"
-	"go_auth/internal/adapters/security/password"
 	"go_auth/internal/adapters/seed"
+	"go_auth/internal/adapters/services/jwt"
+	"go_auth/internal/adapters/services/password"
+	"go_auth/internal/adapters/services/uuid"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
 	"log"
@@ -37,12 +38,16 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
+	// UUID Services
+	uuidGenerator := uuid.NewUUIDUserIDGenerator()
+	uuidParser := uuid.NewUUIDUserIDParser()
+
 	// -------------------
 	// Mappers
 	// -------------------
-	userMapper := mappers.NewUserMapper()
+	userMapper := mappers.NewUserMapper(uuidParser)
 	roleMapper := mappers.NewRoleMapper()
-	deviceMapper := mappers.NewDeviceMapper()
+	deviceMapper := mappers.NewDeviceMapper(uuidParser)
 	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
 	// -------------------
@@ -83,6 +88,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		roleRepo,
 		passwordHasher,
+		uuidGenerator,
 		seederCfg,
 		logger,
 	)
@@ -97,6 +103,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		roleRepo,
 		passwordHasher,
+		uuidGenerator,
 		logger,
 	)
 
@@ -122,18 +129,21 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		deviceRepo,
 		roleRepo,
 		jwtService,
+		uuidParser,
 		logger,
 	)
 
 	authUserUC := usecases.NewAuthUserUseCase(
 		userRepo,
 		roleRepo,
+		uuidParser,
 		logger,
 	)
 
 	roleUC := usecases.NewUpdateRoleUseCase(
 		userRepo,
 		roleRepo,
+		uuidParser,
 		logger,
 	)
 

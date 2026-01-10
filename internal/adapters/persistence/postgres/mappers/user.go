@@ -5,14 +5,23 @@ import (
 
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type UserMapper struct{}
+type UserMapper struct {
+	uuidParser interfaces.IUUIDParserService
+}
 
-func NewUserMapper() *UserMapper {
-	return &UserMapper{}
+var _ IUserMapper = (*UserMapper)(nil)
+
+func NewUserMapper(
+	uuidParser interfaces.IUUIDParserService,
+) IUserMapper {
+	return &UserMapper{
+		uuidParser: uuidParser,
+	}
 }
 
 func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
@@ -23,7 +32,7 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	}
 
 	// 1. Map ID
-	userID, err := valueobjects.UserIDFromString(u.ID)
+	userID, err := m.uuidParser.ParseUserID(u.ID)
 	if err != nil {
 		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
 	}
@@ -91,7 +100,7 @@ func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
 	}
 
 	return &models.User{
-		ID:             u.ID().String(),
+		ID:             u.ID().Value(),
 		Email:          u.Email().String(),
 		HashedPassword: u.HashedPassword().Value(),
 		Status:         string(u.Status()),

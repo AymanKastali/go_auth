@@ -1,14 +1,56 @@
 package derr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-/*
-Domain error marker
-*/
-type DomainErr interface {
+const opRule = "Business Rule"
+
+type DomainError interface {
 	error
 	Domain()
 }
+
+var (
+	errRequiredValue = errors.New("required value is missing")
+	errInvalidValue  = errors.New("value violates domain rules")
+	errUnknown       = errors.New("unknown domain violation")
+)
+
+type domainError struct {
+	op     string
+	key    string
+	reason error
+}
+
+func (e *domainError) Error() string {
+	// Ambiguity fix: include the 'key' in the string output
+	return fmt.Sprintf("[Domain Error] %s: field '%s' - %v", e.op, e.key, e.reason)
+}
+
+func (e *domainError) Domain()       {}
+func (e *domainError) Unwrap() error { return e.reason }
+
+// NewRequiredValueErr handles cases where a mandatory field is empty or nil.
+func NewRequiredValueErr(key string) DomainError {
+	return &domainError{
+		op:     opRule,
+		key:    key,
+		reason: errRequiredValue,
+	}
+}
+
+// NewInvalidValueErr handles cases where data format or logic is rejected by the domain.
+func NewInvalidValueErr(key string) DomainError {
+	return &domainError{
+		op:     opRule,
+		key:    key,
+		reason: errInvalidValue,
+	}
+}
+
+////////////////////////////////
 
 // ValidationError marks domain errors that are caused by invalid input
 type ValidationErr interface {
@@ -48,9 +90,9 @@ func (e *InvalidValueErr) Error() string {
 	return fmt.Sprintf("%s has an invalid value: %s", e.Attr, e.Reason)
 }
 
-func NewInvalidValueErr(attr, reason string) *InvalidValueErr {
-	return &InvalidValueErr{Attr: attr, Reason: reason}
-}
+// func NewInvalidValueErr(attr, reason string) *InvalidValueErr {
+// 	return &InvalidValueErr{Attr: attr, Reason: reason}
+// }
 
 func (*InvalidValueErr) Domain()     {}
 func (*InvalidValueErr) Validation() {}

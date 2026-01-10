@@ -3,13 +3,18 @@ package mappers
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type RefreshTokenMapper struct{}
+type RefreshTokenMapper struct {
+	uuidParser interfaces.IUUIDParserService
+}
 
-func NewRefreshTokenMapper() *RefreshTokenMapper {
+var _ IRefreshTokenMapper = (*RefreshTokenMapper)(nil)
+
+func NewRefreshTokenMapper() IRefreshTokenMapper {
 	return &RefreshTokenMapper{}
 }
 
@@ -24,9 +29,9 @@ func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.Refres
 		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
 	}
 
-	userID, err := valueobjects.UserIDFromString(rt.UserID)
+	userID, err := m.uuidParser.ParseUserID(rt.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
+		return nil, pgerr.NewDataCorruptionErr(entity, rt.UserID, err)
 	}
 
 	deviceID, err := valueobjects.DeviceIDFromString(rt.DeviceID)
@@ -61,7 +66,7 @@ func (m *RefreshTokenMapper) ToModel(rt *entities.RefreshToken) *models.RefreshT
 
 	return &models.RefreshToken{
 		ID:        rt.ID().String(),
-		UserID:    rt.UserID().String(),
+		UserID:    rt.UserID().Value(),
 		DeviceID:  rt.DeviceID().String(),
 		Token:     rt.Token(),
 		ExpiresAt: rt.ExpiresAt(),
