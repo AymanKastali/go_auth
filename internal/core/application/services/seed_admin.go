@@ -1,7 +1,7 @@
 package services
 
 import (
-	"go_auth/internal/adapters/config"
+	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
@@ -14,7 +14,7 @@ type seedAdminService struct {
 	userRepo       ports.UserRepositoryPort
 	roleRepo       ports.RoleRepositoryPort
 	passwordHasher ports.HashPasswordServicePort
-	cfg            *config.SeederConfig
+	cfg            *seed.SeederConfig
 	logger         *slog.Logger
 }
 
@@ -24,7 +24,7 @@ func NewSeedAdminService(
 	userRepo ports.UserRepositoryPort,
 	roleRepo ports.RoleRepositoryPort,
 	passwordHasher ports.HashPasswordServicePort,
-	seederConfig *config.SeederConfig,
+	seederConfig *seed.SeederConfig,
 	logger *slog.Logger,
 ) ports.SeedAdminServicePort {
 	return &seedAdminService{
