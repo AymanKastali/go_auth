@@ -21,12 +21,12 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 
 	deviceID, err := valueobjects.DeviceIDFromString(d.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, "ID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
 	}
 
 	userID, err := valueobjects.UserIDFromString(d.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, "UserID", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
 	}
 
 	device, err := entities.ReconstituteDevice(
@@ -42,7 +42,7 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 		d.RevokedAt,
 	)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, "Aggregate", err)
+		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
 	}
 
 	return device, nil

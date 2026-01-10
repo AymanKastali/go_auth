@@ -1,48 +1,76 @@
 package pgerr
 
 import (
+	"errors"
 	"fmt"
 )
 
+// PostgresErr interface ensures all DB errors have common markers.
 type PostgresErr interface {
 	error
-	Persistence()
+	Adapters()
 }
 
-type DataCorruptionErr struct {
-	Entity string
-	ID     string
-	Field  string
-	Cause  error
+// --- Private Sentinels (The "What") ---
+var (
+	errDataCorruption = errors.New("data inconsistency detected")
+	errMigration      = errors.New("migration failed")
+	errConnFailure    = errors.New("connection establishment failed")
+	errUnknown        = errors.New("unknown error cause")
+)
+
+// --- Private Implementation (The "Where") ---
+type postgresErr struct {
+	op     string
+	entity string
+	id     string
+	reason error
 }
 
-func (e *DataCorruptionErr) Error() string {
-	return fmt.Sprintf("data corruption in %s [%s] at field '%s': %v", e.Entity, e.ID, e.Field, e.Cause)
+func (e *postgresErr) Error() string {
+	if e.entity != "" {
+		return fmt.Sprintf("[Postgres Corruption] %s[%s]: %v", e.entity, e.id, e.reason)
+	}
+	return fmt.Sprintf("[Postgres Error] %s: %v", e.op, e.reason)
 }
 
-func (*DataCorruptionErr) Persistence() {}
+func (e *postgresErr) Adapters()     {}
+func (e *postgresErr) Unwrap() error { return e.reason }
 
-func NewDataCorruptionErr(entity, id, field string, err error) *DataCorruptionErr {
-	return &DataCorruptionErr{
-		Entity: entity,
-		ID:     id,
-		Field:  field,
-		Cause:  err,
+// --- New Methods (The "How" - Returning the Interface) ---
+
+func NewDataCorruptionErr(entity, id string, err error) PostgresErr {
+	cause := err
+	if cause == nil {
+		cause = errUnknown
+	}
+
+	return &postgresErr{
+		entity: entity,
+		id:     id,
+		reason: errors.Join(errDataCorruption, cause),
 	}
 }
 
-// InternalDBErr represents raw Postgres/GORM failures (Connection, Timeout, etc.)
-type InternalDBErr struct {
-	Op    string
-	Cause error
+func NewMigrationErr(err error) PostgresErr {
+	cause := err
+	if cause == nil {
+		cause = errUnknown
+	}
+
+	return &postgresErr{
+		op:     "Schema Migration",
+		reason: errors.Join(errMigration, cause),
+	}
 }
 
-func (e *InternalDBErr) Error() string {
-	return fmt.Sprintf("database operation '%s' failed: %v", e.Op, e.Cause)
-}
-
-func (*InternalDBErr) Persistence() {}
-
-func NewInternalDBErr(op string, err error) *InternalDBErr {
-	return &InternalDBErr{Op: op, Cause: err}
+func NewConnErr(err error) PostgresErr {
+	cause := err
+	if cause == nil {
+		cause = errUnknown
+	}
+	return &postgresErr{
+		op:     "Connection",
+		reason: errors.Join(errConnFailure, err),
+	}
 }
