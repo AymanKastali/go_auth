@@ -30,7 +30,9 @@ func (h *logoutHandler) Execute(c *fiber.Ctx) error {
 		})
 	}
 
-	h.uc.Execute(req.RefreshToken)
+	if err := h.uc.Execute(req.RefreshToken); err != nil {
+		return err
+	}
 
 	return utils.NoContent(c)
 }

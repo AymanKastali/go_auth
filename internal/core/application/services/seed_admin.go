@@ -9,7 +9,6 @@ import (
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
-	"time"
 )
 
 type seedAdminService struct {
@@ -17,6 +16,7 @@ type seedAdminService struct {
 	roleRepo       dports.RoleRepositoryPort
 	passwordHasher aports.HashPasswordServicePort
 	uuidGenerator  interfaces.IUUIDGeneratorService
+	clock          interfaces.IClock
 	cfg            *seed.SeederConfig
 	logger         *slog.Logger
 }
@@ -28,6 +28,7 @@ func NewSeedAdminService(
 	roleRepo dports.RoleRepositoryPort,
 	passwordHasher aports.HashPasswordServicePort,
 	uuidGenerator interfaces.IUUIDGeneratorService,
+	clock interfaces.IClock,
 	seederConfig *seed.SeederConfig,
 	logger *slog.Logger,
 ) aports.SeedAdminServicePort {
@@ -36,6 +37,7 @@ func NewSeedAdminService(
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		uuidGenerator:  uuidGenerator,
+		clock:          clock,
 		cfg:            seederConfig,
 		logger:         logger,
 	}
@@ -99,7 +101,7 @@ func (s *seedAdminService) SeedAdmin() error {
 		pw,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{adminRole.ID()},
-		time.Now().UTC(),
+		s.clock.NowUTC(),
 	)
 	if err != nil {
 		s.logger.Error("Failed to create admin entity", "error", err)

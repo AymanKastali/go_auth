@@ -36,32 +36,39 @@ func NewJWTService(cfg *JWTConfig) ports.TokenServicePort {
 	}
 }
 
-func (s *jwtService) IssueAccessToken(tokenID, userID, deviceID string, roles []string) (valueobjects.JWTToken, dto.AccessTokenClaims, error) {
+func (s *jwtService) IssueAccessToken(
+	tokenID, userID, deviceID string,
+	roles []string,
+	now time.Time,
+) (valueobjects.Token, dto.AccessTokenClaims, error) {
 	claims := AccessTokenClaims{
 		Type:             TokenTypeAccess,
 		Roles:            roles,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.accessTTL),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.accessTTL, now),
 	}
 
 	token, err := s.sign(claims)
 	if err != nil {
-		return valueobjects.JWTToken{}, dto.AccessTokenClaims{}, apperr.NewInternalErr("could not generate access credentials")
+		return valueobjects.Token{}, dto.AccessTokenClaims{}, apperr.NewInternalErr("could not generate access credentials")
 	}
 
 	return token, s.mapToAccessDTO(claims), nil
 }
 
-func (s *jwtService) IssueRefreshToken(tokenID, userID, deviceID string) (valueobjects.JWTToken, dto.RefreshTokenClaims, error) {
+func (s *jwtService) IssueRefreshToken(
+	tokenID, userID, deviceID string,
+	now time.Time,
+) (valueobjects.Token, dto.RefreshTokenClaims, error) {
 	claims := RefreshTokenClaims{
 		Type:             TokenTypeRefresh,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.refreshTTL),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.refreshTTL, now),
 	}
 
 	token, err := s.sign(claims)
 	if err != nil {
-		return valueobjects.JWTToken{}, dto.RefreshTokenClaims{}, apperr.NewInternalErr("could not generate refresh credentials")
+		return valueobjects.Token{}, dto.RefreshTokenClaims{}, apperr.NewInternalErr("could not generate refresh credentials")
 	}
 
 	return token, s.mapToRefreshDTO(claims), nil
@@ -88,13 +95,14 @@ func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenCla
 
 // --- Private Helpers ---
 
-func (s *jwtService) sign(claims jwt.Claims) (valueobjects.JWTToken, error) {
+func (s *jwtService) sign(claims jwt.Claims) (valueobjects.Token, error) {
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.JWTToken{}, NewSignErr(err)
+		return valueobjects.Token{}, NewSignErr(err)
 	}
-	return valueobjects.NewJWTToken(signed), nil
+
+	return valueobjects.NewToken(signed)
 }
 
 func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType string) error {
@@ -124,8 +132,7 @@ func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType stri
 	return nil
 }
 
-func (s *jwtService) newRegisteredClaims(tokenID, userID string, ttl time.Duration) jwt.RegisteredClaims {
-	now := time.Now().UTC()
+func (s *jwtService) newRegisteredClaims(tokenID, userID string, ttl time.Duration, now time.Time) jwt.RegisteredClaims {
 	return jwt.RegisteredClaims{
 		Issuer:    s.issuer,
 		Subject:   userID,

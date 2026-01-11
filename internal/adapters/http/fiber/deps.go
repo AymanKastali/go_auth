@@ -8,6 +8,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/seed"
+	"go_auth/internal/adapters/services/clock"
 	"go_auth/internal/adapters/services/jwt"
 	"go_auth/internal/adapters/services/password"
 	"go_auth/internal/adapters/services/uuid"
@@ -37,6 +38,9 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Logger
 	// -------------------
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// Clock Service
+	clockService := clock.NewClockService()
 
 	// UUID Services
 	uuidGenerator := uuid.NewUUIDUserIDGenerator()
@@ -79,6 +83,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	rolesSeeder := services.NewSeedRolesService(
 		roleRepo,
 		uuidGenerator,
+		clockService,
 		logger,
 	)
 	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
@@ -90,6 +95,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		roleRepo,
 		passwordHasher,
 		uuidGenerator,
+		clockService,
 		seederCfg,
 		logger,
 	)
@@ -105,6 +111,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		roleRepo,
 		passwordHasher,
 		uuidGenerator,
+		clockService,
 		logger,
 	)
 
@@ -117,6 +124,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		jwtService,
 		uuidGenerator,
 		uuidParser,
+		clockService,
 		logger,
 	)
 
@@ -124,6 +132,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		refreshTokenRepo,
 		jwtService,
 		uuidParser,
+		clockService,
 		logger,
 	)
 
@@ -135,6 +144,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		jwtService,
 		uuidGenerator,
 		uuidParser,
+		clockService,
 		logger,
 	)
 
@@ -149,6 +159,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		roleRepo,
 		uuidParser,
+		clockService,
 		logger,
 	)
 

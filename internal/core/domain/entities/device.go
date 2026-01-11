@@ -25,8 +25,7 @@ func NewDevice(
 	name *string,
 	userAgent *string,
 	ipAddress *string,
-	isActive bool,
-	nowUTC time.Time,
+	now time.Time,
 ) (*Device, error) {
 	if deviceID.IsEmpty() {
 		return nil, derr.NewRequiredErr("device_id")
@@ -42,9 +41,9 @@ func NewDevice(
 		userAgent:  userAgent,
 		ipAddress:  ipAddress,
 		isActive:   true,
-		createdAt:  nowUTC,
-		updatedAt:  nowUTC,
-		lastSeenAt: nowUTC,
+		createdAt:  now,
+		updatedAt:  now,
+		lastSeenAt: now,
 	}, nil
 }
 
@@ -75,68 +74,108 @@ func ReconstituteDevice(
 	}, nil
 }
 
-func (d *Device) ID() valueobjects.DeviceID   { return d.id }
-func (d *Device) UserID() valueobjects.UserID { return d.userID }
-func (d *Device) Name() *string               { return d.name }
-func (d *Device) UserAgent() *string          { return d.userAgent }
-func (d *Device) IPAddress() *string          { return d.ipAddress }
-func (d *Device) IsActive() bool              { return d.isActive }
-func (d *Device) CreatedAt() time.Time        { return d.createdAt }
-func (d *Device) UpdatedAt() time.Time        { return d.updatedAt }
-func (d *Device) LastSeenAt() time.Time       { return d.lastSeenAt }
-func (d *Device) RevokedAt() *time.Time       { return d.revokedAt }
+func (e *Device) ID() valueobjects.DeviceID   { return e.id }
+func (e *Device) UserID() valueobjects.UserID { return e.userID }
+func (e *Device) Name() *string               { return e.name }
+func (e *Device) UserAgent() *string          { return e.userAgent }
+func (e *Device) IPAddress() *string          { return e.ipAddress }
+func (e *Device) IsActive() bool              { return e.isActive }
+func (e *Device) CreatedAt() time.Time        { return e.createdAt }
+func (e *Device) UpdatedAt() time.Time        { return e.updatedAt }
+func (e *Device) LastSeenAt() time.Time       { return e.lastSeenAt }
+func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
 
-func (d *Device) Update(
+func (e *Device) Activate(now time.Time) error {
+	if e.revokedAt != nil {
+		return derr.NewRuleViolationErr("cannot activate a revoked device")
+	}
+	if e.isActive {
+		return derr.NewRuleViolationErr("device is already active")
+	}
+
+	e.isActive = true
+	e.touch(now)
+	return nil
+}
+
+func (e *Device) Deactivate(now time.Time) error {
+	if e.revokedAt != nil {
+		return derr.NewRuleViolationErr("cannot deactivate a revoked device")
+	}
+	if !e.isActive {
+		return derr.NewRuleViolationErr("device is already inactive")
+	}
+
+	e.isActive = false
+	e.touch(now)
+	return nil
+}
+
+func (e *Device) MarkSeen(now time.Time) error {
+	if e.revokedAt != nil {
+		return derr.NewRuleViolationErr("cannot use a revoked device")
+	}
+	if !e.isActive {
+		return derr.NewRuleViolationErr("cannot use an inactive device")
+	}
+
+	e.lastSeenAt = now
+	e.touch(now)
+	return nil
+}
+
+func (e *Device) UpdateMetadata(
 	now time.Time,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
 ) error {
-
-	if d.revokedAt != nil {
+	if e.revokedAt != nil {
 		return derr.NewRuleViolationErr("cannot update a revoked device")
 	}
 
 	if name != nil {
-		d.name = name
+		e.name = name
 	}
 	if userAgent != nil {
-		d.userAgent = userAgent
+		e.userAgent = userAgent
 	}
 	if ipAddress != nil {
-		d.ipAddress = ipAddress
+		e.ipAddress = ipAddress
 	}
 
-	d.lastSeenAt = now
-	d.updatedAt = now
+	e.touch(now)
 	return nil
 }
 
-func (d *Device) Revoke(now time.Time) error {
-	if d.revokedAt != nil {
+func (e *Device) Revoke(now time.Time) error {
+	if e.revokedAt != nil {
 		return derr.NewRuleViolationErr("device is already revoked")
 	}
 
-	d.isActive = false
-	d.revokedAt = &now
-	d.updatedAt = now
+	e.isActive = false
+	e.revokedAt = &now
+	e.touch(now)
 	return nil
 }
 
-func (d *Device) EnsureUsable() error {
-	if d.revokedAt != nil {
+func (e *Device) EnsureUsable() error {
+	if e.revokedAt != nil {
 		return derr.NewRuleViolationErr("device is revoked")
 	}
-	if !d.isActive {
+	if !e.isActive {
 		return derr.NewRuleViolationErr("device is inactive")
 	}
 	return nil
 }
 
-func (d *Device) BelongsTo(userID valueobjects.UserID) error {
-	if !d.userID.Equal(userID) {
-		// If it's the wrong user, it's a violation of access/value logic
+func (e *Device) BelongsTo(userID valueobjects.UserID) error {
+	if !e.userID.Equal(userID) {
 		return derr.NewInvalidValueErr("UserID")
 	}
 	return nil
+}
+
+func (e *Device) touch(now time.Time) {
+	e.updatedAt = now
 }

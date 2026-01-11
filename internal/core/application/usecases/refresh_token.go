@@ -21,6 +21,7 @@ type refreshTokenUseCase struct {
 	tokenSvc      aports.TokenServicePort
 	uuidGenerator interfaces.IUUIDGeneratorService
 	uuidParser    interfaces.IUUIDParserService
+	clock         interfaces.IClock
 	logger        *slog.Logger
 }
 
@@ -34,6 +35,7 @@ func NewRefreshTokenUseCase(
 	tokenSvc aports.TokenServicePort,
 	uuidGenerator interfaces.IUUIDGeneratorService,
 	uuidParser interfaces.IUUIDParserService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.RefreshTokenUseCasePort {
 	return &refreshTokenUseCase{
@@ -44,6 +46,7 @@ func NewRefreshTokenUseCase(
 		tokenSvc:      tokenSvc,
 		uuidGenerator: uuidGenerator,
 		uuidParser:    uuidParser,
+		clock:         clock,
 		logger:        logger,
 	}
 }
@@ -51,7 +54,6 @@ func NewRefreshTokenUseCase(
 func (uc *refreshTokenUseCase) Execute(
 	oldRefreshToken, deviceIDStr string,
 ) (*dto.AuthResponse, error) {
-	now := time.Now().UTC()
 
 	// 1. Validate Token & Context
 	claims, oldTokenID, err := uc.validateSession(oldRefreshToken, deviceIDStr)
@@ -72,7 +74,7 @@ func (uc *refreshTokenUseCase) Execute(
 	}
 
 	// 4. Token Rotation (Issue new, revoke old)
-	return uc.rotateTokens(user, device, oldTokenID, roleNames, now)
+	return uc.rotateTokens(user, device, oldTokenID, roleNames, uc.clock.NowUTC())
 }
 
 // --- Internal Helper Methods ---
@@ -160,18 +162,29 @@ func (uc *refreshTokenUseCase) rotateTokens(
 		return nil, apperr.MapDomainErr(err)
 	}
 
-	at, _, err := uc.tokenSvc.IssueAccessToken(tokenID.Value(), user.ID().Value(), device.ID().Value(), roles)
+	at, _, err := uc.tokenSvc.IssueAccessToken(
+		tokenID.Value(),
+		user.ID().Value(),
+		device.ID().Value(),
+		roles,
+		now,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(tokenID.Value(), user.ID().Value(), device.ID().Value())
+	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(
+		tokenID.Value(),
+		user.ID().Value(),
+		device.ID().Value(),
+		now,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	rtEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), rt.Value(), rtClaims.ExpiresAt, now,
+		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, now,
 	)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)

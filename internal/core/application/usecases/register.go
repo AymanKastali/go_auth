@@ -9,7 +9,6 @@ import (
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
-	"time"
 )
 
 type registerUseCase struct {
@@ -17,6 +16,7 @@ type registerUseCase struct {
 	roleRepo       dports.RoleRepositoryPort
 	passwordHasher aports.HashPasswordServicePort
 	uuidGenerator  interfaces.IUUIDGeneratorService
+	clock          interfaces.IClock
 	logger         *slog.Logger
 }
 
@@ -27,6 +27,7 @@ func NewRegisterUseCase(
 	roleRepo dports.RoleRepositoryPort,
 	passwordHasher aports.HashPasswordServicePort,
 	uuidGenerator interfaces.IUUIDGeneratorService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.RegisterUseCasePort {
 	return &registerUseCase{
@@ -34,6 +35,7 @@ func NewRegisterUseCase(
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		uuidGenerator:  uuidGenerator,
+		clock:          clock,
 		logger:         logger,
 	}
 }
@@ -72,7 +74,7 @@ func (uc *registerUseCase) Execute(email, password string) (*dto.RegisteredUserD
 		pw,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{userRole.ID()},
-		time.Now().UTC(),
+		uc.clock.NowUTC(),
 	)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)

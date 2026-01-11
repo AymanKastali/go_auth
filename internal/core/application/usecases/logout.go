@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"log/slog"
-	"time"
 
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/interfaces"
@@ -14,6 +13,7 @@ type logoutUseCase struct {
 	refreshRepo dports.RefreshTokenRepositoryPort
 	tokenSvc    aports.TokenServicePort
 	uuidParser  interfaces.IUUIDParserService
+	clock       interfaces.IClock
 	logger      *slog.Logger
 }
 
@@ -23,12 +23,14 @@ func NewLogoutUseCase(
 	refreshRepo dports.RefreshTokenRepositoryPort,
 	tokenSvc aports.TokenServicePort,
 	uuidParser interfaces.IUUIDParserService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.LogoutUseCasePort {
 	return &logoutUseCase{
 		refreshRepo: refreshRepo,
 		tokenSvc:    tokenSvc,
 		uuidParser:  uuidParser,
+		clock:       clock,
 		logger:      logger,
 	}
 }
@@ -54,7 +56,7 @@ func (uc *logoutUseCase) Execute(refreshToken string) error {
 	// 3. Revoke token in repository
 	// The repository now returns apperr.NotFoundErr if the token ID doesn't exist
 	// or apperr.InternalErr if the database is down.
-	err = uc.refreshRepo.Revoke(tokenID, time.Now().UTC())
+	err = uc.refreshRepo.Revoke(tokenID, uc.clock.NowUTC())
 	if err != nil {
 		uc.logger.Error("Failed to revoke refresh token in DB", "tokenID", tokenID, "error", err)
 		return err // Already an apperr type

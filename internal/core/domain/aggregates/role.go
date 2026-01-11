@@ -15,7 +15,6 @@ type Role struct {
 	deletedAt *time.Time
 }
 
-// Getters
 func (e *Role) ID() valueobjects.RoleID {
 	return e.id
 }
@@ -36,11 +35,10 @@ func (e *Role) DeletedAt() *time.Time {
 	return e.deletedAt
 }
 
-// Constructor
 func NewRole(
 	roleID valueobjects.RoleID,
 	name string,
-	nowUTC time.Time,
+	now time.Time,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
 		return nil, derr.NewRequiredErr("roleID")
@@ -53,8 +51,8 @@ func NewRole(
 	return &Role{
 		id:        roleID,
 		name:      name,
-		createdAt: nowUTC,
-		updatedAt: nowUTC,
+		createdAt: now,
+		updatedAt: now,
 	}, nil
 }
 
