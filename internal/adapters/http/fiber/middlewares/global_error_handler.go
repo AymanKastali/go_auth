@@ -2,19 +2,21 @@ package middlewares
 
 import (
 	"errors"
+	"fmt"
 	"go_auth/internal/core/application/apperr"
+	"log/slog"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func GlobalErrorHandler(c *fiber.Ctx, err error) error {
-	// 1️⃣ Default: Internal Server Error (500)
+	// 1. Default fallback values
 	code := http.StatusInternalServerError
 	errType := "Internal Server Error"
 	message := "An unexpected error occurred"
 
-	// 2️⃣ Check for Custom Application Errors
+	// 2. Variable declarations for errors.As type checking
 	var (
 		badRequest   *apperr.BadRequestErr
 		notFound     *apperr.NotFoundErr
@@ -26,6 +28,7 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 		internal     *apperr.InternalErr
 	)
 
+	// 3. Switch through custom error types
 	switch {
 	case errors.As(err, &validation):
 		code = http.StatusBadRequest
@@ -66,8 +69,21 @@ func GlobalErrorHandler(c *fiber.Ctx, err error) error {
 		code = http.StatusInternalServerError
 		errType = "Internal Error"
 		message = internal.Error()
+
+	default:
+		// 4. LOG THE LEAKED ERROR
+		// This is crucial for debugging why you are getting 500s.
+		// It logs the Go type and the message.
+		// TODO remove later
+		slog.Error("Unhandled error reaching middleware",
+			"type", fmt.Sprintf("%T", err),
+			"error", err.Error(),
+			"path", c.Path(),
+		)
+		// message remains the default "An unexpected error occurred"
 	}
 
+	// 5. Final Response
 	return c.Status(code).JSON(fiber.Map{
 		"success": false,
 		"error":   errType,

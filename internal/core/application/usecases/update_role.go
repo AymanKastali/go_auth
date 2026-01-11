@@ -15,6 +15,7 @@ type updateRoleUseCase struct {
 	userRepo   dports.UserRepositoryPort
 	roleRepo   dports.RoleRepositoryPort
 	uuidParser interfaces.IUUIDParserService
+	clock      interfaces.IClock
 	logger     *slog.Logger
 }
 
@@ -24,12 +25,14 @@ func NewUpdateRoleUseCase(
 	userRepo dports.UserRepositoryPort,
 	roleRepo dports.RoleRepositoryPort,
 	uuidParser interfaces.IUUIDParserService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.UpdateRoleUseCasePort {
 	return &updateRoleUseCase{
 		userRepo:   userRepo,
 		roleRepo:   roleRepo,
 		uuidParser: uuidParser,
+		clock:      clock,
 		logger:     logger,
 	}
 }
@@ -64,11 +67,11 @@ func (uc *updateRoleUseCase) Execute(req dto.ManageRoleInput) error {
 	action := strings.ToLower(req.Action)
 	switch action {
 	case "grant":
-		if err := user.AddRoleID(roleEntity.ID()); err != nil {
+		if err := user.AddRoleID(roleEntity.ID(), uc.clock.NowUTC()); err != nil {
 			return apperr.NewConflictErr("role_assignment", err.Error())
 		}
 	case "revoke":
-		if err := user.RemoveRoleID(roleEntity.ID()); err != nil {
+		if err := user.RemoveRoleID(roleEntity.ID(), uc.clock.NowUTC()); err != nil {
 			return apperr.MapDomainErr(err)
 		}
 	default:

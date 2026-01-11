@@ -7,12 +7,12 @@ import (
 	"go_auth/internal/core/domain/aggregates"
 	dports "go_auth/internal/core/domain/ports"
 	"log/slog"
-	"time"
 )
 
 type seedRolesService struct {
 	roleRepo      dports.RoleRepositoryPort
 	uuidGenerator interfaces.IUUIDGeneratorService
+	clock         interfaces.IClock
 	logger        *slog.Logger
 }
 
@@ -21,11 +21,13 @@ var _ aports.SeedRolesServicePort = (*seedRolesService)(nil)
 func NewSeedRolesService(
 	roleRepo dports.RoleRepositoryPort,
 	uuidGenerator interfaces.IUUIDGeneratorService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.SeedRolesServicePort {
 	return &seedRolesService{
 		roleRepo:      roleRepo,
 		uuidGenerator: uuidGenerator,
+		clock:         clock,
 		logger:        logger,
 	}
 }
@@ -49,7 +51,7 @@ func (s *seedRolesService) SeedDefaultRoles() error {
 			return apperr.NewInternalErr("failed to generate role id")
 		}
 
-		role, err := aggregates.NewRole(roleID, name, time.Now().UTC())
+		role, err := aggregates.NewRole(roleID, name, s.clock.NowUTC())
 		if err != nil {
 			s.logger.Error("Failed to create role entity", "role", name, "error", err)
 			return apperr.MapDomainErr(err)

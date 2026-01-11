@@ -22,6 +22,7 @@ type loginUseCase struct {
 	tokenService   aports.TokenServicePort
 	uuidGenerator  interfaces.IUUIDGeneratorService
 	uuidParser     interfaces.IUUIDParserService
+	clock          interfaces.IClock
 	logger         *slog.Logger
 }
 
@@ -36,6 +37,7 @@ func NewLoginUseCase(
 	tokenService aports.TokenServicePort,
 	uuidGenerator interfaces.IUUIDGeneratorService,
 	uuidParser interfaces.IUUIDParserService,
+	clock interfaces.IClock,
 	logger *slog.Logger,
 ) aports.LoginUseCasePort {
 	return &loginUseCase{
@@ -47,6 +49,7 @@ func NewLoginUseCase(
 		tokenService:   tokenService,
 		uuidGenerator:  uuidGenerator,
 		uuidParser:     uuidParser,
+		clock:          clock,
 		logger:         logger,
 	}
 }
@@ -55,7 +58,7 @@ func (uc *loginUseCase) Execute(
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
 	uc.logger.Info("Starting user login", "email", email)
-	nowUTC := time.Now().UTC()
+	now := uc.clock.Now().UTC()
 
 	// 1. Authentication
 	user, err := uc.authenticate(email, password)
@@ -64,7 +67,7 @@ func (uc *loginUseCase) Execute(
 	}
 
 	// 2. Device Identity Management
-	device, err := uc.resolveDevice(user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, nowUTC)
+	device, err := uc.resolveDevice(user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, now)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +84,7 @@ func (uc *loginUseCase) Execute(
 	}
 
 	// 4. Token Issuance and Session Persistence
-	return uc.issueTokensAndSaveSession(tokenID, user, device, roleNames, nowUTC)
+	return uc.issueTokensAndSaveSession(tokenID, user, device, roleNames, now)
 }
 
 // --- Internal Helper Methods ---
@@ -103,8 +106,13 @@ func (uc *loginUseCase) authenticate(email, password string) (*aggregates.User, 
 	return user, nil
 }
 
-func (uc *loginUseCase) resolveDevice(userID valueobjects.UserID, dIDStr, name, ua, ip string, now time.Time) (*entities.Device, error) {
-	deviceID, err := uc.uuidParser.ParseDeviceID(dIDStr)
+func (uc *loginUseCase) resolveDevice(
+	userID valueobjects.UserID,
+	deviceIDStr, name, ua, ip string,
+	now time.Time,
+) (*entities.Device, error) {
+
+	deviceID, err := uc.uuidParser.ParseDeviceID(deviceIDStr)
 	if err != nil {
 		return nil, apperr.MapDomainErr(err)
 	}
@@ -115,16 +123,40 @@ func (uc *loginUseCase) resolveDevice(userID valueobjects.UserID, dIDStr, name, 
 	}
 
 	if device == nil {
-		device, err = entities.NewDevice(deviceID, userID, &name, &ua, &ip, true, now)
+		// First-time device
+		device, err = entities.NewDevice(
+			deviceID,
+			userID,
+			&name,
+			&ua,
+			&ip,
+			now,
+		)
 		if err != nil {
 			return nil, apperr.MapDomainErr(err)
 		}
+		device.Activate(now)
 	} else {
-		device.Update(now, &name, &ua, &ip)
+		// Existing device — enforce invariants
+		if err := device.BelongsTo(userID); err != nil {
+			return nil, apperr.NewUnauthorizedErr("device does not belong to user")
+		}
+
+		if err := device.EnsureUsable(); err != nil {
+			return nil, apperr.NewUnauthorizedErr(err.Error())
+		}
+
+		if err := device.MarkSeen(now); err != nil {
+			return nil, apperr.MapDomainErr(err)
+		}
+
+		if err := device.UpdateMetadata(now, &name, &ua, &ip); err != nil {
+			return nil, apperr.MapDomainErr(err)
+		}
 	}
 
 	if err := uc.deviceRepo.Upsert(device); err != nil {
-		return nil, apperr.NewInternalErr("failed to save device info")
+		return nil, apperr.NewInternalErr("failed to persist device")
 	}
 
 	return device, nil
@@ -146,14 +178,24 @@ func (uc *loginUseCase) fetchRoleNames(roleIDs []valueobjects.RoleID) ([]string,
 	return roleNames, nil
 }
 
-func (uc *loginUseCase) issueTokensAndSaveSession(tokenID valueobjects.TokenID, user *aggregates.User, device *entities.Device, roles []string, nowUTC time.Time) (*dto.AuthResponse, error) {
+func (uc *loginUseCase) issueTokensAndSaveSession(tokenID valueobjects.TokenID, user *aggregates.User, device *entities.Device, roles []string, now time.Time) (*dto.AuthResponse, error) {
 	// 1. Generate Tokens first (Infrastructure)
-	accessToken, _, err := uc.tokenService.IssueAccessToken(tokenID.Value(), user.ID().Value(), device.ID().Value(), roles)
+	accessToken, _, err := uc.tokenService.IssueAccessToken(
+		tokenID.Value(),
+		user.ID().Value(),
+		device.ID().Value(),
+		roles, uc.clock.NowUTC(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, refreshClaims, err := uc.tokenService.IssueRefreshToken(tokenID.Value(), user.ID().Value(), device.ID().Value())
+	refreshToken, refreshClaims, err := uc.tokenService.IssueRefreshToken(
+		tokenID.Value(),
+		user.ID().Value(),
+		device.ID().Value(),
+		uc.clock.NowUTC(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -162,9 +204,9 @@ func (uc *loginUseCase) issueTokensAndSaveSession(tokenID valueobjects.TokenID, 
 		tokenID,
 		user.ID(),
 		device.ID(),
-		refreshToken.Value(),
+		refreshToken,
 		refreshClaims.ExpiresAt,
-		nowUTC,
+		now,
 	)
 	if err != nil {
 		// This will no longer fail because persistenceNow >= refreshClaims.IssuedAt
@@ -172,7 +214,7 @@ func (uc *loginUseCase) issueTokensAndSaveSession(tokenID valueobjects.TokenID, 
 	}
 
 	// 4. Persistence (Infrastructure)
-	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), nowUTC); err != nil {
+	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), now); err != nil {
 		return nil, err
 	}
 

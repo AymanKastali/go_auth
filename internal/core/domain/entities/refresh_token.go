@@ -10,7 +10,7 @@ type RefreshToken struct {
 	id        valueobjects.TokenID
 	userID    valueobjects.UserID
 	deviceID  valueobjects.DeviceID
-	token     string
+	token     valueobjects.Token
 	expiresAt time.Time
 	revokedAt *time.Time
 	createdAt time.Time
@@ -22,30 +22,29 @@ func NewRefreshToken(
 	id valueobjects.TokenID,
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
-	token string,
+	token valueobjects.Token,
 	expiresAt time.Time,
 	now time.Time,
 ) (*RefreshToken, error) {
 
 	if id.IsEmpty() {
-		return nil, derr.NewRequiredErr("token_id")
+		return nil, derr.NewRequiredErr("tokenID")
 	}
 	if userID.IsEmpty() {
-		return nil, derr.NewRequiredErr("user_id")
+		return nil, derr.NewRequiredErr("userID")
 	}
 	if deviceID.IsEmpty() {
-		return nil, derr.NewRequiredErr("device_id")
+		return nil, derr.NewRequiredErr("deviceID")
 	}
-	if token == "" {
+	if token.IsEmpty() {
 		return nil, derr.NewRequiredErr("token")
 	}
 	if expiresAt.IsZero() {
-		return nil, derr.NewRequiredErr("expires_at")
+		return nil, derr.NewRequiredErr("expiresAt")
 	}
 
-	// Business Rule: Cannot issue an already expired token
 	if expiresAt.Before(now) {
-		return nil, derr.NewInvalidValueErr("ExpiresAt")
+		return nil, derr.NewInvalidValueErr("expiresAt")
 	}
 
 	return &RefreshToken{
@@ -63,7 +62,7 @@ func ReconstituteRefreshToken(
 	id valueobjects.TokenID,
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
-	token string,
+	token valueobjects.Token,
 	expiresAt time.Time,
 	revokedAt *time.Time,
 	createdAt time.Time,
@@ -84,84 +83,95 @@ func ReconstituteRefreshToken(
 	}
 }
 
-func (t *RefreshToken) ID() valueobjects.TokenID {
-	return t.id
+func (e *RefreshToken) ID() valueobjects.TokenID {
+	return e.id
 }
-func (t *RefreshToken) UserID() valueobjects.UserID {
-	return t.userID
+func (e *RefreshToken) UserID() valueobjects.UserID {
+	return e.userID
 }
-func (t *RefreshToken) DeviceID() valueobjects.DeviceID {
-	return t.deviceID
+func (e *RefreshToken) DeviceID() valueobjects.DeviceID {
+	return e.deviceID
 }
-func (t *RefreshToken) Token() string {
-	return t.token
+func (e *RefreshToken) Token() valueobjects.Token {
+	return e.token
 }
-func (t *RefreshToken) CreatedAt() time.Time {
-	return t.createdAt
+func (e *RefreshToken) CreatedAt() time.Time {
+	return e.createdAt
 }
-func (t *RefreshToken) UpdatedAt() time.Time {
-	return t.updatedAt
+func (e *RefreshToken) UpdatedAt() time.Time {
+	return e.updatedAt
 }
-func (t *RefreshToken) ExpiresAt() time.Time {
-	return t.expiresAt
+func (e *RefreshToken) ExpiresAt() time.Time {
+	return e.expiresAt
 }
-func (t *RefreshToken) RevokedAt() *time.Time {
-	return t.revokedAt
+func (e *RefreshToken) RevokedAt() *time.Time {
+	return e.revokedAt
 }
-func (t *RefreshToken) IsRevoked() bool {
-	return t.revokedAt != nil
+func (e *RefreshToken) IsRevoked() bool {
+	return e.revokedAt != nil
 }
-func (t *RefreshToken) IsExpired(now time.Time) bool {
-	return now.After(t.expiresAt)
+func (e *RefreshToken) IsExpired(now time.Time) bool {
+	return now.After(e.expiresAt)
 }
 
-func (t *RefreshToken) touch(now time.Time) {
-	t.updatedAt = now
-}
-func (t *RefreshToken) Revoke(now time.Time) error {
-	if t.deletedAt != nil {
+func (e *RefreshToken) Revoke(now time.Time) error {
+	if e.deletedAt != nil {
 		return derr.NewRuleViolationErr("cannot revoke a deleted token")
 	}
 
-	if t.IsRevoked() {
+	if e.IsRevoked() {
 		return derr.NewRuleViolationErr("refresh token is already revoked")
 	}
 
-	t.revokedAt = &now
-	t.touch(now)
+	e.revokedAt = &now
+	e.touch(now)
 	return nil
 }
 
-func (t *RefreshToken) EnsureUsable(now time.Time) error {
-	if t.deletedAt != nil {
+func (e *RefreshToken) EnsureUsable(now time.Time) error {
+	if e.deletedAt != nil {
 		return derr.NewRuleViolationErr("token has been deleted")
 	}
 
-	if t.IsRevoked() {
+	if e.IsRevoked() {
 		return derr.NewRuleViolationErr("token has been revoked")
 	}
 
-	if t.IsExpired(now) {
+	if e.IsExpired(now) {
 		return derr.NewRuleViolationErr("token has expired")
 	}
 
 	return nil
 }
 
-func (t *RefreshToken) BelongsTo(userID valueobjects.UserID) error {
-	if !t.userID.Equal(userID) {
+func (e *RefreshToken) BelongsTo(userID valueobjects.UserID) error {
+	if !e.userID.Equal(userID) {
 		return derr.NewInvalidValueErr("UserID")
 	}
 
 	return nil
 }
 
-func (t *RefreshToken) SoftDelete(now time.Time) error {
-	if t.deletedAt != nil {
+func (e *RefreshToken) SoftDelete(now time.Time) error {
+	if e.deletedAt != nil {
 		return derr.NewRuleViolationErr("token already deleted")
 	}
 
-	t.deletedAt = &now
-	t.touch(now)
+	e.deletedAt = &now
+	e.touch(now)
 	return nil
+}
+
+func (e *RefreshToken) IsDeleted() bool {
+	return e.deletedAt != nil
+}
+
+func (e *RefreshToken) IsActive(now time.Time) bool {
+	return !e.IsDeleted() &&
+		!e.IsRevoked() &&
+		!e.IsExpired(now)
+}
+
+func (e *RefreshToken) touch(now time.Time) {
+	e.updatedAt = now
 }

@@ -142,19 +142,26 @@ func NewForbiddenErr(reason string) *ForbiddenErr {
 }
 
 func MapDomainErr(err error) error {
-	// Validation errors
+	if err == nil {
+		return nil
+	}
+
 	var vErr derr.ValidationErr
 	if errors.As(err, &vErr) {
 		return NewValidationErr(vErr)
 	}
 
-	// Business rule violations
 	var ruleErr *derr.RuleViolationErr
 	if errors.As(err, &ruleErr) {
-		// Map to BadRequest, because breaking a business rule is usually a 400
 		return NewBadRequestErr(ruleErr.Error())
 	}
 
-	// Fallback
-	return err
+	// IMPORTANT: If it's already an AppErr, return it as is
+	var appErr AppErr
+	if errors.As(err, &appErr) {
+		return err
+	}
+
+	// Fallback for unexpected domain errors to avoid 500s
+	return NewBadRequestErr(err.Error())
 }

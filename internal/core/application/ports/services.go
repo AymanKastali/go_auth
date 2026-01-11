@@ -3,6 +3,7 @@ package ports
 import (
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/domain/valueobjects"
+	"time"
 )
 
 type SeedAdminServicePort interface {
@@ -22,10 +23,12 @@ type TokenServicePort interface {
 	IssueAccessToken(
 		tokenID, userID, deviceID string,
 		roles []string,
-	) (token valueobjects.JWTToken, claims dto.AccessTokenClaims, err error)
+		now time.Time,
+	) (token valueobjects.Token, claims dto.AccessTokenClaims, err error)
 	IssueRefreshToken(
 		tokenID, userID, deviceID string,
-	) (token valueobjects.JWTToken, claims dto.RefreshTokenClaims, err error)
+		now time.Time,
+	) (token valueobjects.Token, claims dto.RefreshTokenClaims, err error)
 	ValidateAccessToken(token string) (*dto.AccessTokenClaims, error)
 	ValidateRefreshToken(token string) (*dto.RefreshTokenClaims, error)
 }
