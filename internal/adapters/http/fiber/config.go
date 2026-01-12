@@ -10,7 +10,7 @@ import (
 const (
 	module     = "Fiber"
 	portKey    = "GA_PORT"
-	appNameKey = "GO_APP_NAME"
+	appNameKey = "GA_APP_NAME"
 )
 
 type FiberConfig struct {

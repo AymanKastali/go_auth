@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
 )
@@ -22,26 +21,22 @@ func NewRoleMapper(
 }
 
 func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
-	entity := "Role"
 	if r == nil {
 		return nil, nil
 	}
 
 	roleID, err := m.uuidParser.ParseRoleID(r.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
+		return nil, err
 	}
 
-	role, err := aggregates.ReconstituteRole(
+	role := aggregates.ReconstituteRole(
 		roleID,
 		r.Name,
 		r.CreatedAt,
 		r.UpdatedAt,
 		r.DeletedAt,
 	)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
-	}
 
 	return role, nil
 }

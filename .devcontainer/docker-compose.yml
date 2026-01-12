@@ -38,10 +38,10 @@ services:
     volumes:
       - postgres_db:/var/lib/postgresql
     environment:
-      GA_POSTGRES_PASSWORD: ${GA_POSTGRES_PASSWORD}
-      GA_POSTGRES_USER: ${GA_POSTGRES_USER}
-      GA_POSTGRES_DB: ${GA_POSTGRES_DB}
-      GA_POSTGRES_PORT: ${GA_POSTGRES_PORT}
+      POSTGRES_PASSWORD: ${GA_POSTGRES_PASSWORD}
+      POSTGRES_USER: ${GA_POSTGRES_USER}
+      POSTGRES_DB: ${GA_POSTGRES_DB}
+      POSTGRES_PORT: ${GA_POSTGRES_PORT}
     ports: 
       - "${GA_POSTGRES_PORT}:${GA_POSTGRES_PORT}"
     healthcheck:

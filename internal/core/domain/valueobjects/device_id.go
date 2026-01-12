@@ -2,6 +2,7 @@ package valueobjects
 
 import (
 	"go_auth/internal/core/domain/derr"
+	"strings"
 )
 
 type DeviceID struct {
@@ -9,11 +10,11 @@ type DeviceID struct {
 }
 
 func NewDeviceID(value string) (DeviceID, error) {
-	if value == "" {
-		return DeviceID{}, derr.NewInvalidValueErr("DeviceID")
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return DeviceID{}, derr.NewValidation.RequiredDeviceID()
 	}
-
-	return DeviceID{value: value}, nil
+	return DeviceID{value: trimmed}, nil
 }
 
 func (vo DeviceID) Value() string             { return vo.value }

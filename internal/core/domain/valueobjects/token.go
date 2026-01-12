@@ -1,16 +1,24 @@
 package valueobjects
 
-import "go_auth/internal/core/domain/derr"
+import (
+	"go_auth/internal/core/domain/derr"
+	"strings"
+)
 
 type Token struct {
 	value string
 }
 
 func NewToken(value string) (Token, error) {
-	if value == "" {
-		return Token{}, derr.NewRequiredErr("token")
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return Token{}, derr.NewValidation.RequiredToken()
 	}
-	return Token{value: value}, nil
+	return Token{value: trimmed}, nil
+}
+
+func ReconstituteToken(value string) Token {
+	return Token{value: value}
 }
 
 func (vo Token) Value() string { return vo.value }

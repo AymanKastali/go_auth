@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go_auth/internal/adapters/http/fiber"
 	"go_auth/internal/adapters/persistence/postgres"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"log"
 )
 
@@ -20,8 +19,7 @@ func main() {
 	}
 
 	if err := postgres.AutoMigrate(db); err != nil {
-		mErr := pgerr.NewMigrationErr(err)
-		log.Fatalf("FAILED [DB_MIGRATION]: %v", mErr.Error())
+		log.Fatalf("FAILED [DB_MIGRATION]: %v", err.Error())
 	}
 
 	deps, err := fiber.InitDeps(db)

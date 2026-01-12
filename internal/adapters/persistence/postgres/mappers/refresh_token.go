@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
@@ -19,43 +18,38 @@ func NewRefreshTokenMapper() IRefreshTokenMapper {
 }
 
 func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.RefreshToken, error) {
-	entity := "RefreshToken"
 	if rt == nil {
 		return nil, nil
 	}
 
 	tokenID, err := m.uuidParser.ParseTokenID(rt.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
+		return nil, err
 	}
 
 	userID, err := m.uuidParser.ParseUserID(rt.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.UserID, err)
+		return nil, err
 	}
 
 	deviceID, err := m.uuidParser.ParseDeviceID(rt.DeviceID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.DeviceID, err)
+		return nil, err
 	}
 
-	tokenVO, err := valueobjects.NewToken(rt.Token)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, "token", err)
-	}
+	tokenVO := valueobjects.ReconstituteToken(rt.Token)
 
-	// Rehydrate the entity (using NewRefreshToken as a Reconstitutor here)
-	refreshToken, err := entities.NewRefreshToken(
+	refreshToken := entities.ReconstituteRefreshToken(
 		tokenID,
 		userID,
 		deviceID,
 		tokenVO,
 		rt.ExpiresAt,
+		rt.RevokedAt,
 		rt.CreatedAt,
+		rt.UpdatedAt,
+		rt.DeletedAt,
 	)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, rt.ID, err)
-	}
 
 	if rt.RevokedAt != nil {
 		refreshToken.Revoke(*rt.RevokedAt)

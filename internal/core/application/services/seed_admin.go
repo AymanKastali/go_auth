@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/interfaces"
@@ -47,54 +48,60 @@ func (s *seedAdminService) SeedAdmin() error {
 	adminEmail := s.cfg.AdminEmail()
 	adminPass := s.cfg.AdminPassword()
 
+	// 1. Config Check (Internal Intent)
 	if adminEmail == "" || adminPass == "" {
 		s.logger.Error("GA_ADMIN_EMAIL or GA_ADMIN_PASSWORD environment variables are not set")
-		return apperr.NewInternalErr("seeder configuration missing")
+		return apperr.Internal(errors.New("seeder configuration missing"))
 	}
 
+	// 2. Value Object Creation (Validation Intent)
 	emailVO, err := valueobjects.NewEmail(adminEmail)
 	if err != nil {
 		s.logger.Error("Failed to create Email value object", "error", err)
-		return apperr.MapDomainErr(err)
+		return apperr.Validation(err)
 	}
 
-	// Check if admin exists
+	// 3. Existence Check
 	existing, err := s.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		s.logger.Error("Failed to check admin existence", "error", err)
-		return apperr.NewInternalErr("failed to check admin existence")
+		return apperr.Internal(err)
 	}
 	if existing != nil {
 		s.logger.Info("Admin user already exists, skipping seeding", "email", adminEmail)
 		return nil
 	}
 
-	// Hash password
+	// 4. Cryptography (Internal Intent)
 	hash, err := s.passwordHasher.Hash(adminPass)
 	if err != nil {
 		s.logger.Error("Failed to hash admin password", "error", err)
-		return apperr.NewInternalErr("password hashing failed")
+		return apperr.Internal(err)
 	}
-	pw := valueobjects.NewHashedPassword(hash)
 
-	// Fetch admin role
+	pw, err := valueobjects.NewHashedPassword(hash)
+	if err != nil {
+		return apperr.Validation(err)
+	}
+
+	// 5. Dependency Check (NotFound Intent)
 	adminRole, err := s.roleRepo.GetByName("admin")
 	if err != nil {
 		s.logger.Error("Failed to fetch admin role", "error", err)
-		return apperr.NewInternalErr("failed to fetch admin role")
+		return apperr.Internal(err)
 	}
 	if adminRole == nil {
-		s.logger.Error("admin role does not exist, cannot seed admin user")
-		return apperr.NewInternalErr("admin role missing")
+		s.logger.Error("admin role does not exist")
+		return apperr.NotFound(nil)
 	}
 
+	// 6. Identity Generation
 	userID, err := s.uuidGenerator.NewUserID()
 	if err != nil {
-		s.logger.Error("Failed to generate user ID", "error", err)
-		return apperr.NewInternalErr("failed to generate user id")
+		return apperr.Internal(err)
 	}
 
-	// Create admin user entity
+	// 7. Aggregate Instantiation (Validation/Logic Intent)
 	admin, err := aggregates.NewUser(
 		userID,
 		emailVO,
@@ -104,14 +111,13 @@ func (s *seedAdminService) SeedAdmin() error {
 		s.clock.NowUTC(),
 	)
 	if err != nil {
-		s.logger.Error("Failed to create admin entity", "error", err)
-		return apperr.MapDomainErr(err)
+		// Domain invariants check
+		return apperr.Validation(err)
 	}
 
-	// Save admin
+	// 8. Persistence
 	if err := s.userRepo.Save(admin); err != nil {
-		s.logger.Error("Failed to save admin to repository", "error", err)
-		return apperr.NewInternalErr("failed to save admin user")
+		return apperr.Internal(err)
 	}
 
 	s.logger.Info("Admin user successfully seeded", "email", adminEmail)

@@ -35,7 +35,7 @@ func (h *loginHandler) Execute(c *fiber.Ctx) error {
 
 	// 2️⃣ Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.NewBadRequestErr(err.Error())
+		return apperr.Validation(err)
 	}
 
 	// 3️⃣ Call use case

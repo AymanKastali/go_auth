@@ -28,7 +28,7 @@ func (h *registerHandler) Execute(c *fiber.Ctx) error {
 	// 1. TRANSPORT: Parse request body
 	if err := c.BodyParser(&req); err != nil {
 		// Return a ValidationErr so the Global Handler returns a 400
-		return apperr.NewValidationErr(err)
+		return apperr.Validation(err)
 	}
 
 	// 2. APPLICATION: Call the use case

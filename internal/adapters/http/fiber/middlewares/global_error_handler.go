@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"errors"
-	"fmt"
 	"go_auth/internal/core/application/apperr"
 	"log/slog"
 	"net/http"
@@ -11,83 +10,55 @@ import (
 )
 
 func GlobalErrorHandler(c *fiber.Ctx, err error) error {
-	// 1. Default fallback values
+	// Default values
 	code := http.StatusInternalServerError
-	errType := "Internal Server Error"
-	message := "An unexpected error occurred"
-
-	// 2. Variable declarations for errors.As type checking
-	var (
-		badRequest   *apperr.BadRequestErr
-		notFound     *apperr.NotFoundErr
-		conflict     *apperr.ConflictErr
-		exists       *apperr.AlreadyExistsErr
-		validation   *apperr.ValidationErr
-		unauthorized *apperr.UnauthorizedErr
-		forbidden    *apperr.ForbiddenErr
-		internal     *apperr.InternalErr
-	)
-
-	// 3. Switch through custom error types
-	switch {
-	case errors.As(err, &validation):
-		code = http.StatusBadRequest
-		errType = "Validation Error"
-		message = validation.Error()
-
-	case errors.As(err, &unauthorized):
-		code = http.StatusUnauthorized
-		errType = "Unauthorized"
-		message = unauthorized.Error()
-
-	case errors.As(err, &forbidden):
-		code = http.StatusForbidden
-		errType = "Forbidden"
-		message = forbidden.Error()
-
-	case errors.As(err, &badRequest):
-		code = http.StatusBadRequest
-		errType = "Bad Request"
-		message = badRequest.Error()
-
-	case errors.As(err, &notFound):
-		code = http.StatusNotFound
-		errType = "Not Found"
-		message = notFound.Error()
-
-	case errors.As(err, &conflict):
-		code = http.StatusConflict
-		errType = "Conflict"
-		message = conflict.Error()
-
-	case errors.As(err, &exists):
-		code = http.StatusConflict
-		errType = "Already Exists"
-		message = exists.Error()
-
-	case errors.As(err, &internal):
-		code = http.StatusInternalServerError
-		errType = "Internal Error"
-		message = internal.Error()
-
-	default:
-		// 4. LOG THE LEAKED ERROR
-		// This is crucial for debugging why you are getting 500s.
-		// It logs the Go type and the message.
-		// TODO remove later
-		slog.Error("Unhandled error reaching middleware",
-			"type", fmt.Sprintf("%T", err),
-			"error", err.Error(),
-			"path", c.Path(),
-		)
-		// message remains the default "An unexpected error occurred"
+	resp := fiber.Map{
+		"success": false,
+		"type":    apperr.TypeInternal,
+		"message": "An unexpected server error occurred",
 	}
 
-	// 5. Final Response
-	return c.Status(code).JSON(fiber.Map{
-		"success": false,
-		"error":   errType,
-		"message": message,
-		"code":    code,
-	})
+	var appErr *apperr.AppError
+
+	if errors.As(err, &appErr) {
+		// Map Application Intent to HTTP Status
+		switch appErr.Type {
+		case apperr.TypeValidation, apperr.TypeRequirement:
+			code = http.StatusBadRequest
+		case apperr.TypeUnauthorized:
+			code = http.StatusUnauthorized
+		case apperr.TypeForbidden:
+			code = http.StatusForbidden
+		case apperr.TypeNotFound:
+			code = http.StatusNotFound
+		case apperr.TypeConflict:
+			code = http.StatusConflict
+		case apperr.TypeInternal:
+			code = http.StatusInternalServerError
+		}
+
+		resp["type"] = appErr.Type
+		resp["message"] = appErr.Message
+		if appErr.Key != "" {
+			resp["key"] = appErr.Key
+		}
+
+		// Log critical internal failures
+		if appErr.Type == apperr.TypeInternal {
+			slog.Error("Internal Error", "path", c.Path(), "cause", appErr.Cause)
+		}
+
+	} else {
+		// Handle non-AppErrors (e.g., Fiber's 404 for undefined routes)
+		var fiberErr *fiber.Error
+		if errors.As(err, &fiberErr) {
+			code = fiberErr.Code
+			resp["type"] = "TRANSPORT_ERROR"
+			resp["message"] = fiberErr.Message
+		} else {
+			slog.Warn("Unhandled technical error", "path", c.Path(), "error", err.Error())
+		}
+	}
+
+	return c.Status(code).JSON(resp)
 }

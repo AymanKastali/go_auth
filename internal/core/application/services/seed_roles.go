@@ -32,34 +32,40 @@ func NewSeedRolesService(
 	}
 }
 
-// SeedDefaultRoles creates user, admin, STAFF roles if they don't exist
+// SeedDefaultRoles creates user, admin roles if they don't exist
 func (s *seedRolesService) SeedDefaultRoles() error {
 	defaultRoles := []string{"admin", "user"}
 
 	for _, name := range defaultRoles {
+		// 1. Check existence (Internal Intent)
 		exists, err := s.roleRepo.GetByName(name)
 		if err != nil {
 			s.logger.Error("Failed to check role existence", "role", name, "error", err)
-			return apperr.NewInternalErr("failed to check role existence")
+			return apperr.Internal(err)
 		}
 		if exists != nil {
-			continue // already exists
+			continue
 		}
+
+		// 2. Identity Generation (Internal Intent)
 		roleID, err := s.uuidGenerator.NewRoleID()
 		if err != nil {
 			s.logger.Error("Failed to generate role ID", "error", err)
-			return apperr.NewInternalErr("failed to generate role id")
+			return apperr.Internal(err)
 		}
 
+		// 3. Aggregate Instantiation (Validation/Logic Intent)
 		role, err := aggregates.NewRole(roleID, name, s.clock.NowUTC())
 		if err != nil {
 			s.logger.Error("Failed to create role entity", "role", name, "error", err)
-			return apperr.MapDomainErr(err)
+			// Domain invariant failures are wrapped as Validation
+			return apperr.Validation(err)
 		}
 
+		// 4. Persistence (Internal Intent)
 		if err := s.roleRepo.Save(role); err != nil {
 			s.logger.Error("Failed to save role", "role", name, "error", err)
-			return apperr.NewInternalErr("failed to save role")
+			return apperr.Internal(err)
 		}
 
 		s.logger.Info("Role successfully seeded", "role", name)

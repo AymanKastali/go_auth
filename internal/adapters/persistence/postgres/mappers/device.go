@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 )
@@ -22,22 +21,21 @@ func NewDeviceMapper(
 }
 
 func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
-	entity := "Device"
 	if d == nil {
 		return nil, nil
 	}
 
 	deviceID, err := m.uuidParser.ParseDeviceID(d.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
+		return nil, err
 	}
 
 	userID, err := m.uuidParser.ParseUserID(d.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.UserID, err)
+		return nil, err
 	}
 
-	device, err := entities.ReconstituteDevice(
+	device := entities.ReconstituteDevice(
 		deviceID,
 		userID,
 		d.Name,
@@ -49,9 +47,6 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 		d.LastSeenAt,
 		d.RevokedAt,
 	)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
-	}
 
 	return device, nil
 }

@@ -41,11 +41,15 @@ func NewRole(
 	now time.Time,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
-		return nil, derr.NewRequiredErr("roleID")
+		return nil, derr.NewValidation.RequiredRoleID()
 	}
 
 	if strings.TrimSpace(name) == "" {
-		return nil, derr.NewRequiredErr("name")
+		return nil, derr.NewValidation.RequiredName()
+	}
+
+	if now.IsZero() {
+		return nil, derr.NewValidation.RequiredNow()
 	}
 
 	return &Role{
@@ -61,12 +65,12 @@ func ReconstituteRole(
 	name string,
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
-) (*Role, error) {
+) *Role {
 	return &Role{
 		id:        roleID,
 		name:      name,
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 		deletedAt: deletedAt,
-	}, nil
+	}
 }

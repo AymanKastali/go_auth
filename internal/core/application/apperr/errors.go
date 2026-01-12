@@ -1,167 +1,79 @@
 package apperr
 
 import (
-	"errors"
 	"fmt"
 	"go_auth/internal/core/domain/derr"
 )
 
-type AppErr interface {
-	error
-	Application()
+type Type string
+
+const (
+	TypeValidation   Type = "VALIDATION_ERROR"
+	TypeRequirement  Type = "REQUIREMENT_FAILED"
+	TypeConflict     Type = "CONFLICT"
+	TypeUnauthorized Type = "UNAUTHORIZED"
+	TypeForbidden    Type = "FORBIDDEN"
+	TypeNotFound     Type = "NOT_FOUND"
+	TypeInternal     Type = "INTERNAL_ERROR"
+)
+
+type AppError struct {
+	Type    Type
+	Message string
+	Key     string // Propagated from derr.DomainError
+	Cause   error
 }
 
-// Bad Request
-type BadRequestErr struct {
-	Reason string
+func (e *AppError) Error() string {
+	return fmt.Sprintf("[%s] %s", e.Type, e.Message)
 }
 
-func (e *BadRequestErr) Error() string {
-	return e.Reason
+func (e *AppError) Unwrap() error {
+	return e.Cause
 }
 
-func NewBadRequestErr(reason string) *BadRequestErr {
-	return &BadRequestErr{
-		Reason: reason,
-	}
+// --- Specific Application Error Constructors ---
+
+func Validation(err error) error {
+	return wrap(err, TypeValidation)
 }
 
-func (*BadRequestErr) Application() {}
-
-// NotFoundErr represents a resource not found
-type NotFoundErr struct {
-	Resource string // e.g., "user"
-	ID       string // optional identifier
+func Conflict(err error) error {
+	return wrap(err, TypeConflict)
 }
 
-func (e *NotFoundErr) Error() string {
-	if e.ID != "" {
-		return fmt.Sprintf("%s '%s' not found", e.Resource, e.ID)
-	}
-	return fmt.Sprintf("%s not found", e.Resource)
+func Forbidden(err error) error {
+	return wrap(err, TypeForbidden)
 }
 
-func NewNotFoundErr(resource, id string) *NotFoundErr {
-	return &NotFoundErr{
-		Resource: resource,
-		ID:       id,
-	}
+func NotFound(err error) error {
+	return wrap(err, TypeNotFound)
 }
 
-func (*NotFoundErr) Application() {}
-
-// ConflictErr represents a business conflict (e.g., duplicate resource)
-type ConflictErr struct {
-	Resource string
-	Reason   string // optional reason
+func Internal(err error) error {
+	return wrap(err, TypeInternal)
 }
 
-func (e *ConflictErr) Error() string {
-	if e.Reason != "" {
-		return fmt.Sprintf("%s conflict: %s", e.Resource, e.Reason)
-	}
-	return fmt.Sprintf("%s conflict", e.Resource)
-}
-func NewConflictErr(resource, reason string) *ConflictErr {
-	return &ConflictErr{
-		Resource: resource,
-		Reason:   reason,
-	}
+func Unauthorized(err error) error {
+	return wrap(err, TypeUnauthorized)
 }
 
-func (*ConflictErr) Application() {}
-
-// AlreadyExistsErr is a special case of conflict when creating duplicate resources
-type AlreadyExistsErr struct {
-	Resource string
-	ID       string
-}
-
-func (e *AlreadyExistsErr) Error() string {
-	if e.ID != "" {
-		return fmt.Sprintf("%s with ID %s already exists", e.Resource, e.ID)
-	}
-	return fmt.Sprintf("%s already exists", e.Resource)
-}
-
-func NewAlreadyExistsErr(resource, id string) *AlreadyExistsErr {
-	return &AlreadyExistsErr{
-		Resource: resource,
-		ID:       id,
-	}
-}
-
-func (*AlreadyExistsErr) Application() {}
-
-// ValidationErr represents application-level validation errors
-type ValidationErr struct {
-	Cause error
-}
-
-func (e *ValidationErr) Error() string { return e.Cause.Error() }
-func (*ValidationErr) Application()    {}
-
-func NewValidationErr(err error) *ValidationErr {
-	return &ValidationErr{Cause: err}
-}
-
-// Unauthorized error for login failures
-type UnauthorizedErr struct {
-	Reason string
-}
-
-func (e *UnauthorizedErr) Error() string { return e.Reason }
-func (*UnauthorizedErr) Application()    {}
-
-func NewUnauthorizedErr(reason string) *UnauthorizedErr {
-	return &UnauthorizedErr{Reason: reason}
-}
-
-// Internal errors (e.g., infrastructure)
-type InternalErr struct {
-	Reason string
-}
-
-func (e *InternalErr) Error() string { return e.Reason }
-func (*InternalErr) Application()    {}
-
-func NewInternalErr(reason string) *InternalErr {
-	return &InternalErr{Reason: reason}
-}
-
-// Forbidden Error
-type ForbiddenErr struct {
-	Reason string
-}
-
-func (e *ForbiddenErr) Error() string { return e.Reason }
-func (*ForbiddenErr) Application()    {}
-
-func NewForbiddenErr(reason string) *ForbiddenErr {
-	return &ForbiddenErr{Reason: reason}
-}
-
-func MapDomainErr(err error) error {
+// Internal helper to extract domain metadata
+func wrap(err error, t Type) error {
 	if err == nil {
 		return nil
 	}
 
-	var vErr derr.ValidationErr
-	if errors.As(err, &vErr) {
-		return NewValidationErr(vErr)
+	appErr := &AppError{
+		Type:    t,
+		Message: err.Error(),
+		Cause:   err,
 	}
 
-	var ruleErr *derr.RuleViolationErr
-	if errors.As(err, &ruleErr) {
-		return NewBadRequestErr(ruleErr.Error())
+	// If it's a DomainError, we extract the field key for the UI
+	if dErr, ok := err.(derr.DomainError); ok {
+		appErr.Key = dErr.Key()
 	}
 
-	// IMPORTANT: If it's already an AppErr, return it as is
-	var appErr AppErr
-	if errors.As(err, &appErr) {
-		return err
-	}
-
-	// Fallback for unexpected domain errors to avoid 500s
-	return NewBadRequestErr(err.Error())
+	return appErr
 }
