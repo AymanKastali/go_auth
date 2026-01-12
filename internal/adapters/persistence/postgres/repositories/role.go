@@ -5,7 +5,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/domain/aggregates"
-	"go_auth/internal/core/domain/derr" // Using Domain Errors
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
@@ -36,7 +36,6 @@ func (r *GormRoleRepository) Save(role *aggregates.Role) error {
 	err = r.db.Create(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			// This represents a name conflict in the domain
 			return derr.NewViolation.RoleAlreadyExists()
 		}
 		return err

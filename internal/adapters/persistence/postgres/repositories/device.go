@@ -47,8 +47,7 @@ func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			// Translate DB tech into Domain intent
-			return derr.NewViolation.DeviceAlreadyActive()
+			return derr.NewViolation.DeviceAlreadyExists()
 		}
 		return err
 	}
@@ -69,7 +68,7 @@ func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt 
 
 	if result.RowsAffected == 0 {
 		// Specific business rule: Cannot revoke a non-existent/already revoked device
-		return derr.NewViolation.DeviceRevoked()
+		return derr.NewViolation.DeviceNotFound()
 	}
 
 	return nil

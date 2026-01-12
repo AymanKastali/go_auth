@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/domain/derr" // Import Domain Errors
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"

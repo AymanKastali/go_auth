@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 )
@@ -23,7 +22,7 @@ func NewDeviceMapper(
 
 func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 	if d == nil {
-		return nil, pgerr.ErrNotFound
+		return nil, nil
 	}
 
 	deviceID, err := m.uuidParser.ParseDeviceID(d.ID)

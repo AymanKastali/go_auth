@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
@@ -20,7 +19,7 @@ func NewRefreshTokenMapper() IRefreshTokenMapper {
 
 func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.RefreshToken, error) {
 	if rt == nil {
-		return nil, pgerr.ErrNotFound
+		return nil, nil
 	}
 
 	tokenID, err := m.uuidParser.ParseTokenID(rt.ID)

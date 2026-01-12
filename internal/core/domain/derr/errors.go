@@ -9,6 +9,7 @@ const (
 	OpValidation = "Validation"
 	OpRule       = "Business Rule"
 	OpNotFound   = "Not Found" // Added for repository/resource consistency
+	OpConflict   = "Conflict"
 )
 
 type DomainError interface {
@@ -138,6 +139,12 @@ func (f violationFactory) DeviceAlreadyInactive() DomainError {
 }
 func (f violationFactory) DeviceDoesNotBelongToUser() DomainError {
 	return f.rule("user_id", "security: this device is not registered to your account")
+}
+func (f violationFactory) DeviceAlreadyExists() DomainError {
+	return f.rule("device", "this device already exists in our records")
+}
+func (f violationFactory) DeviceNotFound() DomainError {
+	return newErr(OpNotFound, "device", errors.New("the requested device could not be found"))
 }
 
 // Token Security & Persistence

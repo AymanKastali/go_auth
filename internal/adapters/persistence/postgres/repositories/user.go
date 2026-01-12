@@ -5,8 +5,8 @@ import (
 
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/domain/aggregates"
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
@@ -47,7 +47,7 @@ func (r *GormUserRepository) Save(u *aggregates.User) error {
 	err = r.db.Omit("Roles.*").Create(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return pgerr.ErrConflict
+			return derr.NewViolation.EmailAlreadyTaken()
 		}
 		return err
 	}
@@ -62,7 +62,7 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, err // Actual DB connection/syntax error
+		return nil, err
 	}
 
 	return r.mapper.ToDomain(&model)

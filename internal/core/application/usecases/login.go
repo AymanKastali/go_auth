@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"errors"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/interfaces"
@@ -84,16 +85,16 @@ func (uc *loginUseCase) Execute(
 }
 
 func (uc *loginUseCase) authenticate(email, password string) (*aggregates.User, error) {
-	emailVO, err := valueobjects.NewEmail(email)
-	if err != nil {
-		return nil, apperr.Validation(err)
-	}
-
+	emailVO := valueobjects.ReconstituteEmail(email)
 	user, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		return nil, apperr.Internal(err)
 	}
-	if user == nil || !uc.passwordHasher.Compare(password, user.HashedPassword().Value()) {
+	if user == nil {
+		return nil, apperr.NotFound(errors.New("user with this email not found"))
+	}
+
+	if !uc.passwordHasher.Compare(password, user.HashedPassword().Value()) {
 		return nil, apperr.Unauthorized(nil)
 	}
 

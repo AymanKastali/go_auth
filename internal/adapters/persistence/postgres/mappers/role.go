@@ -2,7 +2,6 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
 )
@@ -23,7 +22,7 @@ func NewRoleMapper(
 
 func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
 	if r == nil {
-		return nil, pgerr.ErrNotFound
+		return nil, nil
 	}
 
 	roleID, err := m.uuidParser.ParseRoleID(r.ID)
