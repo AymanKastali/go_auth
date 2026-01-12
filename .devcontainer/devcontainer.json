@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/internal/docker-existing-docker-compose
 {
-	"name": "Go Auth",
+	"name": "GoAuth",
 	// Update the 'dockerComposeFile' list if you have more compose files or use different names.
 	// The .devcontainer/docker-compose.yml file contains any overrides you need/want to make.
 	"dockerComposeFile": [
@@ -23,7 +23,8 @@
 		"vscode": {
 			"extensions": [
 				"cweijan.vscode-postgresql-client2",
-				"mhutchie.git-graph"
+				"mhutchie.git-graph",
+				"streetsidesoftware.code-spell-checker"
 			]
 		}
 	},

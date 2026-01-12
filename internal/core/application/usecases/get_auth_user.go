@@ -35,16 +35,16 @@ func NewAuthUserUseCase(
 func (uc *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 	userIDVO, err := uc.uuidParser.ParseUserID(userID)
 	if err != nil {
-		uc.logger.Error("Failed to generate user ID", "error", err)
-		return nil, apperr.NewInternalErr("failed to generate user id")
+		uc.logger.Error("Failed to parse user ID", "error", err)
+		return nil, apperr.Validation(err)
 	}
 
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		return nil, err
+		return nil, apperr.Internal(err)
 	}
 	if user == nil {
-		return nil, apperr.NewNotFoundErr("user", userID)
+		return nil, apperr.NotFound(nil)
 	}
 
 	roleIDs := user.RoleIDs()
@@ -53,7 +53,7 @@ func (uc *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 		role, err := uc.roleRepo.GetByID(rID)
 		if err != nil {
 			uc.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
-			return nil, apperr.NewInternalErr("failed to fetch user roles")
+			return nil, apperr.Internal(err)
 		}
 		if role == nil {
 			uc.logger.Warn("Role not found for user", "roleID", rID)
@@ -65,7 +65,7 @@ func (uc *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
 
 	return &dto.AuthUser{
 		ID:        user.ID().Value(),
-		Email:     user.Email().String(),
+		Email:     user.Email().Value(),
 		Status:    string(user.Status()),
 		Roles:     roles,
 		CreatedAt: user.CreatedAt(),

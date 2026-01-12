@@ -28,10 +28,13 @@ func NewDevice(
 	now time.Time,
 ) (*Device, error) {
 	if deviceID.IsEmpty() {
-		return nil, derr.NewRequiredErr("device_id")
+		return nil, derr.NewValidation.RequiredDeviceID()
 	}
 	if userID.IsEmpty() {
-		return nil, derr.NewRequiredErr("user_id")
+		return nil, derr.NewValidation.RequiredUserID()
+	}
+	if now.IsZero() {
+		return nil, derr.NewValidation.RequiredNow()
 	}
 
 	return &Device{
@@ -59,6 +62,19 @@ func ReconstituteDevice(
 	lastSeenAt time.Time,
 	revokedAt *time.Time,
 ) (*Device, error) {
+	if deviceID.IsEmpty() {
+		return nil, derr.NewValidation.RequiredDeviceID()
+	}
+	if userID.IsEmpty() {
+		return nil, derr.NewValidation.RequiredUserID()
+	}
+
+	if updatedAt.Before(createdAt) {
+		return nil, derr.NewViolation.UpdatedBeforeCreated()
+	}
+	if revokedAt != nil && isActive {
+		return nil, derr.NewViolation.DeviceRevoked()
+	}
 
 	return &Device{
 		id:         deviceID,
@@ -86,11 +102,11 @@ func (e *Device) LastSeenAt() time.Time       { return e.lastSeenAt }
 func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
 
 func (e *Device) Activate(now time.Time) error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("cannot activate a revoked device")
+	if e.IsRevoked() {
+		return derr.NewViolation.DeviceRevoked()
 	}
 	if e.isActive {
-		return derr.NewRuleViolationErr("device is already active")
+		return derr.NewViolation.DeviceAlreadyActive()
 	}
 
 	e.isActive = true
@@ -99,24 +115,20 @@ func (e *Device) Activate(now time.Time) error {
 }
 
 func (e *Device) Deactivate(now time.Time) error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("cannot deactivate a revoked device")
+	if e.IsRevoked() {
+		return derr.NewViolation.DeviceRevoked()
 	}
 	if !e.isActive {
-		return derr.NewRuleViolationErr("device is already inactive")
+		return derr.NewViolation.DeviceAlreadyInactive()
 	}
-
 	e.isActive = false
 	e.touch(now)
 	return nil
 }
 
 func (e *Device) MarkSeen(now time.Time) error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("cannot use a revoked device")
-	}
-	if !e.isActive {
-		return derr.NewRuleViolationErr("cannot use an inactive device")
+	if err := e.EnsureUsable(); err != nil {
+		return err
 	}
 
 	e.lastSeenAt = now
@@ -130,27 +142,21 @@ func (e *Device) UpdateMetadata(
 	userAgent *string,
 	ipAddress *string,
 ) error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("cannot update a revoked device")
+	if e.IsRevoked() {
+		return derr.NewViolation.DeviceRevoked()
 	}
 
-	if name != nil {
-		e.name = name
-	}
-	if userAgent != nil {
-		e.userAgent = userAgent
-	}
-	if ipAddress != nil {
-		e.ipAddress = ipAddress
-	}
+	e.name = name
+	e.userAgent = userAgent
+	e.ipAddress = ipAddress
 
 	e.touch(now)
 	return nil
 }
 
 func (e *Device) Revoke(now time.Time) error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("device is already revoked")
+	if e.IsRevoked() {
+		return derr.NewViolation.DeviceRevoked()
 	}
 
 	e.isActive = false
@@ -160,20 +166,24 @@ func (e *Device) Revoke(now time.Time) error {
 }
 
 func (e *Device) EnsureUsable() error {
-	if e.revokedAt != nil {
-		return derr.NewRuleViolationErr("device is revoked")
+	if e.IsRevoked() {
+		return derr.NewViolation.DeviceRevoked()
 	}
 	if !e.isActive {
-		return derr.NewRuleViolationErr("device is inactive")
+		return derr.NewViolation.DeviceAlreadyInactive()
 	}
 	return nil
 }
 
 func (e *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !e.userID.Equal(userID) {
-		return derr.NewInvalidValueErr("UserID")
+		return derr.NewViolation.DeviceDoesNotBelongToUser()
 	}
 	return nil
+}
+
+func (e *Device) IsRevoked() bool {
+	return e.revokedAt != nil
 }
 
 func (e *Device) touch(now time.Time) {

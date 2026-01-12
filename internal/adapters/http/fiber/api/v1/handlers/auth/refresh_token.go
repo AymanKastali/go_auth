@@ -1,6 +1,7 @@
 package auth_handlers
 
 import (
+	"errors"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
@@ -28,12 +29,12 @@ func (h *refreshTokenHandler) Execute(c *fiber.Ctx) error {
 	// 1. TRANSPORT: Extract Device ID
 	deviceID := c.Get("X-Device-ID")
 	if deviceID == "" {
-		return apperr.NewUnauthorizedErr("missing device id header")
+		return apperr.Unauthorized(errors.New("missing device id header"))
 	}
 
 	// 2. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.NewValidationErr(err)
+		return apperr.Validation(err)
 	}
 
 	// 3. APPLICATION: Call use case

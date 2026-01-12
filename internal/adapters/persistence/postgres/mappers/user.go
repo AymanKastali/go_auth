@@ -44,7 +44,10 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 	}
 
 	// 3. Map Password Hash (Missing in your code)
-	pwHashVO := valueobjects.NewHashedPassword(u.HashedPassword)
+	pwHashVO, err := valueobjects.NewHashedPassword(u.HashedPassword)
+	if err != nil {
+		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
+	}
 
 	// 4. Map Status
 	var status valueobjects.UserStatus
@@ -101,7 +104,7 @@ func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
 
 	return &models.User{
 		ID:             u.ID().Value(),
-		Email:          u.Email().String(),
+		Email:          u.Email().Value(),
 		HashedPassword: u.HashedPassword().Value(),
 		Status:         string(u.Status()),
 		Roles:          roles,

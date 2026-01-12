@@ -3,6 +3,7 @@ package valueobjects
 import (
 	"go_auth/internal/core/domain/derr"
 	"regexp"
+	"strings"
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -11,31 +12,20 @@ type Email struct {
 	value string
 }
 
-// NewEmail validates and creates a new Email value object
 func NewEmail(email string) (Email, error) {
-	if email == "" {
-		return Email{}, derr.NewRequiredErr("email")
+	trimmed := strings.TrimSpace(email)
+
+	if trimmed == "" {
+		return Email{}, derr.NewValidation.RequiredEmail()
 	}
 
-	if !emailRegex.MatchString(email) {
-		// Aligned with V2 factory: NewInvalidValue(attr, msg string)
-		return Email{}, derr.NewInvalidValueErr("Email")
+	if !emailRegex.MatchString(trimmed) {
+		return Email{}, derr.NewValidation.InvalidEmail()
 	}
 
-	return Email{value: email}, nil
+	return Email{value: trimmed}, nil
 }
 
-// Value returns the raw string value
-func (vo Email) Value() string {
-	return vo.value
-}
-
-// Equal compares two Email objects for equality
-func (vo Email) Equal(other Email) bool {
-	return vo.value == other.value
-}
-
-// String implements the Stringer interface
-func (vo Email) String() string {
-	return vo.value
-}
+func (vo Email) Value() string          { return vo.value }
+func (vo Email) IsEmpty() bool          { return vo.value == "" }
+func (vo Email) Equal(other Email) bool { return vo.value == other.value }

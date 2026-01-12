@@ -2,6 +2,7 @@ package valueobjects
 
 import (
 	"go_auth/internal/core/domain/derr"
+	"strings"
 )
 
 type UserID struct {
@@ -9,11 +10,11 @@ type UserID struct {
 }
 
 func NewUserID(value string) (UserID, error) {
-	if value == "" {
-		return UserID{}, derr.NewInvalidValueErr("UserID")
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return UserID{}, derr.NewValidation.RequiredUserID()
 	}
-
-	return UserID{value: value}, nil
+	return UserID{value: trimmed}, nil
 }
 
 func (vo UserID) Value() string           { return vo.value }

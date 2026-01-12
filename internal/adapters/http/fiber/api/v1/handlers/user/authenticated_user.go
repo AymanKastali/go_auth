@@ -1,6 +1,7 @@
 package user_handlers
 
 import (
+	"errors"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
@@ -21,12 +22,12 @@ func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
 	// 1. Extract adapter data
 	sub := c.Locals("sub")
 	if sub == nil {
-		return apperr.NewUnauthorizedErr("unauthorized")
+		return apperr.Unauthorized(errors.New("unauthorized"))
 	}
 
 	userID, ok := sub.(string)
 	if !ok {
-		return apperr.NewInternalErr("invalid subject in context")
+		return apperr.Internal(errors.New("invalid subject in context"))
 	}
 
 	// 2. Call application layer
@@ -36,7 +37,7 @@ func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	if profile == nil {
-		return apperr.NewNotFoundErr("user", userID)
+		return apperr.NotFound(errors.New("user not found"))
 	}
 
 	// 3. Map domain → web DTO

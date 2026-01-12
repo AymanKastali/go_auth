@@ -26,7 +26,7 @@ func NewUpdateRoleHandler(
 func (h *updateRoleHandler) Execute(c *fiber.Ctx) error {
 	var webReq dto.ManageRoleRequest
 	if err := c.BodyParser(&webReq); err != nil {
-		return apperr.NewBadRequestErr(err.Error())
+		return apperr.Validation(err)
 	}
 
 	input := app_dto.ManageRoleInput{
