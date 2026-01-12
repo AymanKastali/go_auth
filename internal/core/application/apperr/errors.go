@@ -11,7 +11,6 @@ const (
 	TypeValidation   Type = "VALIDATION_ERROR"
 	TypeRequirement  Type = "REQUIREMENT_FAILED"
 	TypeConflict     Type = "CONFLICT"
-	TypeState        Type = "STATE_CONFLICT"
 	TypeUnauthorized Type = "UNAUTHORIZED"
 	TypeForbidden    Type = "FORBIDDEN"
 	TypeNotFound     Type = "NOT_FOUND"
@@ -40,7 +39,7 @@ func Validation(err error) error {
 }
 
 func Conflict(err error) error {
-	return wrap(err, TypeState)
+	return wrap(err, TypeConflict)
 }
 
 func Forbidden(err error) error {

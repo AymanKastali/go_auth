@@ -10,7 +10,7 @@ import (
 func NewPostgresConnection(cfg *PostgresConfig) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{TranslateError: true})
 	if err != nil {
-		return nil, pgerr.NewConnErr(err)
+		return nil, pgerr.ErrConnFailure
 	}
 	return db, nil
 }

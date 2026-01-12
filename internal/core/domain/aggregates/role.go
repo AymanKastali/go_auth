@@ -65,28 +65,12 @@ func ReconstituteRole(
 	name string,
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
-) (*Role, error) {
-	if roleID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredRoleID()
-	}
-
-	if strings.TrimSpace(name) == "" {
-		return nil, derr.NewValidation.RequiredName()
-	}
-
-	if createdAt.IsZero() {
-		return nil, derr.NewValidation.RequiredCreatedAt()
-	}
-
-	if updatedAt.IsZero() {
-		return nil, derr.NewValidation.RequiredUpdatedAt()
-	}
-
+) *Role {
 	return &Role{
 		id:        roleID,
 		name:      name,
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 		deletedAt: deletedAt,
-	}, nil
+	}
 }

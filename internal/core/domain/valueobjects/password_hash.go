@@ -19,6 +19,10 @@ func NewHashedPassword(value string) (HashedPassword, error) {
 	return HashedPassword{value: trimmed}, nil
 }
 
+func ReconstituteHashedPassword(value string) HashedPassword {
+	return HashedPassword{value: value}
+}
+
 func (vo HashedPassword) Value() string                   { return vo.value }
 func (vo HashedPassword) IsEmpty() bool                   { return vo.value == "" }
 func (vo HashedPassword) Equal(other HashedPassword) bool { return vo.value == other.value }

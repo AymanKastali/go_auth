@@ -1,10 +1,7 @@
 package mappers
 
 import (
-	"fmt"
-
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
@@ -25,53 +22,33 @@ func NewUserMapper(
 }
 
 func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
-	entity := "User"
-
 	if u == nil {
 		return nil, nil
 	}
 
-	// 1. Map ID
 	userID, err := m.uuidParser.ParseUserID(u.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
+		return nil, err
 	}
 
-	// 2. Map Email
-	emailVO, err := valueobjects.NewEmail(u.Email)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
-	}
+	emailVO := valueobjects.ReconstituteEmail(u.Email)
 
-	// 3. Map Password Hash (Missing in your code)
-	pwHashVO, err := valueobjects.NewHashedPassword(u.HashedPassword)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
-	}
+	pwHashVO := valueobjects.ReconstituteHashedPassword(u.HashedPassword)
 
-	// 4. Map Status
-	var status valueobjects.UserStatus
-	switch u.Status {
-	case string(valueobjects.UserActive):
-		status = valueobjects.UserActive
-	case string(valueobjects.UserInactive):
-		status = valueobjects.UserInactive
-	default:
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, fmt.Errorf("unknown: %s", u.Status))
-	}
+	status := valueobjects.UserStatus(u.Status)
 
 	// 5. Map Roles (The reason roles were missing)
 	roleIDs := make([]valueobjects.RoleID, len(u.Roles))
 	for i, r := range u.Roles {
 		roleID, err := m.uuidParser.ParseRoleID(r.ID)
 		if err != nil {
-			return nil, pgerr.NewDataCorruptionErr(entity, r.ID, err)
+			return nil, err
 		}
 		roleIDs[i] = roleID
 	}
 
 	// 6. Reconstitute Aggregate
-	user, err := aggregates.ReconstituteUser(
+	user := aggregates.ReconstituteUser(
 		userID,
 		emailVO,
 		pwHashVO,
@@ -81,10 +58,6 @@ func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
 		u.UpdatedAt,
 		u.DeletedAt,
 	)
-
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, u.ID, err)
-	}
 
 	return user, nil
 }

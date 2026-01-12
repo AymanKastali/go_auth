@@ -65,25 +65,7 @@ func ReconstituteUser(
 	roleIDs []valueobjects.RoleID,
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
-) (*User, error) {
-	if id.IsEmpty() {
-		return nil, derr.NewValidation.RequiredUserID()
-	}
-	if createdAt.IsZero() {
-		return nil, derr.NewValidation.RequiredCreatedAt()
-	}
-
-	if updatedAt.Before(createdAt) {
-		return nil, derr.NewViolation.UpdatedBeforeCreated()
-	}
-	if deletedAt != nil && status == valueobjects.UserActive {
-		return nil, derr.NewViolation.DeletedUserMustBeInactive()
-	}
-
-	if roleIDs == nil {
-		roleIDs = []valueobjects.RoleID{}
-	}
-
+) *User {
 	return &User{
 		id:           id,
 		email:        email,
@@ -93,7 +75,7 @@ func ReconstituteUser(
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
-	}, nil
+	}
 }
 
 func (a *User) ensureNotDeleted() error {

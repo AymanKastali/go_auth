@@ -61,21 +61,7 @@ func ReconstituteDevice(
 	updatedAt time.Time,
 	lastSeenAt time.Time,
 	revokedAt *time.Time,
-) (*Device, error) {
-	if deviceID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredDeviceID()
-	}
-	if userID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredUserID()
-	}
-
-	if updatedAt.Before(createdAt) {
-		return nil, derr.NewViolation.UpdatedBeforeCreated()
-	}
-	if revokedAt != nil && isActive {
-		return nil, derr.NewViolation.DeviceRevoked()
-	}
-
+) *Device {
 	return &Device{
 		id:         deviceID,
 		userID:     userID,
@@ -87,7 +73,7 @@ func ReconstituteDevice(
 		updatedAt:  updatedAt,
 		lastSeenAt: lastSeenAt,
 		revokedAt:  revokedAt,
-	}, nil
+	}
 }
 
 func (e *Device) ID() valueobjects.DeviceID   { return e.id }

@@ -48,6 +48,16 @@ func (uc *registerUseCase) Execute(email, password string) (*dto.RegisteredUserD
 		return nil, apperr.Validation(err)
 	}
 
+	existingUser, err := uc.userRepo.GetByEmail(emailVO)
+	if err != nil {
+		// This is a technical error (DB down, etc.)
+		return nil, apperr.Internal(err)
+	}
+	if existingUser != nil {
+		// The user exists, return a Conflict error
+		return nil, apperr.Conflict(errors.New("user already exists with this email"))
+	}
+
 	// 2. Hash Password (Infrastructure Intent)
 	hash, err := uc.passwordHasher.Hash(password)
 	if err != nil {

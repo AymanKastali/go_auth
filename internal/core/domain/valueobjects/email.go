@@ -26,6 +26,10 @@ func NewEmail(email string) (Email, error) {
 	return Email{value: trimmed}, nil
 }
 
+func ReconstituteEmail(email string) Email {
+	return Email{value: email}
+}
+
 func (vo Email) Value() string          { return vo.value }
 func (vo Email) IsEmpty() bool          { return vo.value == "" }
 func (vo Email) Equal(other Email) bool { return vo.value == other.value }

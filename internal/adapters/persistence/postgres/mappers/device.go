@@ -22,22 +22,21 @@ func NewDeviceMapper(
 }
 
 func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
-	entity := "Device"
 	if d == nil {
-		return nil, nil
+		return nil, pgerr.ErrNotFound
 	}
 
 	deviceID, err := m.uuidParser.ParseDeviceID(d.ID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
+		return nil, err
 	}
 
 	userID, err := m.uuidParser.ParseUserID(d.UserID)
 	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.UserID, err)
+		return nil, err
 	}
 
-	device, err := entities.ReconstituteDevice(
+	device := entities.ReconstituteDevice(
 		deviceID,
 		userID,
 		d.Name,
@@ -49,9 +48,6 @@ func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
 		d.LastSeenAt,
 		d.RevokedAt,
 	)
-	if err != nil {
-		return nil, pgerr.NewDataCorruptionErr(entity, d.ID, err)
-	}
 
 	return device, nil
 }

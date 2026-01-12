@@ -5,8 +5,8 @@ import (
 
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"go_auth/internal/core/domain/aggregates"
-	"go_auth/internal/core/domain/derr" // Pointing inward to Domain
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
@@ -31,16 +31,23 @@ func NewGormUserRepository(
 }
 
 func (r *GormUserRepository) Save(u *aggregates.User) error {
+	if u == nil {
+		return errors.New("cannot save a nil user aggregate")
+	}
+
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
-		return err // Mapping failure is a technical infrastructure error
+		return err
+	}
+
+	if model == nil {
+		return errors.New("user model is nil after mapping")
 	}
 
 	err = r.db.Omit("Roles.*").Create(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			// This is a business rule: Emails must be unique
-			return derr.NewViolation.EmailAlreadyTaken()
+			return pgerr.ErrConflict
 		}
 		return err
 	}
@@ -53,9 +60,9 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // Use Case decides if NotFound is an error
+			return nil, nil
 		}
-		return nil, err
+		return nil, err // Actual DB connection/syntax error
 	}
 
 	return r.mapper.ToDomain(&model)

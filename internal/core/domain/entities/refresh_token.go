@@ -70,21 +70,7 @@ func ReconstituteRefreshToken(
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
-) (*RefreshToken, error) {
-	if id.IsEmpty() {
-		return nil, derr.NewValidation.RequiredTokenID()
-	}
-	if userID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredUserID()
-	}
-	if deviceID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredDeviceID()
-	}
-
-	if deletedAt != nil && revokedAt == nil {
-		return nil, derr.NewViolation.TokenRevoked()
-	}
-
+) *RefreshToken {
 	return &RefreshToken{
 		id:        id,
 		userID:    userID,
@@ -95,7 +81,7 @@ func ReconstituteRefreshToken(
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 		deletedAt: deletedAt,
-	}, nil
+	}
 }
 
 // --- Domain Actions ---

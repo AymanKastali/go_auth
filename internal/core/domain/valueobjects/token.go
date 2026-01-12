@@ -17,5 +17,9 @@ func NewToken(value string) (Token, error) {
 	return Token{value: trimmed}, nil
 }
 
+func ReconstituteToken(value string) Token {
+	return Token{value: value}
+}
+
 func (vo Token) Value() string { return vo.value }
 func (vo Token) IsEmpty() bool { return vo.value == "" }
