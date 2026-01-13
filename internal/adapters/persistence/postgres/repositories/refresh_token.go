@@ -28,13 +28,18 @@ func NewGormRefreshTokenRepository(
 }
 
 func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
+	if token == nil {
+		return derr.ErrRequired("refresh token")
+	}
+
 	model := r.mapper.ToModel(token)
 	err := r.db.Save(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return derr.NewViolation.TokenAlreadyExists()
+			// Maps to CodeConflict
+			return derr.ErrDuplicate("token", token.ID().Value())
 		}
-		return err // Use Case will wrap in apperr.Internal
+		return err
 	}
 	return nil
 }
@@ -44,7 +49,7 @@ func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*ent
 	err := r.db.Where("id = ?", tokenID.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // Let Use Case handle the "NotFound" logic
+			return nil, nil // Handled by Use Case logic
 		}
 		return nil, err
 	}
@@ -65,14 +70,16 @@ func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.Refr
 
 func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
 	result := r.db.Model(&models.RefreshToken{}).
-		Where("id = ?", tokenID.Value()).
+		Where("id = ? AND revoked_at IS NULL", tokenID.Value()).
 		Update("revoked_at", revokedAt)
 
 	if result.Error != nil {
 		return result.Error
 	}
+
 	if result.RowsAffected == 0 {
-		return derr.NewViolation.TokenNotFound()
+		// If we tried to revoke something that doesn't exist or is already revoked
+		return derr.ErrNotFound("Active refresh token", tokenID.Value())
 	}
 	return nil
 }
@@ -88,7 +95,7 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]
 	for i := range modelsList {
 		t, err := r.mapper.ToDomain(&modelsList[i])
 		if err != nil {
-			return nil, err // Technical mapping failure
+			return nil, err
 		}
 		tokens[i] = t
 	}
@@ -97,11 +104,13 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]
 
 func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bool, error) {
 	var token models.RefreshToken
+	// We only need the one column
 	err := r.db.Select("revoked_at").First(&token, "id = ?", tokenID.Value()).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return true, nil // If it doesn't exist, treat as revoked/invalid
+			// If the record isn't there, it's effectively "revoked" or invalid
+			return true, nil
 		}
 		return false, err
 	}
@@ -114,12 +123,12 @@ func (r *GormRefreshTokenRepository) RevokeByDeviceID(
 	deviceID valueobjects.DeviceID,
 	revokedAt time.Time,
 ) error {
-	err := r.db.Model(&models.RefreshToken{}).
+	// Standard infrastructure error return.
+	// If 0 rows are updated, it just means there was no active session to clear, which isn't a domain error here.
+	return r.db.Model(&models.RefreshToken{}).
 		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
 			userID.Value(),
 			deviceID.Value(),
 		).
 		Update("revoked_at", revokedAt).Error
-
-	return err
 }

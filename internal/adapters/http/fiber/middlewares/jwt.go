@@ -1,8 +1,6 @@
 package middlewares
 
 import (
-	"errors"
-	"fmt" // Added for printing
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
@@ -18,71 +16,69 @@ func JWTMiddleware(
 	uuidParser interfaces.IUUIDParserService,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		fmt.Printf("\n--- [Auth Middleware] %s %s ---\n", c.Method(), c.Path())
-
-		// 1. TRANSPORT VALIDATION: Check if header exists
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			fmt.Println("[Auth] Missing header -> 400 Validation")
-			return apperr.Validation(errors.New("authorization header is required"))
+		// 1. TraceID Extraction (Crucial for our new error system)
+		// We assume a RequestID middleware ran before this, or we generate one.
+		traceID := c.Get("X-Request-ID")
+		if traceID == "" {
+			traceID = "system-middleware"
 		}
 
-		// 2. PROTOCOL VALIDATION: Check Bearer format
+		// 2. Transport Validation
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return apperr.BadRequest("authorization header is required", traceID, nil)
+		}
+
+		// 3. Protocol Validation
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			fmt.Println("[Auth] Malformed header format -> 400 Validation")
-			return apperr.Validation(errors.New("invalid authorization format (expected Bearer <token>)"))
+			return apperr.BadRequest("invalid authorization format", traceID, nil)
 		}
 
 		accessToken := parts[1]
 		if accessToken == "" {
-			fmt.Println("[Auth] Empty token string -> 400 Validation")
-			return apperr.Validation(errors.New("token cannot be empty"))
+			return apperr.BadRequest("token cannot be empty", traceID, nil)
 		}
 
-		// 3. SECURITY SERVICE: Validate Token Identity
-		// This call handles the heavy lifting (Signatures, Expiration, Claims)
+		// 4. Security Service: Validate Token Identity
+		// tokenService.ValidateAccessToken returns derr.DomainError
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
-			fmt.Printf("[Auth] Identity rejected: %v -> 401 Unauthorized\n", err)
-			// Any failure here means the identity is not trusted/proven
-			return apperr.Unauthorized(err)
+			// Maps derr.ErrExpired or derr.ErrInvalid to AppError
+			return apperr.FromDomain(err, traceID)
 		}
 
-		// 4. DOMAIN POLICY: Check Device/Session State
+		// 5. Domain Policy: Check Device/Session State
 		deviceIDStr := claims.DeviceID
 		if deviceIDStr != "" && deviceRepo != nil {
 			deviceID, err := uuidParser.ParseDeviceID(deviceIDStr)
 			if err != nil {
-				fmt.Printf("[Auth] DeviceID parsing error: %v\n", err)
-				return apperr.Validation(err)
+				return apperr.BadRequest("malformed device id in token", traceID, err)
 			}
 
 			device, err := deviceRepo.GetByID(deviceID)
 			if err != nil {
-				fmt.Printf("[Auth] Repository Error: %v\n", err)
-				return apperr.Internal(err)
+				return apperr.FromDomain(err, traceID)
 			}
 
-			// If token has a deviceID but device doesn't exist or is unusable
+			// Device must exist in our system
 			if device == nil {
-				fmt.Println("[Auth] Device not found -> 401 Unauthorized")
-				return apperr.Unauthorized(errors.New("session device not recognized"))
+				return apperr.Unauthorized("session device not recognized", traceID, nil)
 			}
 
+			// Check if device is Revoked or Inactive (Domain Logic)
 			if err := device.EnsureUsable(); err != nil {
-				fmt.Printf("[Auth] Device policy violation: %v -> 401 Unauthorized\n", err)
-				return apperr.Unauthorized(err)
+				return apperr.FromDomain(err, traceID)
 			}
 		}
 
-		// 5. CONTEXT PROPAGATION: Set values for handlers
+		// 6. Context Propagation
 		c.Locals("sub", claims.Subject)
 		c.Locals("roles", claims.Roles)
 		c.Locals("jti", claims.JTI)
 		c.Locals("deviceID", deviceIDStr)
+		c.Locals("trace_id", traceID)
 
-		fmt.Printf("[Auth] Success. Subject: %s\n", claims.Subject)
 		return c.Next()
 	}
 }

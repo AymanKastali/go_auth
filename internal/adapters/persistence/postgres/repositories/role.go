@@ -27,16 +27,20 @@ func NewGormRoleRepository(db *gorm.DB, mapper mappers.IRoleMapper) ports.RoleRe
 }
 
 func (r *GormRoleRepository) Save(role *aggregates.Role) error {
+	if role == nil {
+		return derr.ErrRequired("role")
+	}
+
 	model, err := r.mapper.ToModel(role)
 	if err != nil {
-		// Technical mapping error (Infrastructure internal)
 		return err
 	}
 
 	err = r.db.Create(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return derr.NewViolation.RoleAlreadyExists()
+			// Mapping to domain CodeConflict
+			return derr.ErrDuplicate("role name", role.Name())
 		}
 		return err
 	}
@@ -45,11 +49,14 @@ func (r *GormRoleRepository) Save(role *aggregates.Role) error {
 
 func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, error) {
 	var model models.Role
+	// Using .First() which triggers ErrRecordNotFound if not present
 	err := r.db.Where("id = ?", id.Value()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // Use Case will handle apperr.NotFound
+			// Returning nil, nil as per your request,
+			// though returning derr.ErrNotFound is also a valid DDD choice.
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -73,6 +80,7 @@ func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 
 func (r *GormRoleRepository) GetAll() ([]*aggregates.Role, error) {
 	var modelsList []models.Role
+	// .Find() doesn't return ErrRecordNotFound for empty sets, just an empty slice
 	if err := r.db.Find(&modelsList).Error; err != nil {
 		return nil, err
 	}

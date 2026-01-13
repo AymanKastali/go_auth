@@ -12,7 +12,7 @@ type Token struct {
 func NewToken(value string) (Token, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return Token{}, derr.NewValidation.RequiredToken()
+		return Token{}, derr.ErrRequired("token")
 	}
 	return Token{value: trimmed}, nil
 }

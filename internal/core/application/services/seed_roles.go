@@ -9,6 +9,9 @@ import (
 	"log/slog"
 )
 
+// Consistent trace ID for system-level background tasks
+const rolesSeederTraceID = "system-roles-seeder"
+
 type seedRolesService struct {
 	roleRepo      dports.RoleRepositoryPort
 	uuidGenerator interfaces.IUUIDGeneratorService
@@ -37,35 +40,36 @@ func (s *seedRolesService) SeedDefaultRoles() error {
 	defaultRoles := []string{"admin", "user"}
 
 	for _, name := range defaultRoles {
-		// 1. Check existence (Internal Intent)
+		// 1. Check existence
 		exists, err := s.roleRepo.GetByName(name)
 		if err != nil {
 			s.logger.Error("Failed to check role existence", "role", name, "error", err)
-			return apperr.Internal(err)
+			// Wrap infrastructure/repo errors
+			return apperr.FromDomain(err, rolesSeederTraceID)
 		}
 		if exists != nil {
 			continue
 		}
 
-		// 2. Identity Generation (Internal Intent)
+		// 2. Identity Generation
 		roleID, err := s.uuidGenerator.NewRoleID()
 		if err != nil {
 			s.logger.Error("Failed to generate role ID", "error", err)
-			return apperr.Internal(err)
+			return apperr.Internal("failed to generate unique role id", rolesSeederTraceID, err)
 		}
 
-		// 3. Aggregate Instantiation (Validation/Logic Intent)
+		// 3. Aggregate Instantiation
 		role, err := aggregates.NewRole(roleID, name, s.clock.NowUTC())
 		if err != nil {
 			s.logger.Error("Failed to create role entity", "role", name, "error", err)
-			// Domain invariant failures are wrapped as Validation
-			return apperr.Validation(err)
+			// Map domain validation failures (e.g., name too short) to AppError
+			return apperr.FromDomain(err, rolesSeederTraceID)
 		}
 
-		// 4. Persistence (Internal Intent)
+		// 4. Persistence
 		if err := s.roleRepo.Save(role); err != nil {
 			s.logger.Error("Failed to save role", "role", name, "error", err)
-			return apperr.Internal(err)
+			return apperr.FromDomain(err, rolesSeederTraceID)
 		}
 
 		s.logger.Info("Role successfully seeded", "role", name)

@@ -25,21 +25,22 @@ func NewLoginHandler(
 func (h *loginHandler) Execute(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
-	// 1️⃣ Extract context (Assuming you keep this utility or move it to a middleware)
-	// If ExtractRequestContext returns an error, just return it.
-	// The Global Error Handler will catch it.
+	// 1. Extract context (Now containing TraceID from previous refactor)
 	ctx, err := utils.ExtractRequestContext(c)
 	if err != nil {
+		// This utility now returns a properly formatted apperr.BadRequest
 		return err
 	}
 
-	// 2️⃣ Parse request body
+	// 2. Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.Validation(err)
+		return apperr.BadRequest("invalid login request format", ctx.TraceID, err)
 	}
 
-	// 3️⃣ Call use case
+	// 3. Call use case with TraceID and all required identity parameters
+	// This matches the updated Execute(string, string, ...) signature
 	authResp, err := h.uc.Execute(
+		ctx.TraceID,
 		req.Email,
 		req.Password,
 		ctx.DeviceID,
@@ -48,9 +49,11 @@ func (h *loginHandler) Execute(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
+		// Bubbles up apperr.Unauthorized (invalid creds) or apperr.Internal
 		return err
 	}
 
+	// 4. Success Response
 	return utils.OK(
 		c,
 		dto.LoginResponse{

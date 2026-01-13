@@ -1,6 +1,7 @@
 package dto
 
 type RequestContext struct {
+	TraceID    string
 	DeviceID   string
 	DeviceName string
 	UserAgent  string
@@ -8,6 +9,7 @@ type RequestContext struct {
 }
 
 type AuthContext struct {
+	TraceID  string
 	UserID   string
 	Roles    []string
 	TokenID  string

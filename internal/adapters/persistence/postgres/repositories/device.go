@@ -32,22 +32,28 @@ func (r *GormDeviceRepository) GetByID(deviceID valueobjects.DeviceID) (*entitie
 	err := r.db.Where("id = ?", deviceID.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Return nil result, nil error. Let the Use Case decide if this is an AppError.
+			// Keeping nil, nil as your UseCase specifically checks 'if device == nil'
+			// to decide between creating a new device or updating an existing one.
 			return nil, nil
 		}
-		return nil, err // Raw DB error (connection, etc.)
+		return nil, err
 	}
 
 	return r.mapper.ToDomain(&model)
 }
 
 func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
+	if device == nil {
+		return derr.ErrRequired("device entity")
+	}
+
 	model := r.mapper.ToModel(device)
+	// GORM Save performs an upsert if the primary key is present
 	err := r.db.Save(model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return derr.NewViolation.DeviceAlreadyExists()
+			return derr.ErrDuplicate("device", device.ID().Value())
 		}
 		return err
 	}
@@ -56,7 +62,7 @@ func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
 
 func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt time.Time) error {
 	result := r.db.Model(&models.Device{}).
-		Where("id = ?", deviceID.Value()).
+		Where("id = ? AND is_active = ?", deviceID.Value(), true).
 		Updates(map[string]any{
 			"is_active":  false,
 			"revoked_at": revokedAt,
@@ -67,8 +73,8 @@ func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt 
 	}
 
 	if result.RowsAffected == 0 {
-		// Specific business rule: Cannot revoke a non-existent/already revoked device
-		return derr.NewViolation.DeviceNotFound()
+		// Specific business rule: Identify if the device wasn't found or was already inactive
+		return derr.ErrNotFound("Active device", deviceID.Value())
 	}
 
 	return nil
@@ -85,7 +91,6 @@ func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entit
 	for i := range modelsList {
 		d, err := r.mapper.ToDomain(&modelsList[i])
 		if err != nil {
-			// Technical mapping error
 			return nil, err
 		}
 		devices[i] = d

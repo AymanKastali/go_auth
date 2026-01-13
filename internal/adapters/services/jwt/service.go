@@ -50,7 +50,8 @@ func (s *jwtService) IssueAccessToken(
 
 	token, err := s.sign(claims)
 	if err != nil {
-		return valueobjects.Token{}, dto.AccessTokenClaims{}, derr.NewViolation.Internal("failed to sign access token")
+		// Internal infrastructure failure
+		return valueobjects.Token{}, dto.AccessTokenClaims{}, err
 	}
 
 	return token, s.mapToAccessDTO(claims), nil
@@ -68,7 +69,7 @@ func (s *jwtService) IssueRefreshToken(
 
 	token, err := s.sign(claims)
 	if err != nil {
-		return valueobjects.Token{}, dto.RefreshTokenClaims{}, derr.NewViolation.Internal("failed to sign refresh token")
+		return valueobjects.Token{}, dto.RefreshTokenClaims{}, err
 	}
 
 	return token, s.mapToRefreshDTO(claims), nil
@@ -76,7 +77,7 @@ func (s *jwtService) IssueRefreshToken(
 
 func (s *jwtService) ValidateAccessToken(tokenStr string) (*dto.AccessTokenClaims, error) {
 	if tokenStr == "" {
-		return nil, derr.NewValidation.RequiredToken()
+		return nil, derr.ErrRequired("access token")
 	}
 
 	claims := &AccessTokenClaims{}
@@ -86,28 +87,12 @@ func (s *jwtService) ValidateAccessToken(tokenStr string) (*dto.AccessTokenClaim
 		return &dto, nil
 	}
 
-	if errors.Is(err, jwt.ErrTokenExpired) {
-		return nil, derr.NewViolation.TokenExpired()
-	}
-
-	if errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
-		errors.Is(err, jwt.ErrTokenMalformed) ||
-		errors.Is(err, jwt.ErrTokenUnverifiable) ||
-		errors.Is(err, jwt.ErrTokenInvalidClaims) ||
-		errors.Is(err, jwt.ErrTokenRequiredClaimMissing) {
-		return nil, derr.NewViolation.TokenInvalid()
-	}
-
-	if errors.Is(err, jwt.ErrInvalidKey) || errors.Is(err, jwt.ErrInvalidKeyType) {
-		return nil, derr.NewViolation.Internal("auth service configuration error")
-	}
-
-	return nil, derr.NewViolation.TokenInvalid()
+	return nil, s.mapJWTErr(err)
 }
 
 func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenClaims, error) {
 	if tokenStr == "" {
-		return nil, derr.NewValidation.RequiredToken()
+		return nil, derr.ErrRequired("refresh token")
 	}
 
 	claims := &RefreshTokenClaims{}
@@ -117,22 +102,26 @@ func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenCla
 		return &dto, nil
 	}
 
+	return nil, s.mapJWTErr(err)
+}
+
+// mapJWTErr centralizes the translation from jwt-v5 errors to your Domain Errors
+func (s *jwtService) mapJWTErr(err error) error {
 	if errors.Is(err, jwt.ErrTokenExpired) {
-		return nil, derr.NewViolation.TokenExpired()
+		return derr.ErrExpired("token") // Maps to CodeConflict (3)
 	}
 
 	if errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
 		errors.Is(err, jwt.ErrTokenMalformed) ||
 		errors.Is(err, jwt.ErrTokenUnverifiable) ||
-		errors.Is(err, jwt.ErrTokenInvalidClaims) {
-		return nil, derr.NewViolation.TokenInvalid()
+		errors.Is(err, jwt.ErrTokenInvalidClaims) ||
+		errors.Is(err, jwt.ErrTokenRequiredClaimMissing) {
+		return derr.ErrInvalid("token format or signature") // Maps to CodeValidation (2)
 	}
 
-	if errors.Is(err, jwt.ErrInvalidKey) || errors.Is(err, jwt.ErrInvalidKeyType) {
-		return nil, derr.NewViolation.Internal("refresh service configuration error")
-	}
-
-	return nil, derr.NewValidation.RequiredToken()
+	// Technical/Config issues (RSA keys etc) are returned as raw errors
+	// so apperr.Internal picks them up as CodeInternal (5)
+	return err
 }
 
 func (s *jwtService) sign(claims jwt.Claims) (valueobjects.Token, error) {

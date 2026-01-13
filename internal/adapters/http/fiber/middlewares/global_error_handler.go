@@ -3,6 +3,7 @@ package middlewares
 import (
 	"errors"
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/domain/derr"
 	"log/slog"
 	"net/http"
 
@@ -10,55 +11,67 @@ import (
 )
 
 func GlobalErrorHandler(c *fiber.Ctx, err error) error {
-	// Default values
-	code := http.StatusInternalServerError
+	// 1. Default fallback values
+	statusCode := http.StatusInternalServerError
 	resp := fiber.Map{
-		"success": false,
-		"type":    apperr.TypeInternal,
-		"message": "An unexpected server error occurred",
+		"success":  false,
+		"message":  "An unexpected server error occurred",
+		"code":     derr.CodeInternal,
+		"trace_id": "00000000-0000-0000-0000-000000000000",
 	}
 
-	var appErr *apperr.AppError
-
-	if errors.As(err, &appErr) {
-		// Map Application Intent to HTTP Status
-		switch appErr.Type {
-		case apperr.TypeValidation, apperr.TypeRequirement:
-			code = http.StatusBadRequest
-		case apperr.TypeUnauthorized:
-			code = http.StatusUnauthorized
-		case apperr.TypeForbidden:
-			code = http.StatusForbidden
-		case apperr.TypeNotFound:
-			code = http.StatusNotFound
-		case apperr.TypeConflict:
-			code = http.StatusConflict
-		case apperr.TypeInternal:
-			code = http.StatusInternalServerError
+	// 2. Check if it's our custom AppError interface
+	var aErr apperr.AppError
+	if errors.As(err, &aErr) {
+		// Map our Domain/App Codes to HTTP Status Codes
+		switch aErr.Code() {
+		case derr.CodeValidation:
+			statusCode = http.StatusBadRequest
+		case derr.CodeNotFound:
+			statusCode = http.StatusNotFound
+		case derr.CodeConflict:
+			statusCode = http.StatusConflict
+		case derr.CodePermissionDenied:
+			// Logic: We can further distinguish 401 vs 403 based on message if needed,
+			// but usually CodePermissionDenied maps to 403 or 401.
+			statusCode = http.StatusForbidden
+		case derr.CodeInternal:
+			statusCode = http.StatusInternalServerError
 		}
 
-		resp["type"] = appErr.Type
-		resp["message"] = appErr.Message
-		if appErr.Key != "" {
-			resp["key"] = appErr.Key
-		}
+		resp["message"] = aErr.Error()
+		resp["code"] = aErr.Code()
+		resp["trace_id"] = aErr.TraceID()
 
-		// Log critical internal failures
-		if appErr.Type == apperr.TypeInternal {
-			slog.Error("Internal Error", "path", c.Path(), "cause", appErr.Cause)
-		}
-
-	} else {
-		// Handle non-AppErrors (e.g., Fiber's 404 for undefined routes)
-		var fiberErr *fiber.Error
-		if errors.As(err, &fiberErr) {
-			code = fiberErr.Code
-			resp["type"] = "TRANSPORT_ERROR"
-			resp["message"] = fiberErr.Message
+		// Log the internal cause for 500 errors
+		if aErr.Code() == derr.CodeInternal {
+			slog.Error("Internal Application Error",
+				"path", c.Path(),
+				"trace_id", aErr.TraceID(),
+				"cause", aErr.Cause(),
+			)
 		} else {
-			slog.Warn("Unhandled technical error", "path", c.Path(), "error", err.Error())
+			slog.Warn("Business Rule Violation",
+				"path", c.Path(),
+				"code", aErr.Code(),
+				"message", aErr.Error(),
+			)
 		}
+
+		return c.Status(statusCode).JSON(resp)
 	}
 
-	return c.Status(code).JSON(resp)
+	// 3. Handle Fiber specific errors (e.g. 404 Not Found on routes)
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		return c.Status(fiberErr.Code).JSON(fiber.Map{
+			"success": false,
+			"message": fiberErr.Message,
+			"code":    derr.CodeUnknown,
+		})
+	}
+
+	// 4. Final Fallback for unhandled technical errors
+	slog.Error("Unhandled Technical Error", "path", c.Path(), "error", err.Error())
+	return c.Status(statusCode).JSON(resp)
 }

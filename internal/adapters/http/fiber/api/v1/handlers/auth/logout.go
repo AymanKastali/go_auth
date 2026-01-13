@@ -4,6 +4,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,17 +23,27 @@ func NewLogoutHandler(
 }
 
 func (h *logoutHandler) Execute(c *fiber.Ctx) error {
-	var req dto.LogoutRequest
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+	// 1. Extract TraceID (Required for the AppError system)
+	traceID, _ := c.Locals("trace_id").(string)
+	if traceID == "" {
+		traceID = c.Get("X-Request-ID", "logout-flow")
 	}
 
-	if err := h.uc.Execute(req.RefreshToken); err != nil {
+	var req dto.LogoutRequest
+
+	// 2. TRANSPORT: Parse request body
+	if err := c.BodyParser(&req); err != nil {
+		// Use BadRequest to trigger the GlobalErrorHandler's 400 logic
+		return apperr.BadRequest("invalid request body", traceID, err)
+	}
+
+	// 3. APPLICATION: Call use case with (traceID, refreshToken)
+	// This matches the updated Execute(string, string) signature
+	if err := h.uc.Execute(traceID, req.RefreshToken); err != nil {
+		// Bubbles up apperr.NotFound (if already logged out) or apperr.Internal
 		return err
 	}
 
+	// 4. SUCCESS: Return 204 No Content
 	return utils.NoContent(c)
 }

@@ -1,7 +1,6 @@
 package middlewares
 
 import (
-	"errors"
 	"go_auth/internal/core/application/apperr"
 	"slices"
 	"strings"
@@ -13,29 +12,38 @@ func RequireRole(requiredRoleName string) fiber.Handler {
 	required := strings.ToLower(requiredRoleName)
 
 	return func(c *fiber.Ctx) error {
+		// 1. Extract TraceID (passed from JWTMiddleware or RequestID middleware)
+		traceID, _ := c.Locals("trace_id").(string)
+		if traceID == "" {
+			traceID = "system-rbac"
+		}
+
+		// 2. Retrieve Roles from Context
 		rolesRaw := c.Locals("roles")
 		if rolesRaw == nil {
-			// If no roles are found, the session is essentially invalid/missing
-			return apperr.Unauthorized(errors.New("no session found"))
+			// If no roles are found, the user isn't authenticated or the middleware order is wrong
+			return apperr.Unauthorized("authentication session not found", traceID, nil)
 		}
 
 		roles, ok := rolesRaw.([]string)
 		if !ok {
-			// This represents a developer error or a state corruption in locals
-			return apperr.Internal(errors.New("invalid session data format"))
+			// Technical failure: the data type in Locals is corrupted
+			return apperr.Internal("integrity failure: invalid role data format", traceID, nil)
 		}
 
-		// Normalize roles for comparison
+		// 3. Normalize roles for case-insensitive comparison
 		normalizedRoles := make([]string, len(roles))
 		for i, r := range roles {
 			normalizedRoles[i] = strings.ToLower(r)
 		}
 
+		// 4. Authorization Logic
 		if slices.Contains(normalizedRoles, required) {
 			return c.Next()
 		}
 
-		// Use the Forbidden intent for authenticated users with insufficient roles
-		return apperr.Forbidden(errors.New("insufficient permissions to access this resource"))
+		// 5. Explicit Permission Denied
+		// This results in a 403 Forbidden via the GlobalErrorHandler
+		return apperr.Forbidden("insufficient permissions to access this resource", traceID, nil)
 	}
 }
