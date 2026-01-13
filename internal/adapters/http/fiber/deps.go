@@ -65,9 +65,9 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Security services
 	// -------------------
-	passwordHasher := password.NewBcryptHashedPassworder(12)
+	passwordHasher := password.NewBcryptHashedPassword(12)
 
-	jwtCfg, err := jwt.LoadJWTConfigFromEnv()
+	jwtCfg, err := jwt.LoadJWTConfig()
 	if err != nil {
 		return nil, err
 	}

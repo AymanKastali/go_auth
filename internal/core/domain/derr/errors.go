@@ -8,8 +8,9 @@ import (
 const (
 	OpValidation = "Validation"
 	OpRule       = "Business Rule"
-	OpNotFound   = "Not Found" // Added for repository/resource consistency
+	OpNotFound   = "Not Found"
 	OpConflict   = "Conflict"
+	OpInternal   = "Internal Server Error"
 )
 
 type DomainError interface {
@@ -90,9 +91,6 @@ func (f violationFactory) UpdatedBeforeCreated() DomainError {
 func (f violationFactory) ExpirationInPast() DomainError {
 	return f.rule("expires_at", "expiration date cannot be in the past")
 }
-func (f violationFactory) TokenExpired() DomainError {
-	return f.rule("expires_at", "session has expired")
-}
 
 // User Lifecycle & Registration
 func (f violationFactory) EmailAlreadyTaken() DomainError {
@@ -158,12 +156,32 @@ func (f violationFactory) TokenRevoked() DomainError {
 	return f.rule("status", "token is no longer valid")
 }
 
+// --- Validation Factory ---
+func (f validationFactory) MissingToken() DomainError {
+	return f.msg("token", "authentication token is required")
+}
+
+// --- Violation Factory ---
+func (f violationFactory) TokenExpired() DomainError {
+	return f.rule("token", "session has expired")
+}
+
+func (f violationFactory) TokenInvalid() DomainError {
+	// Grouping Signature/Malformed/Claims issues for security
+	return f.rule("token", "invalid or tampered authentication token")
+}
+
 // New methods added for RefreshTokenRepository
 func (f violationFactory) TokenAlreadyExists() DomainError {
 	return f.rule("refresh_token", "this token already exists in our records")
 }
 func (f violationFactory) TokenNotFound() DomainError {
 	return newErr(OpNotFound, "refresh_token", errors.New("the requested refresh token could not be found"))
+}
+
+// Internal
+func (f violationFactory) Internal(msg string) DomainError {
+	return newErr(OpInternal, "system", errors.New(msg))
 }
 
 // Violation Helper

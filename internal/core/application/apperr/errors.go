@@ -18,9 +18,10 @@ const (
 )
 
 type AppError struct {
+	error
 	Type    Type
 	Message string
-	Key     string // Propagated from derr.DomainError
+	Key     string
 	Cause   error
 }
 
