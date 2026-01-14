@@ -36,9 +36,9 @@ func NewUpdateRoleUseCase(
 	}
 }
 
-func (uc *updateRoleUseCase) Execute(traceID string, req dto.ManageRoleInput) error {
+func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) error {
 	uc.logger.Info("Updating user role",
-		"trace_id", traceID,
+		"request_id", requestID,
 		"userID", req.UserID,
 		"action", req.Action,
 		"role", req.Role)
@@ -46,26 +46,26 @@ func (uc *updateRoleUseCase) Execute(traceID string, req dto.ManageRoleInput) er
 	// 1. Parsing Input
 	userIDVO, err := uc.uuidParser.ParseUserID(req.UserID)
 	if err != nil {
-		uc.logger.Error("Failed to parse user ID", "trace_id", traceID, "error", err)
-		return apperr.BadRequest("invalid user id format", traceID, err)
+		uc.logger.Error("Failed to parse user ID", "request_id", requestID, "error", err)
+		return apperr.BadRequest("invalid user id format", requestID, err)
 	}
 
 	// 2. Resource Fetching
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		return apperr.FromDomain(err, traceID)
+		return apperr.FromDomain(err, requestID)
 	}
 	if user == nil {
-		return apperr.NotFound("target user not found", traceID, nil)
+		return apperr.NotFound("target user not found", requestID, nil)
 	}
 
 	roleName := strings.ToUpper(req.Role)
 	roleEntity, err := uc.roleRepo.GetByName(roleName)
 	if err != nil {
-		return apperr.FromDomain(err, traceID)
+		return apperr.FromDomain(err, requestID)
 	}
 	if roleEntity == nil {
-		return apperr.NotFound("specified role not found", traceID, nil)
+		return apperr.NotFound("specified role not found", requestID, nil)
 	}
 
 	now := uc.clock.NowUTC()
@@ -76,22 +76,22 @@ func (uc *updateRoleUseCase) Execute(traceID string, req dto.ManageRoleInput) er
 	case "grant":
 		if err := user.AddRoleID(roleEntity.ID(), now); err != nil {
 			// e.g., if user already has the role, AddRoleID returns derr.ErrStatusAlready
-			return apperr.FromDomain(err, traceID)
+			return apperr.FromDomain(err, requestID)
 		}
 	case "revoke":
 		if err := user.RemoveRoleID(roleEntity.ID(), now); err != nil {
 			// e.g., if it's the last role, RemoveRoleID returns a domain rule violation
-			return apperr.FromDomain(err, traceID)
+			return apperr.FromDomain(err, requestID)
 		}
 	default:
-		return apperr.BadRequest("invalid action: "+action, traceID, nil)
+		return apperr.BadRequest("invalid action: "+action, requestID, nil)
 	}
 
 	// 4. Persistence
 	if err := uc.userRepo.Update(user); err != nil {
-		return apperr.FromDomain(err, traceID)
+		return apperr.FromDomain(err, requestID)
 	}
 
-	uc.logger.Info("User role update successful", "trace_id", traceID, "userID", req.UserID)
+	uc.logger.Info("User role update successful", "request_id", requestID, "userID", req.UserID)
 	return nil
 }

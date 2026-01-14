@@ -27,7 +27,7 @@ func NewGormUserRepository(db *gorm.DB, mapper mappers.IUserMapper) ports.UserRe
 	}
 }
 
-func (r *GormUserRepository) Save(u *aggregates.User) error {
+func (r *GormUserRepository) Create(u *aggregates.User) error {
 	if u == nil {
 		return derr.ErrRequired("user aggregate")
 	}

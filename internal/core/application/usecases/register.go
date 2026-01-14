@@ -40,51 +40,51 @@ func NewRegisterUseCase(
 	}
 }
 
-func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.RegisteredUserDTO, error) {
-	uc.logger.Info("Starting user registration", "email", email, "trace_id", traceID)
+func (uc *registerUseCase) Execute(requestID, email, password string) (*dto.RegisteredUserDTO, error) {
+	uc.logger.Info("Starting user registration", "email", email, "request_id", requestID)
 
 	// 1. Value Object Creation (Validation)
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
 		// NewEmail returns a derr.DomainError, we map it to apperr
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	// 2. Business Logic Existence Check
 	existingUser, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 	if existingUser != nil {
-		uc.logger.Warn("Registration attempt with existing email", "email", email, "trace_id", traceID)
-		return nil, apperr.Conflict("an account with this email already exists", traceID, nil)
+		uc.logger.Warn("Registration attempt with existing email", "email", email, "request_id", requestID)
+		return nil, apperr.Conflict("an account with this email already exists", requestID, nil)
 	}
 
 	// 3. Hash Password
 	hash, err := uc.passwordHasher.Hash(password)
 	if err != nil {
-		uc.logger.Error("Password hashing failed", "trace_id", traceID, "error", err)
-		return nil, apperr.Internal("security service failure", traceID, err)
+		uc.logger.Error("Password hashing failed", "request_id", requestID, "error", err)
+		return nil, apperr.Internal("security service failure", requestID, err)
 	}
 
 	pw, err := valueobjects.NewHashedPassword(hash)
 	if err != nil {
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	// 4. Role Fetching (System Dependency)
 	userRole, err := uc.roleRepo.GetByName("user")
 	if err != nil {
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 	if userRole == nil {
-		uc.logger.Error("System misconfiguration: 'user' role missing", "trace_id", traceID)
-		return nil, apperr.Internal("required system configuration missing", traceID, nil)
+		uc.logger.Error("System misconfiguration: 'user' role missing", "request_id", requestID)
+		return nil, apperr.Internal("required system configuration missing", requestID, nil)
 	}
 
 	userID, err := uc.uuidGenerator.NewUserID()
 	if err != nil {
-		return nil, apperr.Internal("failed to generate user identity", traceID, err)
+		return nil, apperr.Internal("failed to generate user identity", requestID, err)
 	}
 
 	// 5. Aggregate Instantiation (Logic/Invariants)
@@ -97,14 +97,14 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 		uc.clock.NowUTC(),
 	)
 	if err != nil {
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	// 6. Persistence
-	if err := uc.userRepo.Save(user); err != nil {
+	if err := uc.userRepo.Create(user); err != nil {
 		// If the DB returns a unique constraint error, repo maps it to derr.ErrDuplicate
 		// which FromDomain handles perfectly as a Conflict (409).
-		return nil, apperr.FromDomain(err, traceID)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	return &dto.RegisteredUserDTO{

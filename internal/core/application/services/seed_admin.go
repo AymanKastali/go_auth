@@ -116,7 +116,7 @@ func (s *seedAdminService) SeedAdmin() error {
 	}
 
 	// 8. Persistence
-	if err := s.userRepo.Save(admin); err != nil {
+	if err := s.userRepo.Create(admin); err != nil {
 		return apperr.FromDomain(err, seederTraceID)
 	}
 

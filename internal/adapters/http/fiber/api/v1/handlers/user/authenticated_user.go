@@ -19,24 +19,16 @@ func NewAuthUserHandler(uc ports.AuthUserUseCasePort) *AuthUserHandler {
 
 func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
 	// 1. Extract TraceID (Required by the new AppError system)
-	traceID, _ := c.Locals("trace_id").(string)
-	if traceID == "" {
-		traceID = "system-handler"
-	}
-
-	// 2. Extract UserID from Locals (Set by JWTMiddleware)
-	sub := c.Locals("sub")
-	if sub == nil {
-		return apperr.Unauthorized("unauthorized: session context missing", traceID, nil)
-	}
-
-	userID, ok := sub.(string)
+	auth, ok := utils.GetAuthContext(c)
 	if !ok {
-		return apperr.Internal("invalid subject type in context", traceID, nil)
+		// This should theoretically never happen if JWTMiddleware is present
+		return apperr.Unauthorized("identity not found in context", "system", nil)
 	}
+	userID := auth.UserID
+	requestID := auth.RequestID
 
-	// 3. Call application layer with BOTH arguments: (traceID, userID)
-	profile, err := h.uc.Execute(traceID, userID)
+	// 3. Call application layer with BOTH arguments: (ctx.RequestID, userID)
+	profile, err := h.uc.Execute(requestID, userID)
 	if err != nil {
 		// Use Case already returns a properly wrapped apperr.AppError
 		return err

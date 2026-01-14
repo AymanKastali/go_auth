@@ -3,10 +3,12 @@ package fiber
 import (
 	"go_auth/internal/adapters/http/fiber/api/v1/routes"
 	"go_auth/internal/adapters/http/fiber/middlewares"
+	"go_auth/internal/adapters/http/fiber/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
@@ -16,6 +18,13 @@ func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
 	})
 
 	// Middlewares
+	app.Use(requestid.New())
+	// This packs the RequestID, IP, DeviceID, etc., into dto.ContextKey
+	app.Use(func(c *fiber.Ctx) error {
+		utils.SetContext(c)
+		return c.Next()
+	})
+
 	app.Use(recover.New())
 	app.Use(logger.New())
 

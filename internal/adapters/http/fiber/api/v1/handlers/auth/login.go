@@ -26,21 +26,17 @@ func (h *loginHandler) Execute(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
 	// 1. Extract context (Now containing TraceID from previous refactor)
-	ctx, err := utils.ExtractRequestContext(c)
-	if err != nil {
-		// This utility now returns a properly formatted apperr.BadRequest
-		return err
-	}
+	ctx := utils.GetContext(c)
 
 	// 2. Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.BadRequest("invalid login request format", ctx.TraceID, err)
+		return apperr.BadRequest("invalid login request format", ctx.RequestID, err)
 	}
 
 	// 3. Call use case with TraceID and all required identity parameters
 	// This matches the updated Execute(string, string, ...) signature
 	authResp, err := h.uc.Execute(
-		ctx.TraceID,
+		ctx.RequestID,
 		req.Email,
 		req.Password,
 		ctx.DeviceID,

@@ -34,43 +34,43 @@ func NewLogoutUseCase(
 	}
 }
 
-func (uc *logoutUseCase) Execute(traceID string, refreshToken string) error {
-	uc.logger.Info("Starting logout process", "trace_id", traceID)
+func (uc *logoutUseCase) Execute(requestID string, refreshToken string) error {
+	uc.logger.Info("Starting logout process", "request_id", requestID)
 
 	// 1. Validate Token
 	claims, err := uc.tokenSvc.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		uc.logger.Warn("Invalid refresh token provided for logout",
-			"trace_id", traceID,
+			"request_id", requestID,
 			"error", err)
 		// tokenSvc returns derr.DomainError, so we map it
-		return apperr.FromDomain(err, traceID)
+		return apperr.FromDomain(err, requestID)
 	}
 
 	// 2. Parse JTI from claims
 	tokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
 	if err != nil {
 		uc.logger.Error("Token ID in claims is malformed",
-			"trace_id", traceID,
+			"request_id", requestID,
 			"jti", claims.JTI,
 			"error", err)
-		return apperr.BadRequest("malformed token identifier", traceID, err)
+		return apperr.BadRequest("malformed token identifier", requestID, err)
 	}
 
 	// 3. Revoke in Persistence
 	err = uc.refreshRepo.Revoke(tokenID, uc.clock.NowUTC())
 	if err != nil {
 		uc.logger.Error("Failed to revoke refresh token",
-			"trace_id", traceID,
+			"request_id", requestID,
 			"tokenID", tokenID,
 			"error", err)
 
 		// This handles derr.CodeNotFound or database internal errors automatically
-		return apperr.FromDomain(err, traceID)
+		return apperr.FromDomain(err, requestID)
 	}
 
 	uc.logger.Info("Logout successful",
-		"trace_id", traceID,
+		"request_id", requestID,
 		"userID", claims.Subject,
 		"tokenID", tokenID)
 

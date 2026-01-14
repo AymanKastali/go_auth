@@ -51,36 +51,36 @@ func NewRefreshTokenUseCase(
 	}
 }
 
-func (uc *refreshTokenUseCase) Execute(traceID, oldRefreshToken, deviceIDStr string) (*dto.AuthResponse, error) {
-	uc.logger.Info("Starting token rotation", "trace_id", traceID)
+func (uc *refreshTokenUseCase) Execute(requestID, oldRefreshToken, deviceIDStr string) (*dto.AuthResponse, error) {
+	uc.logger.Info("Starting token rotation", "request_id", requestID)
 
-	claims, oldTokenID, err := uc.validateSession(traceID, oldRefreshToken, deviceIDStr)
+	claims, oldTokenID, err := uc.validateSession(requestID, oldRefreshToken, deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
-	user, device, err := uc.fetchRequiredEntities(traceID, claims.Subject, deviceIDStr)
+	user, device, err := uc.fetchRequiredEntities(requestID, claims.Subject, deviceIDStr)
 	if err != nil {
 		return nil, err
 	}
 
-	roleNames, err := uc.getRoleNames(traceID, user.RoleIDs())
+	roleNames, err := uc.getRoleNames(requestID, user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
 
-	return uc.rotateTokens(traceID, user, device, oldTokenID, roleNames, uc.clock.NowUTC())
+	return uc.rotateTokens(requestID, user, device, oldTokenID, roleNames, uc.clock.NowUTC())
 }
 
 func (uc *refreshTokenUseCase) validateSession(tid, tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
 	claims, err := uc.tokenSvc.ValidateRefreshToken(tokenStr)
 	if err != nil {
-		uc.logger.Warn("refresh token validation failed", "trace_id", tid, "error", err)
+		uc.logger.Warn("refresh token validation failed", "request_id", tid, "error", err)
 		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, tid)
 	}
 
 	if claims.DeviceID != deviceIDStr {
-		uc.logger.Warn("device mismatch during refresh", "trace_id", tid)
+		uc.logger.Warn("device mismatch during refresh", "request_id", tid)
 		return nil, valueobjects.TokenID{}, apperr.Forbidden("session bound to another device", tid, nil)
 	}
 
@@ -94,7 +94,7 @@ func (uc *refreshTokenUseCase) validateSession(tid, tokenStr, deviceIDStr string
 		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, tid)
 	}
 	if isRevoked {
-		uc.logger.Warn("reuse detection: revoked token used", "trace_id", tid, "jti", claims.JTI)
+		uc.logger.Warn("reuse detection: revoked token used", "request_id", tid, "jti", claims.JTI)
 		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session invalidated", tid, nil)
 	}
 
@@ -175,7 +175,7 @@ func (uc *refreshTokenUseCase) rotateTokens(
 
 	// Persist Rotation: Kill the OLD and Save the NEW
 	if err := uc.refreshRepo.Revoke(oldID, now); err != nil {
-		uc.logger.Warn("rotation persistence failed", "trace_id", tid, "old_id", oldID.Value())
+		uc.logger.Warn("rotation persistence failed", "request_id", tid, "old_id", oldID.Value())
 		return nil, apperr.FromDomain(err, tid)
 	}
 

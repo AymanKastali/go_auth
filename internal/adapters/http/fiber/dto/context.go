@@ -1,7 +1,14 @@
 package dto
 
+type contextKey string
+
+const (
+	// ContextKey is the single source of truth for accessing the DTO in Fiber
+	ContextKey contextKey = "app_context"
+)
+
 type RequestContext struct {
-	TraceID    string
+	RequestID  string
 	DeviceID   string
 	DeviceName string
 	UserAgent  string
@@ -9,9 +16,8 @@ type RequestContext struct {
 }
 
 type AuthContext struct {
-	TraceID  string
-	UserID   string
-	Roles    []string
-	TokenID  string
-	DeviceID string
+	RequestContext
+	UserID  string
+	Roles   []string
+	TokenID string
 }

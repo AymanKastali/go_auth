@@ -24,28 +24,18 @@ func NewRefreshTokenHandler(
 
 func (h *refreshTokenHandler) Execute(c *fiber.Ctx) error {
 	// 1. Extract TraceID (Necessary for the AppError factories)
-	traceID, _ := c.Locals("trace_id").(string)
-	if traceID == "" {
-		traceID = c.Get("X-Request-ID", "refresh-flow")
-	}
-
-	// 2. TRANSPORT: Extract Device ID
-	deviceID := c.Get("X-Device-ID")
-	if deviceID == "" {
-		// Missing required headers is a BadRequest/Unauthorized state
-		return apperr.BadRequest("missing device id header", traceID, nil)
-	}
+	ctx := utils.GetContext(c)
 
 	var req dto.RefreshTokenRequest
 
 	// 3. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.BadRequest("invalid request payload", traceID, err)
+		return apperr.BadRequest("invalid request payload", ctx.RequestID, err)
 	}
 
-	// 4. APPLICATION: Call use case with (traceID, refreshToken, deviceID)
+	// 4. APPLICATION: Call use case with (requestID, refreshToken, deviceID)
 	// This matches the updated port signature
-	authResp, err := h.uc.Execute(traceID, req.RefreshToken, deviceID)
+	authResp, err := h.uc.Execute(ctx.RequestID, req.RefreshToken, ctx.DeviceID)
 	if err != nil {
 		// Bubbles up apperr.Unauthorized, apperr.Conflict (reuse detection), etc.
 		return err

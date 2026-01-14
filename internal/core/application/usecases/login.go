@@ -55,26 +55,26 @@ func NewLoginUseCase(
 }
 
 func (uc *loginUseCase) Execute(
-	traceID string, // Pass traceID as a string to keep the layer pure
+	requestID string, // Pass requestID as a string to keep the layer pure
 	email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
 ) (*dto.AuthResponse, error) {
-	uc.logger.Info("Starting user login", "email", email, "trace_id", traceID)
+	uc.logger.Info("Starting user login", "email", email, "request_id", requestID)
 	now := uc.clock.Now().UTC()
 
 	// 1. Authenticate User
-	user, err := uc.authenticate(traceID, email, password)
+	user, err := uc.authenticate(requestID, email, password)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Resolve Device
-	device, err := uc.resolveDevice(traceID, user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, now)
+	device, err := uc.resolveDevice(requestID, user.ID(), deviceIDStr, deviceName, userAgent, ipAddress, now)
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Fetch Permissions
-	roleNames, err := uc.fetchRoleNames(traceID, user.RoleIDs())
+	roleNames, err := uc.fetchRoleNames(requestID, user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,11 @@ func (uc *loginUseCase) Execute(
 	// 4. Generate Token ID
 	tokenID, err := uc.uuidGenerator.NewTokenID()
 	if err != nil {
-		return nil, apperr.Internal("failed to generate unique token identifier", traceID, err)
+		return nil, apperr.Internal("failed to generate unique token identifier", requestID, err)
 	}
 
 	// 5. Finalize Session
-	return uc.issueTokensAndSaveSession(traceID, tokenID, user, device, roleNames, now)
+	return uc.issueTokensAndSaveSession(requestID, tokenID, user, device, roleNames, now)
 }
 
 func (uc *loginUseCase) authenticate(tid, email, password string) (*aggregates.User, error) {
