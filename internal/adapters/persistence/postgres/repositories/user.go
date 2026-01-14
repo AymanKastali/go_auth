@@ -20,34 +20,28 @@ type GormUserRepository struct {
 
 var _ ports.UserRepositoryPort = (*GormUserRepository)(nil)
 
-func NewGormUserRepository(
-	db *gorm.DB,
-	mapper mappers.IUserMapper,
-) ports.UserRepositoryPort {
+func NewGormUserRepository(db *gorm.DB, mapper mappers.IUserMapper) ports.UserRepositoryPort {
 	return &GormUserRepository{
 		db:     db,
 		mapper: mapper,
 	}
 }
 
-func (r *GormUserRepository) Save(u *aggregates.User) error {
+func (r *GormUserRepository) Create(u *aggregates.User) error {
 	if u == nil {
-		return errors.New("cannot save a nil user aggregate")
+		return derr.ErrRequired("user aggregate")
 	}
 
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
-		return err
-	}
-
-	if model == nil {
-		return errors.New("user model is nil after mapping")
+		return err // Internal mapping error
 	}
 
 	err = r.db.Omit("Roles.*").Create(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return derr.NewViolation.EmailAlreadyTaken()
+			// Using your domain's duplicate error
+			return derr.ErrDuplicate("email", u.Email().Value())
 		}
 		return err
 	}
@@ -60,6 +54,10 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// In many DDD patterns, GetByEmail might return nil/nil
+			// OR a specific Domain NotFound error.
+			// Since your UseCase expects a check for user == nil, we return nil/nil
+			// but could also return derr.ErrNotFound("User", email.Value())
 			return nil, nil
 		}
 		return nil, err
@@ -74,7 +72,8 @@ func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, 
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			// Explicitly returning the domain error for ID lookups
+			return nil, derr.ErrNotFound("User", id.Value())
 		}
 		return nil, err
 	}
@@ -83,15 +82,24 @@ func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, 
 }
 
 func (r *GormUserRepository) Update(u *aggregates.User) error {
+	if u == nil {
+		return derr.ErrRequired("user aggregate")
+	}
+
 	model, err := r.mapper.ToModel(u)
 	if err != nil {
 		return err
 	}
 
 	err = r.db.Transaction(func(tx *gorm.DB) error {
+		// Save will update based on primary key
 		if err := tx.Omit("Roles").Save(model).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return derr.ErrDuplicate("email", u.Email().Value())
+			}
 			return err
 		}
+		// Sync associations
 		return tx.Model(model).Association("Roles").Replace(model.Roles)
 	})
 

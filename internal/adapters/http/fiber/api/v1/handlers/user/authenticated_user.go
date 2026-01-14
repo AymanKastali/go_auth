@@ -1,7 +1,6 @@
 package user_handlers
 
 import (
-	"errors"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
@@ -19,40 +18,34 @@ func NewAuthUserHandler(uc ports.AuthUserUseCasePort) *AuthUserHandler {
 }
 
 func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract adapter data
-	sub := c.Locals("sub")
-	if sub == nil {
-		return apperr.Unauthorized(errors.New("unauthorized"))
-	}
-
-	userID, ok := sub.(string)
+	// 1. Extract TraceID (Required by the new AppError system)
+	auth, ok := utils.GetAuthContext(c)
 	if !ok {
-		return apperr.Internal(errors.New("invalid subject in context"))
+		// This should theoretically never happen if JWTMiddleware is present
+		return apperr.Unauthorized("identity not found in context", "system", nil)
 	}
+	userID := auth.UserID
+	requestID := auth.RequestID
 
-	// 2. Call application layer
-	profile, err := h.uc.Execute(userID)
+	// 3. Call application layer with BOTH arguments: (ctx.RequestID, userID)
+	profile, err := h.uc.Execute(requestID, userID)
 	if err != nil {
+		// Use Case already returns a properly wrapped apperr.AppError
 		return err
 	}
 
-	if profile == nil {
-		return apperr.NotFound(errors.New("user not found"))
-	}
+	// Note: We removed the profile == nil check here because the Use Case
+	// now correctly returns apperr.NotFound if the user doesn't exist.
 
-	// 3. Map domain → web DTO
+	// 4. Map application DTO → web response DTO
 	userResponse := dto.UserResponse{
 		ID:        profile.ID,
 		Email:     profile.Email,
-		Status:    string(profile.Status),
-		Roles:     make([]string, len(profile.Roles)),
+		Status:    profile.Status,
+		Roles:     profile.Roles, // Assuming slice of strings
 		CreatedAt: profile.CreatedAt,
 		UpdatedAt: profile.UpdatedAt,
 	}
 
-	for i, role := range profile.Roles {
-		userResponse.Roles[i] = string(role)
-	}
-
-	return utils.OK(c, userResponse, "User authenticated successfully")
+	return utils.OK(c, userResponse, "User profile retrieved successfully")
 }

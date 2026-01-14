@@ -4,20 +4,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type BcryptHashedPassworder struct {
+type BcryptHashedPassword struct {
 	cost int
 }
 
-func NewBcryptHashedPassworder(cost int) *BcryptHashedPassworder {
-	return &BcryptHashedPassworder{cost: cost}
+func NewBcryptHashedPassword(cost int) *BcryptHashedPassword {
+	return &BcryptHashedPassword{cost: cost}
 }
 
-func (b *BcryptHashedPassworder) Hash(raw string) (string, error) {
+func (b *BcryptHashedPassword) Hash(raw string) (string, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(raw), b.cost)
 	return string(h), err
 }
 
-func (b *BcryptHashedPassworder) Compare(raw, hashed string) bool {
+func (b *BcryptHashedPassword) Compare(raw, hashed string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(raw))
 	return err == nil
 }

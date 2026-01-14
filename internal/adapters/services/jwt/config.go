@@ -28,14 +28,9 @@ func (c *JWTConfig) Audience() string            { return c.audience }
 func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
 func (c *JWTConfig) RefreshTTL() time.Duration   { return c.refreshTTL }
 
-func LoadJWTConfigFromEnv() (*JWTConfig, error) {
-	return loadJWTConfig(os.Getenv)
-}
-
-func loadJWTConfig(getenv func(string) string) (*JWTConfig, error) {
-	// Helper to utilize the shared package for all missing environment variables
+func LoadJWTConfig() (*JWTConfig, error) {
 	getRequired := func(key string) (string, error) {
-		val := getenv(key)
+		val := os.Getenv(key)
 		if val == "" {
 			return "", shared.NewMissingVarErr(module, key)
 		}
@@ -93,7 +88,7 @@ func loadJWTConfig(getenv func(string) string) (*JWTConfig, error) {
 func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, NewInvalidPEMErr()
+		return nil, ErrInvalidPEM
 	}
 
 	var key *rsa.PrivateKey
@@ -104,11 +99,11 @@ func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 		// Attempt PKCS8 (Modern wrapped format)
 		pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return nil, NewInvalidFormatErr()
+			return nil, ErrInvalidFormat
 		}
 		k8, ok := pk.(*rsa.PrivateKey)
 		if !ok {
-			return nil, NewKeyTypeErr(true)
+			return nil, ErrNotRSAPrivateKey
 		}
 		key = k8
 	}
@@ -122,17 +117,17 @@ func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
 func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
 	block, _ := pem.Decode([]byte(pemValue))
 	if block == nil {
-		return nil, NewInvalidPEMErr()
+		return nil, ErrInvalidPEM
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, NewInvalidFormatErr()
+		return nil, ErrInvalidFormat
 	}
 
 	rsaPub, ok := pub.(*rsa.PublicKey)
 	if !ok {
-		return nil, NewKeyTypeErr(false)
+		return nil, ErrNotRSAPublicKey
 	}
 
 	if err := validateRSAKeySize(rsaPub.N.BitLen()); err != nil {
@@ -144,7 +139,7 @@ func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
 func validateRSAKeySize(bits int) error {
 	// Secure minimum bit length check
 	if bits < 2048 {
-		return NewInsecureKeyErr()
+		return ErrInsecureKeySize
 	}
 	return nil
 }

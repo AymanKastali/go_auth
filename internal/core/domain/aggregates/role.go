@@ -41,15 +41,15 @@ func NewRole(
 	now time.Time,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredRoleID()
+		return nil, derr.ErrRequired("role_id")
 	}
 
 	if strings.TrimSpace(name) == "" {
-		return nil, derr.NewValidation.RequiredName()
+		return nil, derr.ErrRequired("name")
 	}
 
 	if now.IsZero() {
-		return nil, derr.NewValidation.RequiredNow()
+		return nil, derr.ErrRequired("now")
 	}
 
 	return &Role{

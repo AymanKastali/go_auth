@@ -24,21 +24,33 @@ func NewUpdateRoleHandler(
 }
 
 func (h *updateRoleHandler) Execute(c *fiber.Ctx) error {
+	// 1. Extract TraceID from locals (injected by JWTMiddleware)
+	auth, ok := utils.GetAuthContext(c)
+	if !ok {
+		// This should theoretically never happen if JWTMiddleware is present
+		return apperr.Unauthorized("identity not found in context", "system", nil)
+	}
+	requestID := auth.RequestID
+
+	// 2. Parse Web Request Body
 	var webReq dto.ManageRoleRequest
 	if err := c.BodyParser(&webReq); err != nil {
-		return apperr.Validation(err)
+		// Use BadRequest to signal invalid JSON input
+		return apperr.BadRequest("invalid request body format", requestID, err)
 	}
 
+	// 3. Map to Application DTO
 	input := app_dto.ManageRoleInput{
 		UserID: webReq.UserID,
 		Role:   webReq.Role,
 		Action: webReq.Action,
 	}
 
-	if err := h.uc.Execute(input); err != nil {
+	// 4. Call Use Case with (requestID, input)
+	if err := h.uc.Execute(requestID, input); err != nil {
+		// The Use Case already returns a properly wrapped apperr.AppError
 		return err
 	}
 
 	return utils.NoContent(c)
-
 }

@@ -1,7 +1,6 @@
 package auth_handlers
 
 import (
-	"errors"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
@@ -24,26 +23,25 @@ func NewRefreshTokenHandler(
 }
 
 func (h *refreshTokenHandler) Execute(c *fiber.Ctx) error {
+	// 1. Extract TraceID (Necessary for the AppError factories)
+	ctx := utils.GetContext(c)
+
 	var req dto.RefreshTokenRequest
 
-	// 1. TRANSPORT: Extract Device ID
-	deviceID := c.Get("X-Device-ID")
-	if deviceID == "" {
-		return apperr.Unauthorized(errors.New("missing device id header"))
-	}
-
-	// 2. TRANSPORT: Parse body
+	// 3. TRANSPORT: Parse body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.Validation(err)
+		return apperr.BadRequest("invalid request payload", ctx.RequestID, err)
 	}
 
-	// 3. APPLICATION: Call use case
-	authResp, err := h.uc.Execute(req.RefreshToken, deviceID)
+	// 4. APPLICATION: Call use case with (requestID, refreshToken, deviceID)
+	// This matches the updated port signature
+	authResp, err := h.uc.Execute(ctx.RequestID, req.RefreshToken, ctx.DeviceID)
 	if err != nil {
+		// Bubbles up apperr.Unauthorized, apperr.Conflict (reuse detection), etc.
 		return err
 	}
 
-	// 4. SUCCESS: Standardized response using your utility
+	// 5. SUCCESS: Standardized response
 	return utils.OK(
 		c,
 		dto.LoginResponse{

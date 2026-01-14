@@ -23,22 +23,26 @@ func NewRegisterHandler(
 }
 
 func (h *registerHandler) Execute(c *fiber.Ctx) error {
+	// 1. Extract TraceID (Required by the new apperr system)
+	// We check Locals first, then fall back to the header or a default
+	ctx := utils.GetContext(c)
+
 	var req dto.RegisterRequest
 
-	// 1. TRANSPORT: Parse request body
+	// 2. TRANSPORT: Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		// Return a ValidationErr so the Global Handler returns a 400
-		return apperr.Validation(err)
+		// Use BadRequest to ensure a 400 Status Code via Global Handler
+		return apperr.BadRequest("invalid request payload", ctx.RequestID, err)
 	}
 
-	// 2. APPLICATION: Call the use case
-	domainResp, err := h.uc.Execute(req.Email, req.Password)
+	// 3. APPLICATION: Call the use case with (requestID, email, password)
+	domainResp, err := h.uc.Execute(ctx.RequestID, req.Email, req.Password)
 	if err != nil {
-		// The Global Error Handler handles the 409 Conflict, 400, etc.
+		// Bubbles up apperr.Conflict, apperr.Internal, etc.
 		return err
 	}
 
-	// 3. SUCCESS: Map domain response to adapter DTO
+	// 4. SUCCESS: Map application DTO to web DTO
 	adapterResp := dto.RegisteredUserResponse{
 		UserID: domainResp.UserID,
 		Email:  domainResp.Email,

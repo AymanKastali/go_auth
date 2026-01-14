@@ -1,79 +1,81 @@
 package apperr
 
 import (
-	"fmt"
+	"errors"
 	"go_auth/internal/core/domain/derr"
 )
 
-type Type string
-
-const (
-	TypeValidation   Type = "VALIDATION_ERROR"
-	TypeRequirement  Type = "REQUIREMENT_FAILED"
-	TypeConflict     Type = "CONFLICT"
-	TypeUnauthorized Type = "UNAUTHORIZED"
-	TypeForbidden    Type = "FORBIDDEN"
-	TypeNotFound     Type = "NOT_FOUND"
-	TypeInternal     Type = "INTERNAL_ERROR"
-)
-
-type AppError struct {
-	Type    Type
-	Message string
-	Key     string // Propagated from derr.DomainError
-	Cause   error
+// AppError is the interface used by controllers and transport layers.
+type AppError interface {
+	error
+	Code() derr.Code
+	Cause() error
+	TraceID() string
 }
 
-func (e *AppError) Error() string {
-	return fmt.Sprintf("[%s] %s", e.Type, e.Message)
+type appError struct {
+	code      derr.Code
+	message   string
+	cause     error
+	requestID string
 }
 
-func (e *AppError) Unwrap() error {
-	return e.Cause
-}
+var _ AppError = (*appError)(nil)
 
-// --- Specific Application Error Constructors ---
+func (e *appError) Error() string   { return e.message }
+func (e *appError) Code() derr.Code { return e.code }
+func (e *appError) Cause() error    { return e.cause }
+func (e *appError) TraceID() string { return e.requestID }
+func (e *appError) Unwrap() error   { return e.cause }
 
-func Validation(err error) error {
-	return wrap(err, TypeValidation)
-}
-
-func Conflict(err error) error {
-	return wrap(err, TypeConflict)
-}
-
-func Forbidden(err error) error {
-	return wrap(err, TypeForbidden)
-}
-
-func NotFound(err error) error {
-	return wrap(err, TypeNotFound)
-}
-
-func Internal(err error) error {
-	return wrap(err, TypeInternal)
-}
-
-func Unauthorized(err error) error {
-	return wrap(err, TypeUnauthorized)
-}
-
-// Internal helper to extract domain metadata
-func wrap(err error, t Type) error {
+// FromDomain converts a DomainError into an AppError, preserving the code and message.
+func FromDomain(err error, requestID string) AppError {
 	if err == nil {
 		return nil
 	}
 
-	appErr := &AppError{
-		Type:    t,
-		Message: err.Error(),
-		Cause:   err,
+	var dErr derr.DomainError
+	if errors.As(err, &dErr) {
+		return &appError{
+			code:      dErr.Code(),
+			message:   dErr.Error(),
+			cause:     err,
+			requestID: requestID,
+		}
 	}
 
-	// If it's a DomainError, we extract the field key for the UI
-	if dErr, ok := err.(derr.DomainError); ok {
-		appErr.Key = dErr.Key()
-	}
+	return Internal("An unexpected error occurred", requestID, err)
+}
 
-	return appErr
+// --- Application Layer Factory Methods ---
+
+// BadRequest (400) - For general input/request failures
+func BadRequest(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodeValidation, message: msg, requestID: requestID, cause: cause}
+}
+
+// Unauthorized (401) - Specifically for authentication failures (Login/Token)
+// Note: We use CodePermissionDenied or a custom code if you prefer
+func Unauthorized(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodePermissionDenied, message: msg, requestID: requestID, cause: cause}
+}
+
+// Forbidden (403) - For users who are logged in but lack permission
+func Forbidden(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodePermissionDenied, message: msg, requestID: requestID, cause: cause}
+}
+
+// NotFound (404) - For application-level missing resources (e.g., URL routes)
+func NotFound(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodeNotFound, message: msg, requestID: requestID, cause: cause}
+}
+
+// Conflict (409) - For state-based failures
+func Conflict(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodeConflict, message: msg, requestID: requestID, cause: cause}
+}
+
+// Internal (500) - For infrastructure crashes (DB down, JSON marshal failure)
+func Internal(msg string, requestID string, cause error) AppError {
+	return &appError{code: derr.CodeInternal, message: msg, requestID: requestID, cause: cause}
 }

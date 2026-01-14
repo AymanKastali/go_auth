@@ -28,13 +28,13 @@ func NewDevice(
 	now time.Time,
 ) (*Device, error) {
 	if deviceID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredDeviceID()
+		return nil, derr.ErrRequired("device_id")
 	}
 	if userID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredUserID()
+		return nil, derr.ErrRequired("user_id")
 	}
 	if now.IsZero() {
-		return nil, derr.NewValidation.RequiredNow()
+		return nil, derr.ErrRequired("now")
 	}
 
 	return &Device{
@@ -89,10 +89,10 @@ func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
 
 func (e *Device) Activate(now time.Time) error {
 	if e.IsRevoked() {
-		return derr.NewViolation.DeviceRevoked()
+		return derr.ErrEntityRevoked("device")
 	}
 	if e.isActive {
-		return derr.NewViolation.DeviceAlreadyActive()
+		return derr.ErrStatusAlready("device", "active")
 	}
 
 	e.isActive = true
@@ -102,10 +102,10 @@ func (e *Device) Activate(now time.Time) error {
 
 func (e *Device) Deactivate(now time.Time) error {
 	if e.IsRevoked() {
-		return derr.NewViolation.DeviceRevoked()
+		return derr.ErrEntityRevoked("device")
 	}
 	if !e.isActive {
-		return derr.NewViolation.DeviceAlreadyInactive()
+		return derr.ErrStatusAlready("device", "inactive")
 	}
 	e.isActive = false
 	e.touch(now)
@@ -129,7 +129,7 @@ func (e *Device) UpdateMetadata(
 	ipAddress *string,
 ) error {
 	if e.IsRevoked() {
-		return derr.NewViolation.DeviceRevoked()
+		return derr.ErrEntityRevoked("device")
 	}
 
 	e.name = name
@@ -142,7 +142,7 @@ func (e *Device) UpdateMetadata(
 
 func (e *Device) Revoke(now time.Time) error {
 	if e.IsRevoked() {
-		return derr.NewViolation.DeviceRevoked()
+		return derr.ErrEntityRevoked("device")
 	}
 
 	e.isActive = false
@@ -153,17 +153,17 @@ func (e *Device) Revoke(now time.Time) error {
 
 func (e *Device) EnsureUsable() error {
 	if e.IsRevoked() {
-		return derr.NewViolation.DeviceRevoked()
+		return derr.ErrEntityRevoked("device")
 	}
 	if !e.isActive {
-		return derr.NewViolation.DeviceAlreadyInactive()
+		return derr.ErrStatusAlready("device", "inactive")
 	}
 	return nil
 }
 
 func (e *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !e.userID.Equal(userID) {
-		return derr.NewViolation.DeviceDoesNotBelongToUser()
+		return derr.ErrOwnershipViolation("device", "user")
 	}
 	return nil
 }

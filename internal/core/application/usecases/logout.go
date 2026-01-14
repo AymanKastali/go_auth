@@ -1,11 +1,9 @@
 package usecases
 
 import (
-	"errors"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/derr"
 	dports "go_auth/internal/core/domain/ports"
 	"log/slog"
 )
@@ -36,40 +34,45 @@ func NewLogoutUseCase(
 	}
 }
 
-func (uc *logoutUseCase) Execute(refreshToken string) error {
-	uc.logger.Info("Starting logout process")
+func (uc *logoutUseCase) Execute(requestID string, refreshToken string) error {
+	uc.logger.Info("Starting logout process", "request_id", requestID)
 
+	// 1. Validate Token
 	claims, err := uc.tokenSvc.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		uc.logger.Warn("Invalid refresh token provided for logout", "error", err)
-		return apperr.Unauthorized(err)
+		uc.logger.Warn("Invalid refresh token provided for logout",
+			"request_id", requestID,
+			"error", err)
+		// tokenSvc returns derr.DomainError, so we map it
+		return apperr.FromDomain(err, requestID)
 	}
 
+	// 2. Parse JTI from claims
 	tokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
 	if err != nil {
-		uc.logger.Error("Token ID in claims is malformed", "jti", claims.JTI, "error", err)
-		return apperr.Validation(err)
+		uc.logger.Error("Token ID in claims is malformed",
+			"request_id", requestID,
+			"jti", claims.JTI,
+			"error", err)
+		return apperr.BadRequest("malformed token identifier", requestID, err)
 	}
 
+	// 3. Revoke in Persistence
 	err = uc.refreshRepo.Revoke(tokenID, uc.clock.NowUTC())
 	if err != nil {
-		// 1. Check if it's a Domain Error
-		var dErr derr.DomainError
-		if errors.As(err, &dErr) {
-			// 2. If the operation failed because it wasn't found, logout is effectively done
-			if dErr.Op() == derr.OpNotFound {
-				uc.logger.Warn("Token already revoked or non-existent", "tokenID", tokenID.Value())
-				return apperr.NotFound(dErr)
-			}
-			// Other domain violations (Conflict, etc.)
-			return apperr.Conflict(dErr)
-		}
+		uc.logger.Error("Failed to revoke refresh token",
+			"request_id", requestID,
+			"tokenID", tokenID,
+			"error", err)
 
-		// 3. Technical failures (DB down, etc.)
-		uc.logger.Error("Failed to revoke refresh token", "tokenID", tokenID, "error", err)
-		return apperr.Internal(err)
+		// This handles derr.CodeNotFound or database internal errors automatically
+		return apperr.FromDomain(err, requestID)
 	}
 
-	uc.logger.Info("Logout successful", "userID", claims.Subject, "tokenID", tokenID)
+	uc.logger.Info("Logout successful",
+		"request_id", requestID,
+		"userID", claims.Subject,
+		"tokenID", tokenID)
+
 	return nil
 }

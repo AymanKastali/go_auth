@@ -3,9 +3,9 @@ package jwt
 import (
 	"crypto/rsa"
 	"errors"
-	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
 
@@ -50,8 +50,8 @@ func (s *jwtService) IssueAccessToken(
 
 	token, err := s.sign(claims)
 	if err != nil {
-		// Use the Internal intent for signing failures
-		return valueobjects.Token{}, dto.AccessTokenClaims{}, apperr.Internal(err)
+		// Internal infrastructure failure
+		return valueobjects.Token{}, dto.AccessTokenClaims{}, err
 	}
 
 	return token, s.mapToAccessDTO(claims), nil
@@ -69,39 +69,66 @@ func (s *jwtService) IssueRefreshToken(
 
 	token, err := s.sign(claims)
 	if err != nil {
-		return valueobjects.Token{}, dto.RefreshTokenClaims{}, apperr.Internal(err)
+		return valueobjects.Token{}, dto.RefreshTokenClaims{}, err
 	}
 
 	return token, s.mapToRefreshDTO(claims), nil
 }
 
 func (s *jwtService) ValidateAccessToken(tokenStr string) (*dto.AccessTokenClaims, error) {
-	claims := &AccessTokenClaims{}
-	if err := s.parse(tokenStr, claims, TokenTypeAccess); err != nil {
-		// Wrap the technical parse error in the Unauthorized intent
-		return nil, apperr.Unauthorized(err)
+	if tokenStr == "" {
+		return nil, derr.ErrRequired("access token")
 	}
-	dto := s.mapToAccessDTO(*claims)
-	return &dto, nil
+
+	claims := &AccessTokenClaims{}
+	err := s.parse(tokenStr, claims, TokenTypeAccess)
+	if err == nil {
+		dto := s.mapToAccessDTO(*claims)
+		return &dto, nil
+	}
+
+	return nil, s.mapJWTErr(err)
 }
 
 func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenClaims, error) {
-	claims := &RefreshTokenClaims{}
-	if err := s.parse(tokenStr, claims, TokenTypeRefresh); err != nil {
-		// Wrap the technical parse error in the Unauthorized intent
-		return nil, apperr.Unauthorized(err)
+	if tokenStr == "" {
+		return nil, derr.ErrRequired("refresh token")
 	}
-	dto := s.mapToRefreshDTO(*claims)
-	return &dto, nil
+
+	claims := &RefreshTokenClaims{}
+	err := s.parse(tokenStr, claims, TokenTypeRefresh)
+	if err == nil {
+		dto := s.mapToRefreshDTO(*claims)
+		return &dto, nil
+	}
+
+	return nil, s.mapJWTErr(err)
 }
 
-// --- Private Helpers ---
+// mapJWTErr centralizes the translation from jwt-v5 errors to your Domain Errors
+func (s *jwtService) mapJWTErr(err error) error {
+	if errors.Is(err, jwt.ErrTokenExpired) {
+		return derr.ErrExpired("token") // Maps to CodeConflict (3)
+	}
+
+	if errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
+		errors.Is(err, jwt.ErrTokenMalformed) ||
+		errors.Is(err, jwt.ErrTokenUnverifiable) ||
+		errors.Is(err, jwt.ErrTokenInvalidClaims) ||
+		errors.Is(err, jwt.ErrTokenRequiredClaimMissing) {
+		return derr.ErrInvalid("token format or signature") // Maps to CodeValidation (2)
+	}
+
+	// Technical/Config issues (RSA keys etc) are returned as raw errors
+	// so apperr.Internal picks them up as CodeInternal (5)
+	return err
+}
 
 func (s *jwtService) sign(claims jwt.Claims) (valueobjects.Token, error) {
 	token := jwt.NewWithClaims(s.signingAlg, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return valueobjects.Token{}, err // Return raw; IssueAccessToken wraps it
+		return valueobjects.Token{}, err
 	}
 
 	return valueobjects.NewToken(signed)
@@ -110,25 +137,26 @@ func (s *jwtService) sign(claims jwt.Claims) (valueobjects.Token, error) {
 func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType string) error {
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, jwt.ErrInvalidKeyType
 		}
 		return s.publicKey, nil
 	})
 
 	if err != nil {
-		return err // Return raw; Validate methods wrap it in Unauthorized
+		return err
 	}
 
 	if !token.Valid {
-		return errors.New("token is mathematically invalid")
+		return jwt.ErrTokenSignatureInvalid
 	}
 
-	if c, ok := claims.(interface{ GetType() string }); ok {
-		if c.GetType() != expectedType {
-			return errors.New("token type mismatch")
-		}
-	} else {
-		return errors.New("missing token type claim")
+	c, ok := claims.(interface{ GetType() string })
+	if !ok {
+		return jwt.ErrTokenRequiredClaimMissing
+	}
+
+	if c.GetType() != expectedType {
+		return jwt.ErrTokenInvalidClaims
 	}
 
 	return nil

@@ -13,7 +13,7 @@ func NewRoleID(value string) (RoleID, error) {
 	trimmed := strings.TrimSpace(value)
 
 	if trimmed == "" {
-		return RoleID{}, derr.NewValidation.RequiredRoleID()
+		return RoleID{}, derr.ErrRequired("role_id")
 	}
 	return RoleID{value: trimmed}, nil
 }

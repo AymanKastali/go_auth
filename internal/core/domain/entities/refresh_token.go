@@ -27,26 +27,26 @@ func NewRefreshToken(
 	now time.Time,
 ) (*RefreshToken, error) {
 	if id.IsEmpty() {
-		return nil, derr.NewValidation.RequiredTokenID()
+		return nil, derr.ErrRequired("token_id")
 	}
 	if userID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredUserID()
+		return nil, derr.ErrRequired("user_id")
 	}
 	if deviceID.IsEmpty() {
-		return nil, derr.NewValidation.RequiredDeviceID()
+		return nil, derr.ErrRequired("device_id")
 	}
 	if token.IsEmpty() {
-		return nil, derr.NewValidation.RequiredToken()
+		return nil, derr.ErrRequired("token")
 	}
 	if expiresAt.IsZero() {
-		return nil, derr.NewValidation.RequiredNow() // or RequiredExpiresAt if added
+		return nil, derr.ErrRequired("expires_at")
 	}
 	if now.IsZero() {
-		return nil, derr.NewValidation.RequiredNow()
+		return nil, derr.ErrRequired("now")
 	}
 
 	if expiresAt.Before(now) {
-		return nil, derr.NewViolation.ExpirationInPast()
+		return nil, derr.ErrExpirationDateCannotBePast()
 	}
 
 	return &RefreshToken{
@@ -89,10 +89,10 @@ func ReconstituteRefreshToken(
 func (e *RefreshToken) Revoke(now time.Time) error {
 	if e.IsDeleted() {
 		// Use specific violation for deleted state
-		return derr.NewViolation.TokenRevoked()
+		return derr.ErrEntityDeleted("token")
 	}
 	if e.IsRevoked() {
-		return derr.NewViolation.TokenRevoked()
+		return derr.ErrEntityRevoked("token")
 	}
 
 	e.revokedAt = &now
@@ -102,7 +102,7 @@ func (e *RefreshToken) Revoke(now time.Time) error {
 
 func (e *RefreshToken) SoftDelete(now time.Time) error {
 	if e.IsDeleted() {
-		return derr.NewViolation.UserAlreadyInactive()
+		return derr.ErrEntityDeleted("token")
 	}
 
 	e.deletedAt = &now
@@ -114,20 +114,20 @@ func (e *RefreshToken) SoftDelete(now time.Time) error {
 
 func (e *RefreshToken) EnsureUsable(now time.Time) error {
 	if e.IsDeleted() {
-		return derr.NewViolation.TokenRevoked()
+		return derr.ErrEntityDeleted("token")
 	}
 	if e.IsRevoked() {
-		return derr.NewViolation.TokenRevoked()
+		return derr.ErrEntityRevoked("token")
 	}
 	if e.IsExpired(now) {
-		return derr.NewViolation.TokenExpired()
+		return derr.ErrExpired("token")
 	}
 	return nil
 }
 
 func (e *RefreshToken) BelongsTo(deviceID valueobjects.DeviceID) error {
 	if !e.deviceID.Equal(deviceID) {
-		return derr.NewViolation.TokenDoesNotMatchDevice()
+		return derr.ErrOwnershipViolation("token", "device")
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"errors"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/interfaces"
@@ -41,52 +40,54 @@ func NewRegisterUseCase(
 	}
 }
 
-func (uc *registerUseCase) Execute(email, password string) (*dto.RegisteredUserDTO, error) {
-	// 1. Value Object Creation (Validation Intent)
+func (uc *registerUseCase) Execute(requestID, email, password string) (*dto.RegisteredUserDTO, error) {
+	uc.logger.Info("Starting user registration", "email", email, "request_id", requestID)
+
+	// 1. Value Object Creation (Validation)
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		return nil, apperr.Validation(err)
+		// NewEmail returns a derr.DomainError, we map it to apperr
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
+	// 2. Business Logic Existence Check
 	existingUser, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		// This is a technical error (DB down, etc.)
-		return nil, apperr.Internal(err)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 	if existingUser != nil {
-		// The user exists, return a Conflict error
-		return nil, apperr.Conflict(errors.New("user already exists with this email"))
+		uc.logger.Warn("Registration attempt with existing email", "email", email, "request_id", requestID)
+		return nil, apperr.Conflict("an account with this email already exists", requestID, nil)
 	}
 
-	// 2. Hash Password (Infrastructure Intent)
+	// 3. Hash Password
 	hash, err := uc.passwordHasher.Hash(password)
 	if err != nil {
-		uc.logger.Error("Password hashing failed", "error", err)
-		return nil, apperr.Internal(err)
+		uc.logger.Error("Password hashing failed", "request_id", requestID, "error", err)
+		return nil, apperr.Internal("security service failure", requestID, err)
 	}
 
 	pw, err := valueobjects.NewHashedPassword(hash)
 	if err != nil {
-		return nil, apperr.Validation(err)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
-	// 3. Dependency Fetching (Internal Intent - Misconfiguration)
+	// 4. Role Fetching (System Dependency)
 	userRole, err := uc.roleRepo.GetByName("user")
 	if err != nil {
-		return nil, apperr.Internal(err)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 	if userRole == nil {
-		uc.logger.Error("System misconfiguration: user role missing")
-		return nil, apperr.Internal(errors.New("required system role 'user' is missing"))
+		uc.logger.Error("System misconfiguration: 'user' role missing", "request_id", requestID)
+		return nil, apperr.Internal("required system configuration missing", requestID, nil)
 	}
 
 	userID, err := uc.uuidGenerator.NewUserID()
 	if err != nil {
-		uc.logger.Error("Failed to generate user ID", "error", err)
-		return nil, apperr.Internal(err)
+		return nil, apperr.Internal("failed to generate user identity", requestID, err)
 	}
 
-	// 4. Aggregate Root Instantiation (Validation/Logic Intent)
+	// 5. Aggregate Instantiation (Logic/Invariants)
 	user, err := aggregates.NewUser(
 		userID,
 		emailVO,
@@ -96,15 +97,14 @@ func (uc *registerUseCase) Execute(email, password string) (*dto.RegisteredUserD
 		uc.clock.NowUTC(),
 	)
 	if err != nil {
-		// If NewUser fails, it means domain invariants weren't met
-		return nil, apperr.Validation(err)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
-	// 5. Persistence (Internal/Conflict Intent)
-	if err := uc.userRepo.Save(user); err != nil {
-		// Note: If your Repo detects a duplicate email,
-		// it should return a derr.OpRule conflict, which Conflict(err) will wrap.
-		return nil, apperr.Conflict(err)
+	// 6. Persistence
+	if err := uc.userRepo.Create(user); err != nil {
+		// If the DB returns a unique constraint error, repo maps it to derr.ErrDuplicate
+		// which FromDomain handles perfectly as a Conflict (409).
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	return &dto.RegisteredUserDTO{

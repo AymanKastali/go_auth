@@ -32,36 +32,63 @@ func NewAuthUserUseCase(
 	}
 }
 
-func (uc *authUserUseCase) Execute(userID string) (*dto.AuthUser, error) {
+func (uc *authUserUseCase) Execute(requestID string, userID string) (*dto.AuthUser, error) {
+	// 1. Parsing Input
 	userIDVO, err := uc.uuidParser.ParseUserID(userID)
 	if err != nil {
-		uc.logger.Error("Failed to parse user ID", "error", err)
-		return nil, apperr.Validation(err)
+		uc.logger.Warn("invalid user id format provided",
+			slog.String("user_id", userID),
+			slog.String("request_id", requestID),
+			slog.Any("error", err))
+		return nil, apperr.BadRequest("invalid user id format", requestID, err)
 	}
 
+	// 2. Fetching User
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		return nil, apperr.Internal(err)
-	}
-	if user == nil {
-		return nil, apperr.NotFound(nil)
+		uc.logger.Error("failed to retrieve user from repository",
+			slog.String("user_id", userID),
+			slog.String("request_id", requestID),
+			slog.Any("error", err))
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
+	if user == nil {
+		uc.logger.Info("authentication attempted for non-existent user",
+			slog.String("user_id", userID),
+			slog.String("request_id", requestID))
+		return nil, apperr.NotFound("user not found", requestID, nil)
+	}
+
+	// 3. Fetching Roles
 	roleIDs := user.RoleIDs()
 	roles := make([]string, len(roleIDs))
+
 	for i, rID := range roleIDs {
 		role, err := uc.roleRepo.GetByID(rID)
 		if err != nil {
-			uc.logger.Error("Failed to fetch role", "roleID", rID, "error", err)
-			return nil, apperr.Internal(err)
+			uc.logger.Error("critical failure fetching role details",
+				slog.String("user_id", userID),
+				slog.Any("role_id", rID),
+				slog.String("request_id", requestID),
+				slog.Any("error", err))
+			return nil, apperr.FromDomain(err, requestID)
 		}
+
 		if role == nil {
-			uc.logger.Warn("Role not found for user", "roleID", rID)
+			uc.logger.Warn("user assigned to non-existent role",
+				slog.String("user_id", userID),
+				slog.Any("role_id", rID),
+				slog.String("request_id", requestID))
 			roles[i] = "UNKNOWN"
 			continue
 		}
 		roles[i] = role.Name()
 	}
+
+	uc.logger.Info("user authentication data successfully compiled",
+		slog.String("user_id", userID),
+		slog.String("request_id", requestID))
 
 	return &dto.AuthUser{
 		ID:        user.ID().Value(),
