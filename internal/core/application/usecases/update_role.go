@@ -47,7 +47,7 @@ func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) 
 	userIDVO, err := uc.uuidParser.ParseUserID(req.UserID)
 	if err != nil {
 		uc.logger.Error("Failed to parse user ID", "request_id", requestID, "error", err)
-		return apperr.BadRequest("invalid user id format", requestID, err)
+		return apperr.Invalid("invalid user id format", requestID, err)
 	}
 
 	// 2. Resource Fetching
@@ -84,7 +84,7 @@ func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) 
 			return apperr.FromDomain(err, requestID)
 		}
 	default:
-		return apperr.BadRequest("invalid action: "+action, requestID, nil)
+		return apperr.Invalid("invalid action: "+action, requestID, nil)
 	}
 
 	// 4. Persistence

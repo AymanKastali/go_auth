@@ -12,7 +12,7 @@ type DeviceID struct {
 func NewDeviceID(value string) (DeviceID, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return DeviceID{}, derr.ErrRequired("device_id")
+		return DeviceID{}, derr.ErrDeviceIDRequired()
 	}
 	return DeviceID{value: trimmed}, nil
 }

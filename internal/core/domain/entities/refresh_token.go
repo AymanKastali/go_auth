@@ -24,29 +24,29 @@ func NewRefreshToken(
 	deviceID valueobjects.DeviceID,
 	token valueobjects.Token,
 	expiresAt time.Time,
-	now time.Time,
+	currentTime time.Time,
 ) (*RefreshToken, error) {
 	if id.IsEmpty() {
-		return nil, derr.ErrRequired("token_id")
+		return nil, derr.ErrTokenIDRequired()
 	}
 	if userID.IsEmpty() {
-		return nil, derr.ErrRequired("user_id")
+		return nil, derr.ErrUserIDRequired()
 	}
 	if deviceID.IsEmpty() {
-		return nil, derr.ErrRequired("device_id")
+		return nil, derr.ErrDeviceIDRequired()
 	}
 	if token.IsEmpty() {
-		return nil, derr.ErrRequired("token")
+		return nil, derr.ErrTokenRequired()
 	}
 	if expiresAt.IsZero() {
-		return nil, derr.ErrRequired("expires_at")
+		return nil, derr.ErrExpiresAtRequired()
 	}
-	if now.IsZero() {
-		return nil, derr.ErrRequired("now")
+	if currentTime.IsZero() {
+		return nil, derr.ErrCurrentTimeRequired()
 	}
 
-	if expiresAt.Before(now) {
-		return nil, derr.ErrExpirationDateCannotBePast()
+	if expiresAt.Before(currentTime) {
+		return nil, derr.ErrExpirationInPast()
 	}
 
 	return &RefreshToken{
@@ -55,8 +55,8 @@ func NewRefreshToken(
 		deviceID:  deviceID,
 		token:     token,
 		expiresAt: expiresAt,
-		createdAt: now,
-		updatedAt: now,
+		createdAt: currentTime,
+		updatedAt: currentTime,
 	}, nil
 }
 
@@ -86,62 +86,63 @@ func ReconstituteRefreshToken(
 
 // --- Domain Actions ---
 
-func (e *RefreshToken) Revoke(now time.Time) error {
+func (e *RefreshToken) Revoke(currentTime time.Time) error {
 	if e.IsDeleted() {
 		// Use specific violation for deleted state
-		return derr.ErrEntityDeleted("token")
+		return derr.ErrTokenDeleted(e.id.Value())
 	}
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("token")
+		return derr.ErrTokenRevoked(e.id.Value())
 	}
 
-	e.revokedAt = &now
-	e.touch(now)
+	e.revokedAt = &currentTime
+	e.touch(currentTime)
 	return nil
 }
 
-func (e *RefreshToken) SoftDelete(now time.Time) error {
+func (e *RefreshToken) SoftDelete(currentTime time.Time) error {
 	if e.IsDeleted() {
-		return derr.ErrEntityDeleted("token")
+		return derr.ErrTokenDeleted(e.id.Value())
 	}
 
-	e.deletedAt = &now
-	e.touch(now)
+	e.deletedAt = &currentTime
+	e.touch(currentTime)
 	return nil
 }
 
 // --- Invariants & Helpers ---
 
-func (e *RefreshToken) EnsureUsable(now time.Time) error {
+func (e *RefreshToken) EnsureUsable(currentTime time.Time) error {
+	tokenID := e.id.Value()
 	if e.IsDeleted() {
-		return derr.ErrEntityDeleted("token")
+		return derr.ErrTokenDeleted(tokenID)
 	}
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("token")
+		return derr.ErrTokenRevoked(tokenID)
 	}
-	if e.IsExpired(now) {
-		return derr.ErrExpired("token")
+	if e.IsExpired(currentTime) {
+		return derr.ErrTokenExpired(tokenID)
 	}
 	return nil
 }
 
 func (e *RefreshToken) BelongsTo(deviceID valueobjects.DeviceID) error {
 	if !e.deviceID.Equal(deviceID) {
-		return derr.ErrOwnershipViolation("token", "device")
+		return derr.ErrTokenDoesNotBelongToDevice(e.id.Value(), deviceID.Value())
 	}
 	return nil
 }
 
-func (e *RefreshToken) IsRevoked() bool              { return e.revokedAt != nil }
-func (e *RefreshToken) IsDeleted() bool              { return e.deletedAt != nil }
-func (e *RefreshToken) IsExpired(now time.Time) bool { return now.After(e.expiresAt) }
+func (e *RefreshToken) IsRevoked() bool                      { return e.revokedAt != nil }
+func (e *RefreshToken) IsDeleted() bool                      { return e.deletedAt != nil }
+func (e *RefreshToken) IsExpired(currentTime time.Time) bool { return currentTime.After(e.expiresAt) }
 
-func (e *RefreshToken) IsActive(now time.Time) bool {
-	return !e.IsDeleted() && !e.IsRevoked() && !e.IsExpired(now)
+func (e *RefreshToken) IsActive(currentTime time.Time) bool {
+	return !e.IsDeleted() && !e.IsRevoked() && !e.IsExpired(currentTime)
 }
 
-func (e *RefreshToken) touch(now time.Time) {
-	e.updatedAt = now
+func (e *RefreshToken) touch(currentTime time.Time) {
+	e.updatedAt = currentTime
 }
 
 // --- Getters ---

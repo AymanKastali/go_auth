@@ -59,7 +59,7 @@ func (s *seedAdminService) SeedAdmin() error {
 	emailVO, err := valueobjects.NewEmail(adminEmail)
 	if err != nil {
 		s.logger.Error("Failed to create Email value object", "error", err)
-		return apperr.BadRequest("invalid admin email in config", seederTraceID, err)
+		return apperr.Invalid("invalid admin email in config", seederTraceID, err)
 	}
 
 	// 3. Existence Check

@@ -38,25 +38,25 @@ func (e *Role) DeletedAt() *time.Time {
 func NewRole(
 	roleID valueobjects.RoleID,
 	name string,
-	now time.Time,
+	currentTime time.Time,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
-		return nil, derr.ErrRequired("role_id")
+		return nil, derr.ErrRoleIDRequired()
 	}
 
 	if strings.TrimSpace(name) == "" {
-		return nil, derr.ErrRequired("name")
+		return nil, derr.ErrRoleNameRequired()
 	}
 
-	if now.IsZero() {
-		return nil, derr.ErrRequired("now")
+	if currentTime.IsZero() {
+		return nil, derr.ErrCurrentTimeRequired()
 	}
 
 	return &Role{
 		id:        roleID,
 		name:      name,
-		createdAt: now,
-		updatedAt: now,
+		createdAt: currentTime,
+		updatedAt: currentTime,
 	}, nil
 }
 

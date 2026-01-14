@@ -2,86 +2,95 @@ package middlewares
 
 import (
 	"errors"
+	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/domain/derr"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func GlobalErrorHandler(c *fiber.Ctx, err error) error {
-	// 1. Get RequestID from Fiber context (assuming you use the RequestID middleware)
-	// If not found, it defaults to an empty string or a fallback.
-	requestID := c.GetRespHeader(fiber.HeaderXRequestID, "00000000-0000-0000-0000-000000000000")
-
-	// Default fallback values
-	statusCode := http.StatusInternalServerError
-	resp := fiber.Map{
-		"success":    false,
-		"message":    "An unexpected server error occurred",
-		"code":       derr.CodeInternal,
-		"request_id": requestID, 
+	if err == nil {
+		return nil
 	}
 
-	// 2. Check if it's our custom AppError interface
-	var aErr apperr.AppError
+	requestID, _ := c.Locals("request_id").(string)
+	if requestID == "" {
+		requestID = "00000000-0000-0000-0000-000000000000"
+	}
+
+	// Default initialization
+	statusCode := http.StatusInternalServerError
+	resp := dto.ErrorResponse{
+		Success: false,
+		Kind:    int(apperr.KindInternal), // Default to internal kind
+		Message: "An unexpected server error occurred",
+	}
+
+	var aErr *apperr.AppError
 	if errors.As(err, &aErr) {
-		switch aErr.Code() {
-		case derr.CodeValidation:
+		if aErr.RequestID != "" {
+			requestID = aErr.RequestID
+		}
+
+		// 1. Map Application Kind to HTTP Status
+		switch aErr.Kind {
+		case apperr.KindInvalid:
 			statusCode = http.StatusBadRequest
-		case derr.CodeNotFound:
-			statusCode = http.StatusNotFound
-		case derr.CodeConflict:
-			statusCode = http.StatusConflict
-		case derr.CodePermissionDenied:
+		case apperr.KindUnauthenticated:
+			statusCode = http.StatusUnauthorized
+		case apperr.KindUnauthorized:
 			statusCode = http.StatusForbidden
-		case derr.CodeInternal:
+		case apperr.KindNotFound:
+			statusCode = http.StatusNotFound
+		case apperr.KindConflict:
+			statusCode = http.StatusConflict
+		case apperr.KindInternal:
 			statusCode = http.StatusInternalServerError
 		}
 
-		resp["message"] = aErr.Error()
-		resp["code"] = aErr.Code()
-		
-		// Use the TraceID from the error if available, otherwise fallback to context ID
-		if aErr.TraceID() != "" {
-			resp["request_id"] = aErr.TraceID()
+		// 2. Build Response
+		resp.Kind = int(aErr.Kind)
+		resp.Message = aErr.Message
+
+		// 3. Handle Validation Details (Field extraction)
+		if aErr.Kind == apperr.KindInvalid && aErr.Err != nil {
+			errMsg := aErr.Err.Error()
+			resp.Message = errMsg
+
+			// Simple logic to extract field name from common validation strings
+			// e.g., "Key: 'LoginRequest.Email' Error:Field validation..."
+			if strings.Contains(errMsg, "Key: '") {
+				start := strings.Index(errMsg, ".") + 1
+				end := strings.Index(errMsg, "'")
+				if start > 0 && end > start {
+					resp.Field = errMsg[start:end]
+				}
+			}
 		}
 
-		// Log based on severity
-		if aErr.Code() == derr.CodeInternal {
-			slog.Error("Internal Application Error",
-				"path", c.Path(),
-				"request_id", resp["request_id"],
-				"cause", aErr.Cause(),
-				"error", aErr.Error(),
-			)
+		// 4. Log based on severity
+		if aErr.Kind == apperr.KindInternal {
+			slog.Error("Internal Failure", "path", c.Path(), "request_id", requestID, "error", aErr.Err)
 		} else {
-			slog.Warn("Business Rule Violation",
-				"path", c.Path(),
-				"code", aErr.Code(),
-				"message", aErr.Error(),
-			)
+			slog.Warn("Business Logic Blocked", "path", c.Path(), "kind", resp.Kind, "message", resp.Message)
 		}
 
 		return c.Status(statusCode).JSON(resp)
 	}
 
-	// 3. Handle Fiber specific errors (e.g. 404 on invalid routes)
+	// 5. Handle Fiber/Generic errors
 	var fiberErr *fiber.Error
 	if errors.As(err, &fiberErr) {
 		statusCode = fiberErr.Code
-		resp["message"] = fiberErr.Message
-		resp["code"] = "FIBER_ERROR" // Or a specific derr mapping
-		return c.Status(statusCode).JSON(resp)
+		resp.Message = fiberErr.Message
+		resp.Kind = 0 // Or a specific transport error code
+	} else {
+		slog.Error("Unhandled Error", "path", c.Path(), "error", err.Error())
+		resp.Message = err.Error()
 	}
 
-	// 4. Final Fallback for unhandled technical errors (e.g. library panics)
-	slog.Error("Unhandled Technical Error", 
-		"path", c.Path(), 
-		"request_id", requestID,
-		"error", err.Error(),
-	)
-	
 	return c.Status(statusCode).JSON(resp)
 }

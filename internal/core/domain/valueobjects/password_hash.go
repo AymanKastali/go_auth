@@ -13,7 +13,7 @@ func NewHashedPassword(value string) (HashedPassword, error) {
 	trimmed := strings.TrimSpace(value)
 
 	if trimmed == "" {
-		return HashedPassword{}, derr.ErrRequired("hashed_password")
+		return HashedPassword{}, derr.ErrPasswordRequired()
 	}
 
 	return HashedPassword{value: trimmed}, nil
