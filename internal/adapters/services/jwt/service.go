@@ -5,7 +5,6 @@ import (
 	"errors"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
 
@@ -39,13 +38,13 @@ func NewJWTService(cfg *JWTConfig) ports.TokenServicePort {
 func (s *jwtService) IssueAccessToken(
 	tokenID, userID, deviceID string,
 	roles []string,
-	now time.Time,
+	currentTime time.Time,
 ) (valueobjects.Token, dto.AccessTokenClaims, error) {
 	claims := AccessTokenClaims{
 		Type:             TokenTypeAccess,
 		Roles:            roles,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.accessTTL, now),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.accessTTL, currentTime),
 	}
 
 	token, err := s.sign(claims)
@@ -59,12 +58,12 @@ func (s *jwtService) IssueAccessToken(
 
 func (s *jwtService) IssueRefreshToken(
 	tokenID, userID, deviceID string,
-	now time.Time,
+	currentTime time.Time,
 ) (valueobjects.Token, dto.RefreshTokenClaims, error) {
 	claims := RefreshTokenClaims{
 		Type:             TokenTypeRefresh,
 		DeviceID:         deviceID,
-		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.refreshTTL, now),
+		RegisteredClaims: s.newRegisteredClaims(tokenID, userID, s.refreshTTL, currentTime),
 	}
 
 	token, err := s.sign(claims)
@@ -76,10 +75,6 @@ func (s *jwtService) IssueRefreshToken(
 }
 
 func (s *jwtService) ValidateAccessToken(tokenStr string) (*dto.AccessTokenClaims, error) {
-	if tokenStr == "" {
-		return nil, derr.ErrRequired("access token")
-	}
-
 	claims := &AccessTokenClaims{}
 	err := s.parse(tokenStr, claims, TokenTypeAccess)
 	if err == nil {
@@ -91,10 +86,6 @@ func (s *jwtService) ValidateAccessToken(tokenStr string) (*dto.AccessTokenClaim
 }
 
 func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenClaims, error) {
-	if tokenStr == "" {
-		return nil, derr.ErrRequired("refresh token")
-	}
-
 	claims := &RefreshTokenClaims{}
 	err := s.parse(tokenStr, claims, TokenTypeRefresh)
 	if err == nil {
@@ -107,20 +98,26 @@ func (s *jwtService) ValidateRefreshToken(tokenStr string) (*dto.RefreshTokenCla
 
 // mapJWTErr centralizes the translation from jwt-v5 errors to your Domain Errors
 func (s *jwtService) mapJWTErr(err error) error {
-	if errors.Is(err, jwt.ErrTokenExpired) {
-		return derr.ErrExpired("token") // Maps to CodeConflict (3)
+	if err == nil {
+		return nil
 	}
 
+	// 1. Handle Expiration
+	if errors.Is(err, jwt.ErrTokenExpired) {
+		return WrapExpired(err, "token has expired")
+	}
+
+	// 2. Handle Signature/Format/Claims issues
 	if errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
 		errors.Is(err, jwt.ErrTokenMalformed) ||
 		errors.Is(err, jwt.ErrTokenUnverifiable) ||
 		errors.Is(err, jwt.ErrTokenInvalidClaims) ||
 		errors.Is(err, jwt.ErrTokenRequiredClaimMissing) {
-		return derr.ErrInvalid("token format or signature") // Maps to CodeValidation (2)
+		return WrapInvalid(err, "token is invalid or tampered")
 	}
 
-	// Technical/Config issues (RSA keys etc) are returned as raw errors
-	// so apperr.Internal picks them up as CodeInternal (5)
+	// 3. Technical failures (e.g., RSA key issues)
+	// Return raw so they trigger a 500 Internal error
 	return err
 }
 
@@ -162,15 +159,15 @@ func (s *jwtService) parse(tokenStr string, claims jwt.Claims, expectedType stri
 	return nil
 }
 
-func (s *jwtService) newRegisteredClaims(tokenID, userID string, ttl time.Duration, now time.Time) jwt.RegisteredClaims {
+func (s *jwtService) newRegisteredClaims(tokenID, userID string, ttl time.Duration, currentTime time.Time) jwt.RegisteredClaims {
 	return jwt.RegisteredClaims{
 		Issuer:    s.issuer,
 		Subject:   userID,
 		Audience:  []string{s.audience},
 		ID:        tokenID,
-		IssuedAt:  jwt.NewNumericDate(now),
-		NotBefore: jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+		IssuedAt:  jwt.NewNumericDate(currentTime),
+		NotBefore: jwt.NewNumericDate(currentTime),
+		ExpiresAt: jwt.NewNumericDate(currentTime.Add(ttl)),
 	}
 }
 

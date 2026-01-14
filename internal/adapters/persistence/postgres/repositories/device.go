@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/domain/derr"
+	"go_auth/internal/adapters/persistence/postgres/pgerr" // Use pgerr instead of derr
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 	"time"
@@ -32,30 +32,25 @@ func (r *GormDeviceRepository) GetByID(deviceID valueobjects.DeviceID) (*entitie
 	err := r.db.Where("id = ?", deviceID.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Keeping nil, nil as your UseCase specifically checks 'if device == nil'
-			// to decide between creating a new device or updating an existing one.
-			return nil, nil
+			return nil, nil // Nil for "not found" to support Use Case creation logic
 		}
-		return nil, err
+		// Wrap infrastructure/connection failures
+		return nil, pgerr.WrapUnavailable(err, "failed to fetch device by id")
 	}
 
 	return r.mapper.ToDomain(&model)
 }
 
 func (r *GormDeviceRepository) Upsert(device *entities.Device) error {
-	if device == nil {
-		return derr.ErrRequired("device entity")
-	}
-
 	model := r.mapper.ToModel(device)
 	// GORM Save performs an upsert if the primary key is present
 	err := r.db.Save(model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return derr.ErrDuplicate("device", device.ID().Value())
+			return pgerr.WrapAlreadyExists(err, "device already exists")
 		}
-		return err
+		return pgerr.WrapUnavailable(err, "failed to upsert device")
 	}
 	return nil
 }
@@ -69,12 +64,7 @@ func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt 
 		})
 
 	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		// Specific business rule: Identify if the device wasn't found or was already inactive
-		return derr.ErrNotFound("Active device", deviceID.Value())
+		return pgerr.WrapUnavailable(result.Error, "failed to revoke device")
 	}
 
 	return nil
@@ -84,7 +74,7 @@ func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entit
 	var modelsList []models.Device
 	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
 	if err != nil {
-		return nil, err
+		return nil, pgerr.WrapUnavailable(err, "failed to fetch devices by user id")
 	}
 
 	devices := make([]*entities.Device, len(modelsList))

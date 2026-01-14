@@ -44,6 +44,6 @@ func RequireRole(requiredRoleName string) fiber.Handler {
 
 		// 5. Explicit Permission Denied
 		// This results in a 403 Forbidden via the GlobalErrorHandler
-		return apperr.Forbidden("insufficient permissions to access this resource", requestID, nil)
+		return apperr.Unauthorized("insufficient permissions to access this resource", requestID, nil)
 	}
 }

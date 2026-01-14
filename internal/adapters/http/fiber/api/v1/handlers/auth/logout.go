@@ -23,29 +23,36 @@ func NewLogoutHandler(
 }
 
 func (h *logoutHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract TraceID (Required for the AppError system)
+	// 1. Extract Identity Context (TraceID/RequestID)
 	auth, ok := utils.GetAuthContext(c)
 	if !ok {
-		// This should theoretically never happen if JWTMiddleware is present
-		return apperr.Unauthorized("identity not found in context", "system", nil)
+		// KindUnauthenticated: The identity is missing from the request lifecycle
+		return apperr.Unauthenticated("identity not found in context", "system", nil)
 	}
 	requestID := auth.RequestID
 
 	var req dto.LogoutRequest
 
-	// 2. TRANSPORT: Parse request body
+	// 2. Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		// Use BadRequest to trigger the GlobalErrorHandler's 400 logic
-		return apperr.BadRequest("invalid request body", requestID, err)
+		// KindInvalid: The JSON itself is malformed
+		return apperr.Invalid("invalid request body format", requestID, err)
 	}
 
-	// 3. APPLICATION: Call use case with (requestID, refreshToken)
-	// This matches the updated Execute(string, string) signature
+	// 3. Structural Validation
+	// This checks if the RefreshToken field is present/meets basic criteria
+	if err := utils.Validate(req); err != nil {
+		// KindInvalid: Required fields are missing from the DTO
+		return apperr.Invalid("validation failed: refresh token is required", requestID, err)
+	}
+
+	// 4. Business Logic Orchestration
+	// UseCase will handle finding the token and updating the DB state
 	if err := h.uc.Execute(requestID, req.RefreshToken); err != nil {
-		// Bubbles up apperr.NotFound (if already logged out) or apperr.Internal
+		// Propagates KindNotFound (404) or KindConflict (409) if already revoked
 		return err
 	}
 
-	// 4. SUCCESS: Return 204 No Content
+	// 5. SUCCESS: HTTP 204
 	return utils.NoContent(c)
 }

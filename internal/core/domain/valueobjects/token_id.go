@@ -12,7 +12,7 @@ type TokenID struct {
 func NewTokenID(value string) (TokenID, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return TokenID{}, derr.ErrRequired("token_id")
+		return TokenID{}, derr.ErrTokenIDRequired()
 	}
 	return TokenID{value: trimmed}, nil
 }

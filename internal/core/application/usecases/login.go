@@ -89,75 +89,75 @@ func (uc *loginUseCase) Execute(
 	return uc.issueTokensAndSaveSession(requestID, tokenID, user, device, roleNames, now)
 }
 
-func (uc *loginUseCase) authenticate(tid, email, password string) (*aggregates.User, error) {
+func (uc *loginUseCase) authenticate(requestID, email, password string) (*aggregates.User, error) {
 	emailVO := valueobjects.ReconstituteEmail(email)
 	user, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		return nil, apperr.FromDomain(err, tid)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	// Security: Use a generic error for both "user not found" and "wrong password"
 	if user == nil || !uc.passwordHasher.Compare(password, user.HashedPassword().Value()) {
-		return nil, apperr.Unauthorized("invalid credentials", tid, nil)
+		return nil, apperr.Unauthorized("invalid credentials", requestID, nil)
 	}
 
 	return user, nil
 }
 
 func (uc *loginUseCase) resolveDevice(
-	tid string,
+	requestID string,
 	userID valueobjects.UserID,
 	deviceIDStr, name, ua, ip string,
-	now time.Time,
+	currentTime time.Time,
 ) (*entities.Device, error) {
 
 	deviceID, err := uc.uuidParser.ParseDeviceID(deviceIDStr)
 	if err != nil {
-		return nil, apperr.BadRequest("invalid device format", tid, err)
+		return nil, apperr.Invalid("invalid device format", requestID, err)
 	}
 
 	device, err := uc.deviceRepo.GetByID(deviceID)
 	if err != nil {
-		return nil, apperr.FromDomain(err, tid)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	if device == nil {
-		device, err = entities.NewDevice(deviceID, userID, &name, &ua, &ip, now)
+		device, err = entities.NewDevice(deviceID, userID, &name, &ua, &ip, currentTime)
 		if err != nil {
-			return nil, apperr.FromDomain(err, tid)
+			return nil, apperr.FromDomain(err, requestID)
 		}
-		device.Activate(now)
+		device.Activate(currentTime)
 	} else {
 		if err := device.BelongsTo(userID); err != nil {
-			return nil, apperr.FromDomain(err, tid)
+			return nil, apperr.FromDomain(err, requestID)
 		}
 
 		if err := device.EnsureUsable(); err != nil {
-			return nil, apperr.FromDomain(err, tid)
+			return nil, apperr.FromDomain(err, requestID)
 		}
 
-		if err := device.MarkSeen(now); err != nil {
-			return nil, apperr.FromDomain(err, tid)
+		if err := device.MarkSeen(currentTime); err != nil {
+			return nil, apperr.FromDomain(err, requestID)
 		}
 
-		if err := device.UpdateMetadata(now, &name, &ua, &ip); err != nil {
-			return nil, apperr.FromDomain(err, tid)
+		if err := device.UpdateMetadata(currentTime, &name, &ua, &ip); err != nil {
+			return nil, apperr.FromDomain(err, requestID)
 		}
 	}
 
 	if err := uc.deviceRepo.Upsert(device); err != nil {
-		return nil, apperr.Internal("storage error updating device", tid, err)
+		return nil, apperr.Internal("storage error updating device", requestID, err)
 	}
 
 	return device, nil
 }
 
-func (uc *loginUseCase) fetchRoleNames(tid string, roleIDs []valueobjects.RoleID) ([]string, error) {
+func (uc *loginUseCase) fetchRoleNames(requestID string, roleIDs []valueobjects.RoleID) ([]string, error) {
 	roleNames := make([]string, 0, len(roleIDs))
 	for _, roleID := range roleIDs {
 		role, err := uc.roleRepo.GetByID(roleID)
 		if err != nil {
-			return nil, apperr.FromDomain(err, tid)
+			return nil, apperr.FromDomain(err, requestID)
 		}
 		if role != nil {
 			roleNames = append(roleNames, role.Name())
@@ -166,34 +166,34 @@ func (uc *loginUseCase) fetchRoleNames(tid string, roleIDs []valueobjects.RoleID
 	return roleNames, nil
 }
 
-func (uc *loginUseCase) issueTokensAndSaveSession(tid string, tokenID valueobjects.TokenID, user *aggregates.User, device *entities.Device, roles []string, now time.Time) (*dto.AuthResponse, error) {
+func (uc *loginUseCase) issueTokensAndSaveSession(requestID string, tokenID valueobjects.TokenID, user *aggregates.User, device *entities.Device, roles []string, currentTime time.Time) (*dto.AuthResponse, error) {
 	accessToken, _, err := uc.tokenService.IssueAccessToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, now,
+		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, currentTime,
 	)
 	if err != nil {
-		return nil, apperr.Internal("access token generation failed", tid, err)
+		return nil, apperr.Internal("access token generation failed", requestID, err)
 	}
 
 	refreshToken, refreshClaims, err := uc.tokenService.IssueRefreshToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), now,
+		tokenID.Value(), user.ID().Value(), device.ID().Value(), currentTime,
 	)
 	if err != nil {
-		return nil, apperr.Internal("refresh token generation failed", tid, err)
+		return nil, apperr.Internal("refresh token generation failed", requestID, err)
 	}
 
 	refreshTokenEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), refreshToken, refreshClaims.ExpiresAt, now,
+		tokenID, user.ID(), device.ID(), refreshToken, refreshClaims.ExpiresAt, currentTime,
 	)
 	if err != nil {
-		return nil, apperr.FromDomain(err, tid)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
-	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), now); err != nil {
-		return nil, apperr.Internal("failed to revoke old sessions", tid, err)
+	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), currentTime); err != nil {
+		return nil, apperr.Internal("failed to revoke old sessions", requestID, err)
 	}
 
 	if err := uc.refreshRepo.Save(refreshTokenEntity); err != nil {
-		return nil, apperr.Internal("failed to save new session", tid, err)
+		return nil, apperr.Internal("failed to save new session", requestID, err)
 	}
 
 	return &dto.AuthResponse{

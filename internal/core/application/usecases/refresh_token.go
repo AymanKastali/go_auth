@@ -72,71 +72,71 @@ func (uc *refreshTokenUseCase) Execute(requestID, oldRefreshToken, deviceIDStr s
 	return uc.rotateTokens(requestID, user, device, oldTokenID, roleNames, uc.clock.NowUTC())
 }
 
-func (uc *refreshTokenUseCase) validateSession(tid, tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
+func (uc *refreshTokenUseCase) validateSession(requestID, tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
 	claims, err := uc.tokenSvc.ValidateRefreshToken(tokenStr)
 	if err != nil {
-		uc.logger.Warn("refresh token validation failed", "request_id", tid, "error", err)
-		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, tid)
+		uc.logger.Warn("refresh token validation failed", "request_id", requestID, "error", err)
+		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, requestID)
 	}
 
 	if claims.DeviceID != deviceIDStr {
-		uc.logger.Warn("device mismatch during refresh", "request_id", tid)
-		return nil, valueobjects.TokenID{}, apperr.Forbidden("session bound to another device", tid, nil)
+		uc.logger.Warn("device mismatch during refresh", "request_id", requestID)
+		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session bound to another device", requestID, nil)
 	}
 
 	oldTokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
 	if err != nil {
-		return nil, valueobjects.TokenID{}, apperr.BadRequest("invalid token identifier", tid, err)
+		return nil, valueobjects.TokenID{}, apperr.Invalid("invalid token identifier", requestID, err)
 	}
 
 	isRevoked, err := uc.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
-		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, tid)
+		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, requestID)
 	}
 	if isRevoked {
-		uc.logger.Warn("reuse detection: revoked token used", "request_id", tid, "jti", claims.JTI)
-		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session invalidated", tid, nil)
+		uc.logger.Warn("reuse detection: revoked token used", "request_id", requestID, "jti", claims.JTI)
+		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session invalidated", requestID, nil)
 	}
 
 	return claims, oldTokenID, nil
 }
 
-func (uc *refreshTokenUseCase) fetchRequiredEntities(tid, uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
+func (uc *refreshTokenUseCase) fetchRequiredEntities(requestID, uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
 	uID, err := uc.uuidParser.ParseUserID(uIDStr)
 	if err != nil {
-		return nil, nil, apperr.BadRequest("invalid user id", tid, err)
+		return nil, nil, apperr.Invalid("invalid user id", requestID, err)
 	}
 
 	dID, err := uc.uuidParser.ParseDeviceID(dIDStr)
 	if err != nil {
-		return nil, nil, apperr.BadRequest("invalid device id", tid, err)
+		return nil, nil, apperr.Invalid("invalid device id", requestID, err)
 	}
 
 	user, err := uc.userRepo.GetByID(uID)
 	if err != nil {
-		return nil, nil, apperr.FromDomain(err, tid)
+		return nil, nil, apperr.FromDomain(err, requestID)
 	}
 	if user == nil {
-		return nil, nil, apperr.Unauthorized("user context lost", tid, nil)
+		return nil, nil, apperr.Unauthorized("user context lost", requestID, nil)
 	}
 
 	device, err := uc.deviceRepo.GetByID(dID)
 	if err != nil {
-		return nil, nil, apperr.FromDomain(err, tid)
+		return nil, nil, apperr.FromDomain(err, requestID)
 	}
 	if device == nil {
-		return nil, nil, apperr.NotFound("device record missing", tid, nil)
+		return nil, nil, apperr.NotFound("device record missing", requestID, nil)
 	}
 
 	return user, device, nil
 }
 
-func (uc *refreshTokenUseCase) getRoleNames(tid string, roleIDs []valueobjects.RoleID) ([]string, error) {
+func (uc *refreshTokenUseCase) getRoleNames(requestID string, roleIDs []valueobjects.RoleID) ([]string, error) {
 	names := make([]string, 0, len(roleIDs))
 	for _, id := range roleIDs {
 		role, err := uc.roleRepo.GetByID(id)
 		if err != nil {
-			return nil, apperr.FromDomain(err, tid)
+			return nil, apperr.FromDomain(err, requestID)
 		}
 		if role != nil {
 			names = append(names, role.Name())
@@ -146,41 +146,41 @@ func (uc *refreshTokenUseCase) getRoleNames(tid string, roleIDs []valueobjects.R
 }
 
 func (uc *refreshTokenUseCase) rotateTokens(
-	tid string,
+	requestID string,
 	user *aggregates.User,
 	device *entities.Device,
 	oldID valueobjects.TokenID,
 	roles []string,
-	now time.Time,
+	currentTime time.Time,
 ) (*dto.AuthResponse, error) {
 	newTokenID, err := uc.uuidGenerator.NewTokenID()
 	if err != nil {
-		return nil, apperr.Internal("id generation failed", tid, err)
+		return nil, apperr.Internal("id generation failed", requestID, err)
 	}
 
-	at, _, err := uc.tokenSvc.IssueAccessToken(newTokenID.Value(), user.ID().Value(), device.ID().Value(), roles, now)
+	at, _, err := uc.tokenSvc.IssueAccessToken(newTokenID.Value(), user.ID().Value(), device.ID().Value(), roles, currentTime)
 	if err != nil {
-		return nil, apperr.Internal("access token issue failed", tid, err)
+		return nil, apperr.Internal("access token issue failed", requestID, err)
 	}
 
-	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(newTokenID.Value(), user.ID().Value(), device.ID().Value(), now)
+	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(newTokenID.Value(), user.ID().Value(), device.ID().Value(), currentTime)
 	if err != nil {
-		return nil, apperr.Internal("refresh token issue failed", tid, err)
+		return nil, apperr.Internal("refresh token issue failed", requestID, err)
 	}
 
-	rtEntity, err := entities.NewRefreshToken(newTokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, now)
+	rtEntity, err := entities.NewRefreshToken(newTokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, currentTime)
 	if err != nil {
-		return nil, apperr.FromDomain(err, tid)
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	// Persist Rotation: Kill the OLD and Save the NEW
-	if err := uc.refreshRepo.Revoke(oldID, now); err != nil {
-		uc.logger.Warn("rotation persistence failed", "request_id", tid, "old_id", oldID.Value())
-		return nil, apperr.FromDomain(err, tid)
+	if err := uc.refreshRepo.Revoke(oldID, currentTime); err != nil {
+		uc.logger.Warn("rotation persistence failed", "request_id", requestID, "old_id", oldID.Value())
+		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	if err := uc.refreshRepo.Save(rtEntity); err != nil {
-		return nil, apperr.Internal("failed to persist new session", tid, err)
+		return nil, apperr.Internal("failed to persist new session", requestID, err)
 	}
 
 	return &dto.AuthResponse{

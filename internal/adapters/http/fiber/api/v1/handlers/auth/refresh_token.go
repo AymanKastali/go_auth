@@ -23,31 +23,39 @@ func NewRefreshTokenHandler(
 }
 
 func (h *refreshTokenHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract TraceID (Necessary for the AppError factories)
+	// 1. Extract context (Contains RequestID, DeviceID, etc.)
 	ctx := utils.GetContext(c)
+	requestID := ctx.RequestID
 
 	var req dto.RefreshTokenRequest
 
-	// 3. TRANSPORT: Parse body
+	// 2. TRANSPORT: Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		return apperr.BadRequest("invalid request payload", ctx.RequestID, err)
+		// KindInvalid: Maps to 400 Bad Request
+		return apperr.Invalid("invalid request payload format", requestID, err)
 	}
 
-	// 4. APPLICATION: Call use case with (requestID, refreshToken, deviceID)
-	// This matches the updated port signature
-	authResp, err := h.uc.Execute(ctx.RequestID, req.RefreshToken, ctx.DeviceID)
+	// 3. Structural Validation
+	// Checks if the RefreshToken string is actually provided in the body
+	if err := utils.Validate(req); err != nil {
+		return apperr.Invalid("validation failed: refresh token is required", requestID, err)
+	}
+
+	// 4. APPLICATION: Orchestrate the token rotation
+	// This will check JWT validity, device binding, and reuse detection (revocation)
+	authResp, err := h.uc.Execute(requestID, req.RefreshToken, ctx.DeviceID)
 	if err != nil {
-		// Bubbles up apperr.Unauthorized, apperr.Conflict (reuse detection), etc.
+		// Propagates KindUnauthenticated (401), KindConflict (409), etc.
 		return err
 	}
 
-	// 5. SUCCESS: Standardized response
+	// 5. SUCCESS: Standardized Auth Response
 	return utils.OK(
 		c,
 		dto.LoginResponse{
 			AccessToken:  authResp.AccessToken,
 			RefreshToken: authResp.RefreshToken,
 		},
-		"User token refreshed successfully",
+		"Tokens rotated successfully",
 	)
 }

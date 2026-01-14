@@ -16,11 +16,11 @@ func NewEmail(email string) (Email, error) {
 	trimmed := strings.TrimSpace(email)
 
 	if trimmed == "" {
-		return Email{}, derr.ErrRequired("email")
+		return Email{}, derr.ErrEmailRequired()
 	}
 
 	if !emailRegex.MatchString(trimmed) {
-		return Email{}, derr.ErrInvalid("email")
+		return Email{}, derr.ErrInvalidEmail()
 	}
 
 	return Email{value: trimmed}, nil

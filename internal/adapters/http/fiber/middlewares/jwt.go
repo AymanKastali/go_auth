@@ -25,18 +25,18 @@ func JWTMiddleware(
 		// 2. Transport Validation
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return apperr.BadRequest("authorization header is required", baseReq.RequestID, nil)
+			return apperr.Invalid("authorization header is required", baseReq.RequestID, nil)
 		}
 
 		// 3. Protocol Validation
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return apperr.BadRequest("invalid authorization format", baseReq.RequestID, nil)
+			return apperr.Invalid("invalid authorization format", baseReq.RequestID, nil)
 		}
 
 		accessToken := parts[1]
 		if accessToken == "" {
-			return apperr.BadRequest("token cannot be empty", baseReq.RequestID, nil)
+			return apperr.Invalid("token cannot be empty", baseReq.RequestID, nil)
 		}
 
 		// 4. Security Service: Validate Token Identity
@@ -50,7 +50,7 @@ func JWTMiddleware(
 		if deviceIDStr != "" && deviceRepo != nil {
 			deviceID, err := uuidParser.ParseDeviceID(deviceIDStr)
 			if err != nil {
-				return apperr.BadRequest("malformed device id in token", baseReq.RequestID, err)
+				return apperr.Invalid("malformed device id in token", baseReq.RequestID, err)
 			}
 
 			device, err := deviceRepo.GetByID(deviceID)

@@ -24,22 +24,22 @@ func NewUser(
 	passwordHash valueobjects.HashedPassword,
 	status valueobjects.UserStatus,
 	roleIDs []valueobjects.RoleID,
-	now time.Time,
+	currentTime time.Time,
 ) (*User, error) {
 	if userID.IsEmpty() {
-		return nil, derr.ErrRequired("user_id")
+		return nil, derr.ErrUserIDRequired()
 	}
 	if email.IsEmpty() {
-		return nil, derr.ErrRequired("email")
+		return nil, derr.ErrEmailRequired()
 	}
 	if passwordHash.IsEmpty() {
-		return nil, derr.ErrRequired("password_hash")
+		return nil, derr.ErrPasswordRequired()
 	}
 	if status == "" {
-		return nil, derr.ErrRequired("status")
+		return nil, derr.ErrStatusRequired()
 	}
-	if now.IsZero() {
-		return nil, derr.ErrRequired("now")
+	if currentTime.IsZero() {
+		return nil, derr.ErrCurrentTimeRequired()
 	}
 
 	if roleIDs == nil {
@@ -52,8 +52,8 @@ func NewUser(
 		passwordHash: passwordHash,
 		status:       status,
 		roleIDs:      slices.Clone(roleIDs),
-		createdAt:    now,
-		updatedAt:    now,
+		createdAt:    currentTime,
+		updatedAt:    currentTime,
 	}, nil
 }
 
@@ -80,7 +80,7 @@ func ReconstituteUser(
 
 func (a *User) ensureNotDeleted() error {
 	if a.IsDeleted() {
-		return derr.ErrEntityDeleted("user")
+		return derr.ErrUserDeleted(a.id.Value())
 	}
 	return nil
 }
@@ -90,49 +90,49 @@ func (a *User) ensureActive() error {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.ErrStatusAlready("user", "inactive")
+		return derr.ErrUserAlreadyInactive(a.id.Value())
 	}
 	return nil
 }
 
-func (a *User) Activate(now time.Time) error {
+func (a *User) Activate(currentTime time.Time) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
 	if a.IsActive() {
-		return derr.ErrStatusAlready("user", "active")
+		return derr.ErrUserAlreadyActive(a.id.Value())
 	}
 
 	a.status = valueobjects.UserActive
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) Deactivate(now time.Time) error {
+func (a *User) Deactivate(currentTime time.Time) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.ErrStatusAlready("user", "inactive")
+		return derr.ErrUserAlreadyInactive(a.id.Value())
 	}
 
 	a.status = valueobjects.UserInactive
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) MarkDeleted(now time.Time) error {
+func (a *User) MarkDeleted(currentTime time.Time) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
 
-	a.deletedAt = &now
+	a.deletedAt = &currentTime
 	a.status = valueobjects.UserInactive
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) ChangeEmail(email valueobjects.Email, now time.Time) error {
+func (a *User) ChangeEmail(email valueobjects.Email, currentTime time.Time) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -141,21 +141,21 @@ func (a *User) ChangeEmail(email valueobjects.Email, now time.Time) error {
 	}
 
 	a.email = email
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) ChangeHashedPassword(hash valueobjects.HashedPassword, now time.Time) error {
+func (a *User) ChangeHashedPassword(hash valueobjects.HashedPassword, currentTime time.Time) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
 
 	a.passwordHash = hash
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) AddRoleID(roleID valueobjects.RoleID, now time.Time) error {
+func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime time.Time) error {
 	if err := a.ensureActive(); err != nil {
 		return err
 	}
@@ -164,21 +164,21 @@ func (a *User) AddRoleID(roleID valueobjects.RoleID, now time.Time) error {
 		return r.Equal(roleID)
 	})
 	if exists {
-		return derr.ErrDuplicate("role", roleID.Value())
+		return derr.ErrRoleAlreadyAssigned(roleID.Value())
 	}
 
 	a.roleIDs = append(a.roleIDs, roleID)
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) RemoveRoleID(roleID valueobjects.RoleID, now time.Time) error {
+func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime time.Time) error {
 	if err := a.ensureActive(); err != nil {
 		return err
 	}
 
 	if len(a.roleIDs) <= 1 {
-		return derr.ErrMinimumRequirement("role", 1)
+		return derr.ErrMinimumRolesRequirement(1)
 	}
 
 	idx := slices.IndexFunc(a.roleIDs, func(r valueobjects.RoleID) bool {
@@ -186,16 +186,16 @@ func (a *User) RemoveRoleID(roleID valueobjects.RoleID, now time.Time) error {
 	})
 
 	if idx == -1 {
-		return derr.ErrNotFound("role", roleID.Value())
+		return derr.ErrRoleNotAssigned(roleID.Value())
 	}
 
 	a.roleIDs = slices.Delete(a.roleIDs, idx, idx+1)
-	a.touch(now)
+	a.touch(currentTime)
 	return nil
 }
 
-func (a *User) touch(now time.Time) {
-	a.updatedAt = now
+func (a *User) touch(currentTime time.Time) {
+	a.updatedAt = currentTime
 }
 
 func (a *User) ID() valueobjects.UserID                     { return a.id }

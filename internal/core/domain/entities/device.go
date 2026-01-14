@@ -25,16 +25,16 @@ func NewDevice(
 	name *string,
 	userAgent *string,
 	ipAddress *string,
-	now time.Time,
+	currentTime time.Time,
 ) (*Device, error) {
 	if deviceID.IsEmpty() {
-		return nil, derr.ErrRequired("device_id")
+		return nil, derr.ErrDeviceIDRequired()
 	}
 	if userID.IsEmpty() {
-		return nil, derr.ErrRequired("user_id")
+		return nil, derr.ErrUserIDRequired()
 	}
-	if now.IsZero() {
-		return nil, derr.ErrRequired("now")
+	if currentTime.IsZero() {
+		return nil, derr.ErrCurrentTimeRequired()
 	}
 
 	return &Device{
@@ -44,9 +44,9 @@ func NewDevice(
 		userAgent:  userAgent,
 		ipAddress:  ipAddress,
 		isActive:   true,
-		createdAt:  now,
-		updatedAt:  now,
-		lastSeenAt: now,
+		createdAt:  currentTime,
+		updatedAt:  currentTime,
+		lastSeenAt: currentTime,
 	}, nil
 }
 
@@ -87,83 +87,83 @@ func (e *Device) UpdatedAt() time.Time        { return e.updatedAt }
 func (e *Device) LastSeenAt() time.Time       { return e.lastSeenAt }
 func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
 
-func (e *Device) Activate(now time.Time) error {
+func (e *Device) Activate(currentTime time.Time) error {
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("device")
+		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 	if e.isActive {
-		return derr.ErrStatusAlready("device", "active")
+		return derr.ErrDeviceAlreadyActive(e.id.Value())
 	}
 
 	e.isActive = true
-	e.touch(now)
+	e.touch(currentTime)
 	return nil
 }
 
-func (e *Device) Deactivate(now time.Time) error {
+func (e *Device) Deactivate(currentTime time.Time) error {
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("device")
+		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 	if !e.isActive {
-		return derr.ErrStatusAlready("device", "inactive")
+		return derr.ErrDeviceAlreadyInactive(e.id.Value())
 	}
 	e.isActive = false
-	e.touch(now)
+	e.touch(currentTime)
 	return nil
 }
 
-func (e *Device) MarkSeen(now time.Time) error {
+func (e *Device) MarkSeen(currentTime time.Time) error {
 	if err := e.EnsureUsable(); err != nil {
 		return err
 	}
 
-	e.lastSeenAt = now
-	e.touch(now)
+	e.lastSeenAt = currentTime
+	e.touch(currentTime)
 	return nil
 }
 
 func (e *Device) UpdateMetadata(
-	now time.Time,
+	currentTime time.Time,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
 ) error {
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("device")
+		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 
 	e.name = name
 	e.userAgent = userAgent
 	e.ipAddress = ipAddress
 
-	e.touch(now)
+	e.touch(currentTime)
 	return nil
 }
 
-func (e *Device) Revoke(now time.Time) error {
+func (e *Device) Revoke(currentTime time.Time) error {
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("device")
+		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 
 	e.isActive = false
-	e.revokedAt = &now
-	e.touch(now)
+	e.revokedAt = &currentTime
+	e.touch(currentTime)
 	return nil
 }
 
 func (e *Device) EnsureUsable() error {
 	if e.IsRevoked() {
-		return derr.ErrEntityRevoked("device")
+		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 	if !e.isActive {
-		return derr.ErrStatusAlready("device", "inactive")
+		return derr.ErrDeviceAlreadyInactive(e.id.Value())
 	}
 	return nil
 }
 
 func (e *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !e.userID.Equal(userID) {
-		return derr.ErrOwnershipViolation("device", "user")
+		return derr.ErrDeviceDoesNotBelongToUser(e.id.Value(), userID.Value())
 	}
 	return nil
 }
@@ -172,6 +172,6 @@ func (e *Device) IsRevoked() bool {
 	return e.revokedAt != nil
 }
 
-func (e *Device) touch(now time.Time) {
-	e.updatedAt = now
+func (e *Device) touch(currentTime time.Time) {
+	e.updatedAt = currentTime
 }

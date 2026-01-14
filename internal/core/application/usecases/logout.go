@@ -54,7 +54,7 @@ func (uc *logoutUseCase) Execute(requestID string, refreshToken string) error {
 			"request_id", requestID,
 			"jti", claims.JTI,
 			"error", err)
-		return apperr.BadRequest("malformed token identifier", requestID, err)
+		return apperr.Invalid("malformed token identifier", requestID, err)
 	}
 
 	// 3. Revoke in Persistence

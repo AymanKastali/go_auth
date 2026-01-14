@@ -40,7 +40,7 @@ func (uc *authUserUseCase) Execute(requestID string, userID string) (*dto.AuthUs
 			slog.String("user_id", userID),
 			slog.String("request_id", requestID),
 			slog.Any("error", err))
-		return nil, apperr.BadRequest("invalid user id format", requestID, err)
+		return nil, apperr.Invalid("invalid user id format", requestID, err)
 	}
 
 	// 2. Fetching User

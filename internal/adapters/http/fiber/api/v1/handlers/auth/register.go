@@ -23,30 +23,37 @@ func NewRegisterHandler(
 }
 
 func (h *registerHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract TraceID (Required by the new apperr system)
-	// We check Locals first, then fall back to the header or a default
+	// 1. Extract context (RequestID for correlation)
 	ctx := utils.GetContext(c)
+	requestID := ctx.RequestID
 
 	var req dto.RegisterRequest
 
 	// 2. TRANSPORT: Parse request body
 	if err := c.BodyParser(&req); err != nil {
-		// Use BadRequest to ensure a 400 Status Code via Global Handler
-		return apperr.BadRequest("invalid request payload", ctx.RequestID, err)
+		// KindInvalid: Maps to 400 Bad Request in the Global Error Handler
+		return apperr.Invalid("invalid registration request format", requestID, err)
 	}
 
-	// 3. APPLICATION: Call the use case with (requestID, email, password)
-	domainResp, err := h.uc.Execute(ctx.RequestID, req.Email, req.Password)
+	// 3. Structural Validation (e.g., checking field length, required fields)
+	if err := utils.Validate(req); err != nil {
+		// KindInvalid: Ensures the DTO matches our API contract
+		return apperr.Invalid("validation failed", requestID, err)
+	}
+
+	// 4. APPLICATION: Execute registration logic
+	domainResp, err := h.uc.Execute(requestID, req.Email, req.Password)
 	if err != nil {
-		// Bubbles up apperr.Conflict, apperr.Internal, etc.
+		// Propagates KindConflict (if email exists) or KindInternal
 		return err
 	}
 
-	// 4. SUCCESS: Map application DTO to web DTO
+	// 5. SUCCESS: Map application DTO to web response
 	adapterResp := dto.RegisteredUserResponse{
 		UserID: domainResp.UserID,
 		Email:  domainResp.Email,
 	}
 
+	// Returns 201 Created
 	return utils.Created(c, adapterResp, "User registered successfully")
 }
