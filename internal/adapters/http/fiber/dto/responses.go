@@ -7,8 +7,9 @@ type SuccessResponse struct {
 }
 
 type ErrorResponse struct {
-	Kind    int    `json:"kind"`
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Field   string `json:"field,omitempty"` // For validation errors
+	Success bool           `json:"success"`           // Always false for this DTO
+	Type    string         `json:"type"`              // e.g., "VALIDATION", "INTERNAL", "NOT_FOUND"
+	Message string         `json:"message"`           // Human-readable summary
+	TraceID string         `json:"trace_id"`          // For support and logging correlation
+	Details map[string]any `json:"details,omitempty"` // Contextual data (e.g., {"field": "email"})
 }

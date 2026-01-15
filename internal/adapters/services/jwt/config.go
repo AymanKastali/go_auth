@@ -4,12 +4,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"go_auth/internal/adapters/shared"
+	"errors"
 	"os"
 	"time"
 )
-
-const module = "JWT"
 
 type JWTConfig struct {
 	privateKey *rsa.PrivateKey
@@ -20,7 +18,6 @@ type JWTConfig struct {
 	refreshTTL time.Duration
 }
 
-// Getters
 func (c *JWTConfig) PrivateKey() *rsa.PrivateKey { return c.privateKey }
 func (c *JWTConfig) PublicKey() *rsa.PublicKey   { return c.publicKey }
 func (c *JWTConfig) Issuer() string              { return c.issuer }
@@ -28,118 +25,106 @@ func (c *JWTConfig) Audience() string            { return c.audience }
 func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
 func (c *JWTConfig) RefreshTTL() time.Duration   { return c.refreshTTL }
 
-func LoadJWTConfig() (*JWTConfig, error) {
-	getRequired := func(key string) (string, error) {
-		val := os.Getenv(key)
-		if val == "" {
-			return "", shared.NewMissingVarErr(module, key)
-		}
-		return val, nil
-	}
-
-	var err error
+func NewJWTConfig() (*JWTConfig, error) {
 	cfg := &JWTConfig{}
 
-	// Required String Fields
-	if cfg.issuer, err = getRequired("GA_JWT_ISSUER"); err != nil {
-		return nil, err
+	// 1. Strings
+	cfg.issuer = os.Getenv("GA_JWT_ISSUER")
+	if cfg.issuer == "" {
+		return nil, errors.New("GA_JWT_ISSUER is required")
 	}
-	if cfg.audience, err = getRequired("GA_JWT_AUDIENCE"); err != nil {
-		return nil, err
+	cfg.audience = os.Getenv("GA_JWT_AUDIENCE")
+	if cfg.audience == "" {
+		return nil, errors.New("GA_JWT_AUDIENCE is required")
 	}
 
-	// Required Duration Fields
-	accessTTLStr, err := getRequired("GA_JWT_ACCESS_TTL")
+	// 2. Durations
+	accessStr := os.Getenv("GA_JWT_ACCESS_TTL")
+	d, err := time.ParseDuration(accessStr)
+	if err != nil {
+		return nil, errors.New("invalid GA_JWT_ACCESS_TTL format")
+	}
+	cfg.accessTTL = d
+
+	refreshStr := os.Getenv("GA_JWT_REFRESH_TTL")
+	d, err = time.ParseDuration(refreshStr)
+	if err != nil {
+		return nil, errors.New("invalid GA_JWT_REFRESH_TTL format")
+	}
+	cfg.refreshTTL = d
+
+	// 3. Keys
+	privPEM := os.Getenv("GA_JWT_PRIVATE_KEY")
+	if privPEM == "" {
+		return nil, errors.New("GA_JWT_PRIVATE_KEY is required")
+	}
+	cfg.privateKey, err = parseRSAPrivateKey(privPEM)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.accessTTL, err = time.ParseDuration(accessTTLStr); err != nil {
-		return nil, shared.NewInvalidVarErr(module, "GA_JWT_ACCESS_TTL", err)
-	}
 
-	refreshTTLStr, err := getRequired("GA_JWT_REFRESH_TTL")
+	pubPEM := os.Getenv("GA_JWT_PUBLIC_KEY")
+	if pubPEM == "" {
+		return nil, errors.New("GA_JWT_PUBLIC_KEY is required")
+	}
+	cfg.publicKey, err = parseRSAPublicKey(pubPEM)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.refreshTTL, err = time.ParseDuration(refreshTTLStr); err != nil {
-		return nil, shared.NewInvalidVarErr(module, "GA_JWT_REFRESH_TTL", err)
-	}
-
-	// Cryptographic Key Fields
-	privPEM, err := getRequired("GA_JWT_PRIVATE_KEY")
-	if err != nil {
-		return nil, err
-	}
-	if cfg.privateKey, err = loadRSAPrivateKey(privPEM); err != nil {
-		return nil, shared.NewInvalidVarErr(module, "GA_JWT_PRIVATE_KEY", err)
-	}
-
-	pubPEM, err := getRequired("GA_JWT_PUBLIC_KEY")
-	if err != nil {
-		return nil, err
-	}
-	if cfg.publicKey, err = loadRSAPublicKey(pubPEM); err != nil {
-		return nil, shared.NewInvalidVarErr(module, "GA_JWT_PUBLIC_KEY", err)
 	}
 
 	return cfg, nil
 }
 
-func loadRSAPrivateKey(pemValue string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemValue))
+// --- Internal Helper Logic ---
+
+func parseRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
-		return nil, ErrInvalidPEM
+		return nil, errors.New("failed to decode private key PEM")
 	}
 
-	var key *rsa.PrivateKey
-	// Attempt PKCS1 (Standard RSA)
-	if k, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		key = k
-	} else {
-		// Attempt PKCS8 (Modern wrapped format)
-		pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, ErrInvalidFormat
-		}
-		k8, ok := pk.(*rsa.PrivateKey)
-		if !ok {
-			return nil, ErrNotRSAPrivateKey
-		}
-		key = k8
+	// Try PKCS1
+	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return key, nil
 	}
 
-	if err := validateRSAKeySize(key.N.BitLen()); err != nil {
-		return nil, err
+	// Try PKCS8
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, errors.New("invalid private key format: must be PKCS1 or PKCS8")
 	}
-	return key, nil
+
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("not an RSA private key")
+	}
+
+	if rsaKey.N.BitLen() < 2048 {
+		return nil, errors.New("insecure key size: minimum 2048 bits required")
+	}
+
+	return rsaKey, nil
 }
 
-func loadRSAPublicKey(pemValue string) (*rsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(pemValue))
+func parseRSAPublicKey(pemStr string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
 	if block == nil {
-		return nil, ErrInvalidPEM
+		return nil, errors.New("failed to decode public key PEM")
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, ErrInvalidFormat
+		return nil, errors.New("invalid public key format")
 	}
 
 	rsaPub, ok := pub.(*rsa.PublicKey)
 	if !ok {
-		return nil, ErrNotRSAPublicKey
+		return nil, errors.New("not an RSA public key")
 	}
 
-	if err := validateRSAKeySize(rsaPub.N.BitLen()); err != nil {
-		return nil, err
+	if rsaPub.N.BitLen() < 2048 {
+		return nil, errors.New("insecure public key size")
 	}
+
 	return rsaPub, nil
-}
-
-func validateRSAKeySize(bits int) error {
-	// Secure minimum bit length check
-	if bits < 2048 {
-		return ErrInsecureKeySize
-	}
-	return nil
 }

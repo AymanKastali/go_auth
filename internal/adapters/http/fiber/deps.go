@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
-	"go_auth/internal/adapters/seed"
+	"go_auth/internal/adapters/seeder"
 	adaptersvc "go_auth/internal/adapters/services"
 	"go_auth/internal/adapters/services/jwt"
 	"go_auth/internal/core/application/services"
@@ -63,7 +63,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Security services
 	// -------------------
-	jwtCfg, err := jwt.LoadJWTConfig()
+	jwtCfg, err := jwt.NewJWTConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Seed admin
 	// -------------------
-	seederCfg, err := seed.LoadSeederConfig()
+	seederCfg, err := seeder.NewSeederConfig()
 	if err != nil {
 		return nil, err
 	}

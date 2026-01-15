@@ -1,7 +1,7 @@
-package auth_handlers
+package auth
 
 import (
-	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
+	"go_auth/internal/adapters/http"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
@@ -15,50 +15,47 @@ type updateRoleHandler struct {
 	uc ports.IUpdateRoleUseCase
 }
 
-var _ interfaces.IUpdateRoleHandler = (*updateRoleHandler)(nil)
-
-func NewUpdateRoleHandler(
-	uc ports.IUpdateRoleUseCase,
-) interfaces.IUpdateRoleHandler {
+func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *updateRoleHandler {
 	return &updateRoleHandler{uc: uc}
 }
 
 func (h *updateRoleHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract Identity Context (RequestID/TraceID)
+	// 1. Retrieve Auth Context (Hydrated by JWTMiddleware)
 	auth, ok := utils.GetAuthContext(c)
 	if !ok {
-		// KindUnauthenticated: Maps to 401. Context missing from the request lifecycle.
-		return apperr.Unauthenticated("identity not found in context", "system", nil)
+		// Strictly an Unauthorized concern if security context is missing
+		return apperr.Unauthorized("session identity missing", "transport-layer", nil)
 	}
-	requestID := auth.RequestID
+	traceID := auth.RequestID
 
-	// 2. TRANSPORT: Parse Web Request Body
-	var webReq dto.ManageRoleRequest
-	if err := c.BodyParser(&webReq); err != nil {
-		// KindInvalid: Maps to 400 Bad Request. Malformed JSON.
-		return apperr.Invalid("invalid request body format", requestID, err)
-	}
+	var req dto.ManageRoleRequest
 
-	// 3. Structural Validation
-	// Ensure UserID, Role, and Action meet the DTO requirements before mapping
-	if err := utils.Validate(webReq); err != nil {
-		return apperr.Invalid("validation failed", requestID, err)
+	// 2. Protocol Layer: Syntax Check (HTTP 400)
+	if err := c.BodyParser(&req); err != nil {
+		// Use the Protocol Adapter for infrastructure failures
+		return http.NewBadRequest(err)
 	}
 
-	// 4. Map to Application DTO
-	// Decouples the Web contract from the internal Use Case input
+	// 3. Application Layer: Schema Validation (HTTP 422)
+	if err := utils.Validate(req); err != nil {
+		return http.NewBadRequest(err)
+	}
+
+	// 4. Input Mapping
+	// Decouples the HTTP contract from the Core application DTO
 	input := app_dto.ManageRoleInput{
-		UserID: webReq.UserID,
-		Role:   webReq.Role,
-		Action: webReq.Action,
+		UserID: req.UserID,
+		Role:   req.Role,
+		Action: req.Action,
 	}
 
-	// 5. APPLICATION: Execute the Role Management logic
-	// Propagates KindNotFound (user/role missing), KindConflict (already assigned), etc.
-	if err := h.uc.Execute(requestID, input); err != nil {
+	// 5. Core Execution: Business Policy
+	// The UC handles permission checks (can the current user do this?) and state updates
+	if err := h.uc.Execute(traceID, input); err != nil {
+		// Propagates apperr.TypeNotFound, TypeForbidden, or TypeConflict
 		return err
 	}
 
-	// 6. SUCCESS: Return 204 No Content for a successful command
+	// 6. Success Response: HTTP 204 No Content
 	return utils.NoContent(c)
 }

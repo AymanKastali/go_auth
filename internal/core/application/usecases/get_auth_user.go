@@ -29,58 +29,46 @@ func NewAuthUserUseCase(
 	}
 }
 
-func (uc *authUserUseCase) Execute(requestID string, userID string) (*dto.AuthUser, error) {
+func (uc *authUserUseCase) Execute(traceID string, userID string) (*dto.AuthUser, error) {
+	uc.logger.Info("Compiling user authentication data", "user_id", userID, "trace_id", traceID)
+
+	// 1. Validation
 	if !uc.idSvc.IsValid(userID) {
-		return nil, apperr.Invalid("invalid user id format", requestID, nil)
+		return nil, apperr.Validation("invalid user id format", traceID, map[string]any{"user_id": userID})
 	}
 	userIDVO := valueobjects.ReconstituteUserID(userID)
 
-	// 2. Fetching User
+	// 2. Fetch User
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		uc.logger.Error("failed to retrieve user from repository",
-			slog.String("user_id", userID),
-			slog.String("request_id", requestID),
-			slog.Any("error", err))
-		return nil, apperr.FromDomain(err, requestID)
+		return nil, apperr.Map(err, traceID)
 	}
 
 	if user == nil {
-		uc.logger.Info("authentication attempted for non-existent user",
-			slog.String("user_id", userID),
-			slog.String("request_id", requestID))
-		return nil, apperr.NotFound("user not found", requestID, nil)
+		return nil, apperr.NotFound("User", userID, traceID)
 	}
 
-	// 3. Fetching Roles
+	// 3. Hydrate Role Names (Strict Integrity Check)
 	roleIDs := user.RoleIDs()
 	roles := make([]string, len(roleIDs))
 
 	for i, rID := range roleIDs {
 		role, err := uc.roleRepo.GetByID(rID)
 		if err != nil {
-			uc.logger.Error("critical failure fetching role details",
-				slog.String("user_id", userID),
-				slog.Any("role_id", rID),
-				slog.String("request_id", requestID),
-				slog.Any("error", err))
-			return nil, apperr.FromDomain(err, requestID)
+			return nil, apperr.Map(err, traceID)
 		}
 
 		if role == nil {
-			uc.logger.Warn("user assigned to non-existent role",
-				slog.String("user_id", userID),
-				slog.Any("role_id", rID),
-				slog.String("request_id", requestID))
-			roles[i] = "UNKNOWN"
-			continue
+			// STRICT: We do not use placeholders. A missing role reference is a 500 Internal error.
+			uc.logger.Error("DATA INTEGRITY VIOLATION: user assigned to non-existent role",
+				"user_id", userID,
+				"role_id", rID.Value(),
+				"trace_id", traceID,
+			)
+			return nil, apperr.Internal("system data integrity violation: role not found", traceID, nil)
 		}
 		roles[i] = role.Name()
 	}
-
-	uc.logger.Info("user authentication data successfully compiled",
-		slog.String("user_id", userID),
-		slog.String("request_id", requestID))
 
 	return &dto.AuthUser{
 		ID:        user.ID().Value(),

@@ -33,44 +33,49 @@ func NewLogoutUseCase(
 	}
 }
 
-func (uc *logoutUseCase) Execute(requestID string, refreshToken string) error {
-	uc.logger.Info("Starting logout process", "request_id", requestID)
+func (uc *logoutUseCase) Execute(traceID string, refreshToken string) error {
+	uc.logger.Info("Starting logout process", "trace_id", traceID)
 
-	// 1. Validate Token
+	// 1. Validate Token (Infrastructure check)
 	claims, err := uc.tokenSvc.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		uc.logger.Warn("Invalid refresh token provided for logout",
-			"request_id", requestID,
+			"trace_id", traceID,
 			"error", err)
-		// tokenSvc returns derr.DomainError, so we map it
-		return apperr.FromDomain(err, requestID)
+
+		// If the token is already invalid/expired, logout is technically "done"
+		// but we return Unauthorized to let the client know the session was already dead.
+		return apperr.Unauthorized("session invalid or already expired", traceID, err)
 	}
 
 	tokenIDStr := claims.JTI
 
-	// 2. Parse JTI from claims
+	// 2. Technical Validation
 	if !uc.idSvc.IsValid(tokenIDStr) {
-		return apperr.Invalid("invalid jti format", requestID, nil)
+		return apperr.Validation("invalid token identifier format", traceID, map[string]any{"jti": tokenIDStr})
 	}
 
 	tokenID := valueobjects.ReconstituteTokenID(tokenIDStr)
 
-	// 3. Revoke in Persistence
-	err = uc.refreshRepo.Revoke(tokenID, uc.clock.Now().UTC())
+	// 3. Revoke in Persistence (State Change)
+	// We use the clock to ensure the revocation timestamp is consistent
+	now := uc.clock.Now().UTC()
+	err = uc.refreshRepo.Revoke(tokenID, now)
 	if err != nil {
 		uc.logger.Error("Failed to revoke refresh token",
-			"request_id", requestID,
-			"tokenID", tokenID,
+			"trace_id", traceID,
+			"token_id", tokenID.Value(),
 			"error", err)
 
-		// This handles derr.CodeNotFound or database internal errors automatically
-		return apperr.FromDomain(err, requestID)
+		// apperr.Map handles derr.CodeNotFound (already revoked)
+		// or database connection failures automatically.
+		return apperr.Map(err, traceID)
 	}
 
 	uc.logger.Info("Logout successful",
-		"request_id", requestID,
-		"userID", claims.Subject,
-		"tokenID", tokenID)
+		"trace_id", traceID,
+		"user_id", claims.Subject,
+		"token_id", tokenID.Value())
 
 	return nil
 }

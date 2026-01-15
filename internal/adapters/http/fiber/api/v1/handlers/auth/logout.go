@@ -1,7 +1,7 @@
-package auth_handlers
+package auth
 
 import (
-	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
+	"go_auth/internal/adapters/http"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
@@ -14,45 +14,39 @@ type logoutHandler struct {
 	uc ports.ILogoutUseCase
 }
 
-var _ interfaces.ILogoutHandler = (*logoutHandler)(nil)
-
-func NewLogoutHandler(
-	uc ports.ILogoutUseCase,
-) interfaces.ILogoutHandler {
+func NewLogoutHandler(uc ports.ILogoutUseCase) *logoutHandler {
 	return &logoutHandler{uc: uc}
 }
 
 func (h *logoutHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract Identity Context (TraceID/RequestID)
+	// 1. Retrieve Auth Context (Hydrated by JWTMiddleware)
 	auth, ok := utils.GetAuthContext(c)
 	if !ok {
-		// KindUnauthenticated: The identity is missing from the request lifecycle
-		return apperr.Unauthenticated("identity not found in context", "system", nil)
+		// If the middleware failed to provide context, it's an Unauthorized state
+		return apperr.Unauthorized("session identity missing", "transport-layer", nil)
 	}
-	requestID := auth.RequestID
+	traceID := auth.RequestID
 
 	var req dto.LogoutRequest
 
-	// 2. Parse request body
+	// 2. Protocol Layer: Syntax check (HTTP 400)
 	if err := c.BodyParser(&req); err != nil {
-		// KindInvalid: The JSON itself is malformed
-		return apperr.Invalid("invalid request body format", requestID, err)
+		// Use the Protocol Adapter for syntax failures
+		return http.NewBadRequest(err)
 	}
 
-	// 3. Structural Validation
-	// This checks if the RefreshToken field is present/meets basic criteria
+	// 3. Application Layer: Schema validation (HTTP 422)
 	if err := utils.Validate(req); err != nil {
-		// KindInvalid: Required fields are missing from the DTO
-		return apperr.Invalid("validation failed: refresh token is required", requestID, err)
+		return http.NewBadRequest(err)
 	}
 
-	// 4. Business Logic Orchestration
-	// UseCase will handle finding the token and updating the DB state
-	if err := h.uc.Execute(requestID, req.RefreshToken); err != nil {
-		// Propagates KindNotFound (404) or KindConflict (409) if already revoked
+	// 4. Use Case Execution
+	// UC handles the revocation logic (DB updates, etc.)
+	if err := h.uc.Execute(traceID, req.RefreshToken); err != nil {
+		// UC returns mapped apperr.AppError (NotFound, Forbidden, etc.)
 		return err
 	}
 
-	// 5. SUCCESS: HTTP 204
+	// 5. Success Response: HTTP 204 No Content
 	return utils.NoContent(c)
 }

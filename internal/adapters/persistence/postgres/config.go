@@ -1,12 +1,10 @@
 package postgres
 
 import (
+	"errors"
 	"fmt"
-	"go_auth/internal/adapters/shared"
 	"os"
 )
-
-const module = "Postgres"
 
 type PostgresConfig struct {
 	host     string
@@ -17,33 +15,32 @@ type PostgresConfig struct {
 	sslMode  string
 }
 
-func LoadPostgresConfig() (*PostgresConfig, error) {
-	// Helper to reduce repetitive code
-	getRequired := func(key string) (string, error) {
-		val := os.Getenv(key)
-		if val == "" {
-			return "", shared.NewMissingVarErr(module, key)
-		}
-		return val, nil
-	}
-
-	var err error
+func NewPostgresConfig() (*PostgresConfig, error) {
 	cfg := &PostgresConfig{}
 
-	if cfg.host, err = getRequired("GA_POSTGRES_HOST"); err != nil {
-		return nil, err
+	cfg.host = os.Getenv("GA_POSTGRES_HOST")
+	if cfg.host == "" {
+		return nil, errors.New("GA_POSTGRES_HOST is required")
 	}
-	if cfg.user, err = getRequired("GA_POSTGRES_USER"); err != nil {
-		return nil, err
+
+	cfg.user = os.Getenv("GA_POSTGRES_USER")
+	if cfg.user == "" {
+		return nil, errors.New("GA_POSTGRES_USER is required")
 	}
-	if cfg.password, err = getRequired("GA_POSTGRES_PASSWORD"); err != nil {
-		return nil, err
+
+	cfg.password = os.Getenv("GA_POSTGRES_PASSWORD")
+	if cfg.password == "" {
+		return nil, errors.New("GA_POSTGRES_PASSWORD is required")
 	}
-	if cfg.dbName, err = getRequired("GA_POSTGRES_DB"); err != nil {
-		return nil, err
+
+	cfg.dbName = os.Getenv("GA_POSTGRES_DB")
+	if cfg.dbName == "" {
+		return nil, errors.New("GA_POSTGRES_DB is required")
 	}
-	if cfg.port, err = getRequired("GA_POSTGRES_PORT"); err != nil {
-		return nil, err
+
+	cfg.port = os.Getenv("GA_POSTGRES_PORT")
+	if cfg.port == "" {
+		return nil, errors.New("GA_POSTGRES_PORT is required")
 	}
 
 	cfg.sslMode = os.Getenv("GA_POSTGRES_SSLMODE")
@@ -54,6 +51,7 @@ func LoadPostgresConfig() (*PostgresConfig, error) {
 	return cfg, nil
 }
 
+// DSN returns the connection string for the database driver
 func (c *PostgresConfig) DSN() string {
 	return fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
@@ -61,6 +59,7 @@ func (c *PostgresConfig) DSN() string {
 	)
 }
 
+// Getters for individual fields
 func (c *PostgresConfig) Host() string   { return c.host }
 func (c *PostgresConfig) Port() string   { return c.port }
 func (c *PostgresConfig) DBName() string { return c.dbName }
