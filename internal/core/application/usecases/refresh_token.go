@@ -3,10 +3,10 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -14,40 +14,35 @@ import (
 )
 
 type refreshTokenUseCase struct {
-	userRepo      dports.UserRepositoryPort
-	refreshRepo   dports.RefreshTokenRepositoryPort
-	deviceRepo    dports.DeviceRepositoryPort
-	roleRepo      dports.RoleRepositoryPort
-	tokenSvc      aports.TokenServicePort
-	uuidGenerator interfaces.IUUIDGeneratorService
-	uuidParser    interfaces.IUUIDParserService
-	clock         interfaces.IClock
-	logger        *slog.Logger
+	userRepo    dports.IUserRepository
+	refreshRepo dports.IRefreshTokenRepository
+	deviceRepo  dports.IDeviceRepository
+	roleRepo    dports.IRoleRepository
+	tokenSvc    aports.ITokenService
+	idSvc       ports.IIDService
+	clock       dports.IClockService
+	logger      *slog.Logger
 }
 
-var _ aports.RefreshTokenUseCasePort = (*refreshTokenUseCase)(nil)
-
 func NewRefreshTokenUseCase(
-	userRepo dports.UserRepositoryPort,
-	refreshRepo dports.RefreshTokenRepositoryPort,
-	deviceRepo dports.DeviceRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	tokenSvc aports.TokenServicePort,
-	uuidGenerator interfaces.IUUIDGeneratorService,
-	uuidParser interfaces.IUUIDParserService,
-	clock interfaces.IClock,
+	userRepo dports.IUserRepository,
+	refreshRepo dports.IRefreshTokenRepository,
+	deviceRepo dports.IDeviceRepository,
+	roleRepo dports.IRoleRepository,
+	tokenSvc aports.ITokenService,
+	idSvc ports.IIDService,
+	clock dports.IClockService,
 	logger *slog.Logger,
-) aports.RefreshTokenUseCasePort {
+) *refreshTokenUseCase {
 	return &refreshTokenUseCase{
-		userRepo:      userRepo,
-		refreshRepo:   refreshRepo,
-		deviceRepo:    deviceRepo,
-		roleRepo:      roleRepo,
-		tokenSvc:      tokenSvc,
-		uuidGenerator: uuidGenerator,
-		uuidParser:    uuidParser,
-		clock:         clock,
-		logger:        logger,
+		userRepo:    userRepo,
+		refreshRepo: refreshRepo,
+		deviceRepo:  deviceRepo,
+		roleRepo:    roleRepo,
+		tokenSvc:    tokenSvc,
+		idSvc:       idSvc,
+		clock:       clock,
+		logger:      logger,
 	}
 }
 
@@ -69,7 +64,7 @@ func (uc *refreshTokenUseCase) Execute(requestID, oldRefreshToken, deviceIDStr s
 		return nil, err
 	}
 
-	return uc.rotateTokens(requestID, user, device, oldTokenID, roleNames, uc.clock.NowUTC())
+	return uc.rotateTokens(requestID, user, device, oldTokenID, roleNames, uc.clock.Now().UTC())
 }
 
 func (uc *refreshTokenUseCase) validateSession(requestID, tokenStr, deviceIDStr string) (*dto.RefreshTokenClaims, valueobjects.TokenID, error) {
@@ -84,35 +79,38 @@ func (uc *refreshTokenUseCase) validateSession(requestID, tokenStr, deviceIDStr 
 		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session bound to another device", requestID, nil)
 	}
 
-	oldTokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
-	if err != nil {
-		return nil, valueobjects.TokenID{}, apperr.Invalid("invalid token identifier", requestID, err)
+	tokenIDStr := claims.JTI
+
+	if !uc.idSvc.IsValid(tokenIDStr) {
+		return nil, valueobjects.TokenID{}, apperr.Invalid("invalid jti format", requestID, nil)
 	}
+
+	oldTokenID := valueobjects.ReconstituteTokenID(tokenIDStr)
 
 	isRevoked, err := uc.refreshRepo.IsRevoked(oldTokenID)
 	if err != nil {
 		return nil, valueobjects.TokenID{}, apperr.FromDomain(err, requestID)
 	}
 	if isRevoked {
-		uc.logger.Warn("reuse detection: revoked token used", "request_id", requestID, "jti", claims.JTI)
+		uc.logger.Warn("reuse detection: revoked token used", "request_id", requestID, "jti", tokenIDStr)
 		return nil, valueobjects.TokenID{}, apperr.Unauthorized("session invalidated", requestID, nil)
 	}
 
 	return claims, oldTokenID, nil
 }
 
-func (uc *refreshTokenUseCase) fetchRequiredEntities(requestID, uIDStr, dIDStr string) (*aggregates.User, *entities.Device, error) {
-	uID, err := uc.uuidParser.ParseUserID(uIDStr)
-	if err != nil {
-		return nil, nil, apperr.Invalid("invalid user id", requestID, err)
+func (uc *refreshTokenUseCase) fetchRequiredEntities(requestID, userIDStr, deviceIDStr string) (*aggregates.User, *entities.Device, error) {
+	if !uc.idSvc.IsValid(userIDStr) {
+		return nil, nil, apperr.Invalid("invalid user id format", requestID, nil)
+	}
+	if !uc.idSvc.IsValid(deviceIDStr) {
+		return nil, nil, apperr.Invalid("invalid device id format", requestID, nil)
 	}
 
-	dID, err := uc.uuidParser.ParseDeviceID(dIDStr)
-	if err != nil {
-		return nil, nil, apperr.Invalid("invalid device id", requestID, err)
-	}
+	userIDVO := valueobjects.ReconstituteUserID(userIDStr)
+	deviceIDVO := valueobjects.ReconstituteDeviceID(deviceIDStr)
 
-	user, err := uc.userRepo.GetByID(uID)
+	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
 		return nil, nil, apperr.FromDomain(err, requestID)
 	}
@@ -120,7 +118,7 @@ func (uc *refreshTokenUseCase) fetchRequiredEntities(requestID, uIDStr, dIDStr s
 		return nil, nil, apperr.Unauthorized("user context lost", requestID, nil)
 	}
 
-	device, err := uc.deviceRepo.GetByID(dID)
+	device, err := uc.deviceRepo.GetByID(deviceIDVO)
 	if err != nil {
 		return nil, nil, apperr.FromDomain(err, requestID)
 	}
@@ -153,7 +151,7 @@ func (uc *refreshTokenUseCase) rotateTokens(
 	roles []string,
 	currentTime time.Time,
 ) (*dto.AuthResponse, error) {
-	newTokenID, err := uc.uuidGenerator.NewTokenID()
+	newTokenID, err := valueobjects.NewTokenID(uc.idSvc.Generate())
 	if err != nil {
 		return nil, apperr.Internal("id generation failed", requestID, err)
 	}

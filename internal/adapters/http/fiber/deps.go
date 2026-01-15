@@ -8,10 +8,8 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	"go_auth/internal/adapters/seed"
-	"go_auth/internal/adapters/services/clock"
+	adaptersvc "go_auth/internal/adapters/services"
 	"go_auth/internal/adapters/services/jwt"
-	"go_auth/internal/adapters/services/password"
-	"go_auth/internal/adapters/services/uuid"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
 	"log"
@@ -40,33 +38,31 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	// Clock Service
-	clockService := clock.NewClockService()
+	clockService := adaptersvc.NewClockService()
 
-	// UUID Services
-	uuidGenerator := uuid.NewUUIDUserIDGenerator()
-	uuidParser := uuid.NewUUIDUserIDParser()
+	// UUID Service
+	idSvc := adaptersvc.NewUUIDService()
+	pwsHashSvc := adaptersvc.NewBcryptHashedPassword(12)
 
 	// -------------------
 	// Mappers
 	// -------------------
-	userMapper := mappers.NewUserMapper(uuidParser)
-	roleMapper := mappers.NewRoleMapper(uuidParser)
-	deviceMapper := mappers.NewDeviceMapper(uuidParser)
+	userMapper := mappers.NewUserMapper()
+	roleMapper := mappers.NewRoleMapper()
+	deviceMapper := mappers.NewDeviceMapper()
 	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
 	// -------------------
 	// Repositories
 	// -------------------
-	userRepo := repositories.NewGormUserRepository(db, userMapper)
-	roleRepo := repositories.NewGormRoleRepository(db, roleMapper)
-	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper)
-	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
+	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwsHashSvc)
+	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
+	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
+	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper, idSvc)
 
 	// -------------------
 	// Security services
 	// -------------------
-	passwordHasher := password.NewBcryptHashedPassword(12)
-
 	jwtCfg, err := jwt.LoadJWTConfig()
 	if err != nil {
 		return nil, err
@@ -82,7 +78,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	}
 	rolesSeeder := services.NewSeedRolesService(
 		roleRepo,
-		uuidGenerator,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -93,8 +89,8 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	adminUserSeeder := services.NewSeedAdminService(
 		userRepo,
 		roleRepo,
-		passwordHasher,
-		uuidGenerator,
+		pwsHashSvc,
+		idSvc,
 		clockService,
 		seederCfg,
 		logger,
@@ -109,8 +105,8 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	registerUC := usecases.NewRegisterUseCase(
 		userRepo,
 		roleRepo,
-		passwordHasher,
-		uuidGenerator,
+		pwsHashSvc,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -120,10 +116,9 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		refreshTokenRepo,
 		deviceRepo,
 		roleRepo,
-		passwordHasher,
+		pwsHashSvc,
 		jwtService,
-		uuidGenerator,
-		uuidParser,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -131,7 +126,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	logoutUC := usecases.NewLogoutUseCase(
 		refreshTokenRepo,
 		jwtService,
-		uuidParser,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -142,8 +137,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		deviceRepo,
 		roleRepo,
 		jwtService,
-		uuidGenerator,
-		uuidParser,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -151,14 +145,14 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	authUserUC := usecases.NewAuthUserUseCase(
 		userRepo,
 		roleRepo,
-		uuidParser,
+		idSvc,
 		logger,
 	)
 
 	roleUC := usecases.NewUpdateRoleUseCase(
 		userRepo,
 		roleRepo,
-		uuidParser,
+		idSvc,
 		clockService,
 		logger,
 	)
@@ -176,7 +170,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		AuthMiddleware: middlewares.JWTMiddleware(
 			jwtService,
 			deviceRepo,
-			uuidParser,
+			idSvc,
 		),
 		Logger: logger,
 	}, nil

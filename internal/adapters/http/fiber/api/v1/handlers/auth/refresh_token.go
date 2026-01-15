@@ -11,13 +11,13 @@ import (
 )
 
 type refreshTokenHandler struct {
-	uc ports.RefreshTokenUseCasePort
+	uc ports.IRefreshTokenUseCase
 }
 
 var _ interfaces.IRefreshTokenHandler = (*refreshTokenHandler)(nil)
 
 func NewRefreshTokenHandler(
-	uc ports.RefreshTokenUseCasePort,
+	uc ports.IRefreshTokenUseCase,
 ) interfaces.IRefreshTokenHandler {
 	return &refreshTokenHandler{uc: uc}
 }

@@ -3,11 +3,11 @@ package repositories
 import (
 	"errors"
 
-	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr" // Use pgerr instead of derr
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
-	"go_auth/internal/core/domain/ports"
+	domainports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
@@ -15,27 +15,28 @@ import (
 
 type GormRoleRepository struct {
 	db     *gorm.DB
-	mapper mappers.IRoleMapper
+	mapper ports.IRoleMapper
+	idSvc  domainports.IIDService
 }
 
-var _ ports.RoleRepositoryPort = (*GormRoleRepository)(nil)
-
-func NewGormRoleRepository(db *gorm.DB, mapper mappers.IRoleMapper) ports.RoleRepositoryPort {
+func NewGormRoleRepository(
+	db *gorm.DB,
+	mapper ports.IRoleMapper,
+	idSvc domainports.IIDService,
+) *GormRoleRepository {
 	return &GormRoleRepository{
 		db:     db,
 		mapper: mapper,
+		idSvc:  idSvc,
 	}
 }
 
 func (r *GormRoleRepository) Save(role *aggregates.Role) error {
-	model, err := r.mapper.ToModel(role)
-	if err != nil {
-		return err
-	}
+	// Mapper is now dumb
+	model := r.mapper.ToModel(role)
 
-	if err := r.db.Create(model).Error; err != nil {
+	if err := r.db.Save(model).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			// Infrastructure returns WrapAlreadyExists, UseCase decides the Domain Error
 			return pgerr.WrapAlreadyExists(err, "role name already exists")
 		}
 		return pgerr.WrapUnavailable(err, "failed to save role")
@@ -49,12 +50,17 @@ func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, 
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // Nil return for 404/Check logic in UseCase
+			return nil, nil
 		}
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch role by id")
 	}
 
-	return r.mapper.ToDomain(&model)
+	// GATEKEEPER
+	if err := model.Validate(r.idSvc); err != nil {
+		return nil, err
+	}
+
+	return r.mapper.ToDomain(&model), nil
 }
 
 func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
@@ -68,7 +74,12 @@ func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch role by name")
 	}
 
-	return r.mapper.ToDomain(&model)
+	// GATEKEEPER
+	if err := model.Validate(r.idSvc); err != nil {
+		return nil, err
+	}
+
+	return r.mapper.ToDomain(&model), nil
 }
 
 func (r *GormRoleRepository) GetAll() ([]*aggregates.Role, error) {
@@ -78,12 +89,12 @@ func (r *GormRoleRepository) GetAll() ([]*aggregates.Role, error) {
 	}
 
 	roles := make([]*aggregates.Role, len(modelsList))
-	for i, m := range modelsList {
-		role, err := r.mapper.ToDomain(&m)
-		if err != nil {
+	for i := range modelsList {
+		// ALL OR NOTHING
+		if err := modelsList[i].Validate(r.idSvc); err != nil {
 			return nil, err
 		}
-		roles[i] = role
+		roles[i] = r.mapper.ToDomain(&modelsList[i])
 	}
 
 	return roles, nil

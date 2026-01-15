@@ -17,6 +17,8 @@ func NewUserID(value string) (UserID, error) {
 	return UserID{value: trimmed}, nil
 }
 
+func ReconstituteUserID(s string) UserID { return UserID{value: s} }
+
 func (vo UserID) Value() string           { return vo.value }
 func (vo UserID) IsEmpty() bool           { return vo.value == "" }
 func (vo UserID) Equal(other UserID) bool { return vo.value == other.value }

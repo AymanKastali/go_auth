@@ -3,38 +3,34 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/interfaces"
-	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
-	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
 type registerUseCase struct {
-	userRepo       dports.UserRepositoryPort
-	roleRepo       dports.RoleRepositoryPort
-	passwordHasher aports.HashPasswordServicePort
-	uuidGenerator  interfaces.IUUIDGeneratorService
-	clock          interfaces.IClock
+	userRepo       ports.IUserRepository
+	roleRepo       ports.IRoleRepository
+	passwordHasher ports.IPasswordService
+	idSvc          ports.IIDService
+	clock          ports.IClockService
 	logger         *slog.Logger
 }
 
-var _ aports.RegisterUseCasePort = (*registerUseCase)(nil)
-
 func NewRegisterUseCase(
-	userRepo dports.UserRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	passwordHasher aports.HashPasswordServicePort,
-	uuidGenerator interfaces.IUUIDGeneratorService,
-	clock interfaces.IClock,
+	userRepo ports.IUserRepository,
+	roleRepo ports.IRoleRepository,
+	passwordHasher ports.IPasswordService,
+	idSvc ports.IIDService,
+	clock ports.IClockService,
 	logger *slog.Logger,
-) aports.RegisterUseCasePort {
+) *registerUseCase {
 	return &registerUseCase{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
-		uuidGenerator:  uuidGenerator,
+		idSvc:          idSvc,
 		clock:          clock,
 		logger:         logger,
 	}
@@ -43,14 +39,11 @@ func NewRegisterUseCase(
 func (uc *registerUseCase) Execute(requestID, email, password string) (*dto.RegisteredUserDTO, error) {
 	uc.logger.Info("Starting user registration", "email", email, "request_id", requestID)
 
-	// 1. Value Object Creation (Validation)
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		// NewEmail returns a derr.DomainError, we map it to apperr
 		return nil, apperr.FromDomain(err, requestID)
 	}
 
-	// 2. Business Logic Existence Check
 	existingUser, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		return nil, apperr.FromDomain(err, requestID)
@@ -82,7 +75,7 @@ func (uc *registerUseCase) Execute(requestID, email, password string) (*dto.Regi
 		return nil, apperr.Internal("required system configuration missing", requestID, nil)
 	}
 
-	userID, err := uc.uuidGenerator.NewUserID()
+	userID, err := valueobjects.NewUserID(uc.idSvc.Generate())
 	if err != nil {
 		return nil, apperr.Internal("failed to generate user identity", requestID, err)
 	}
@@ -94,7 +87,7 @@ func (uc *registerUseCase) Execute(requestID, email, password string) (*dto.Regi
 		pw,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{userRole.ID()},
-		uc.clock.NowUTC(),
+		uc.clock.Now().UTC(),
 	)
 	if err != nil {
 		return nil, apperr.FromDomain(err, requestID)

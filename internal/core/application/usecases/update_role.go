@@ -3,52 +3,50 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/interfaces"
-	aports "go_auth/internal/core/application/ports"
-	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 	"strings"
 )
 
 type updateRoleUseCase struct {
-	userRepo   dports.UserRepositoryPort
-	roleRepo   dports.RoleRepositoryPort
-	uuidParser interfaces.IUUIDParserService
-	clock      interfaces.IClock
-	logger     *slog.Logger
+	userRepo ports.IUserRepository
+	roleRepo ports.IRoleRepository
+	idSvc    ports.IIDService
+	clock    ports.IClockService
+	logger   *slog.Logger
 }
 
-var _ aports.UpdateRoleUseCasePort = (*updateRoleUseCase)(nil)
-
 func NewUpdateRoleUseCase(
-	userRepo dports.UserRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	uuidParser interfaces.IUUIDParserService,
-	clock interfaces.IClock,
+	userRepo ports.IUserRepository,
+	roleRepo ports.IRoleRepository,
+	idSvc ports.IIDService,
+	clock ports.IClockService,
 	logger *slog.Logger,
-) aports.UpdateRoleUseCasePort {
+) *updateRoleUseCase {
 	return &updateRoleUseCase{
-		userRepo:   userRepo,
-		roleRepo:   roleRepo,
-		uuidParser: uuidParser,
-		clock:      clock,
-		logger:     logger,
+		userRepo: userRepo,
+		roleRepo: roleRepo,
+		idSvc:    idSvc,
+		clock:    clock,
+		logger:   logger,
 	}
 }
 
 func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) error {
+	userIDReq := req.UserID
+
 	uc.logger.Info("Updating user role",
 		"request_id", requestID,
-		"userID", req.UserID,
+		"userID", userIDReq,
 		"action", req.Action,
-		"role", req.Role)
-
-	// 1. Parsing Input
-	userIDVO, err := uc.uuidParser.ParseUserID(req.UserID)
-	if err != nil {
-		uc.logger.Error("Failed to parse user ID", "request_id", requestID, "error", err)
-		return apperr.Invalid("invalid user id format", requestID, err)
+		"role", req.Role,
+	)
+	if !uc.idSvc.IsValid(userIDReq) {
+		return apperr.Invalid("invalid user id format", requestID, nil)
 	}
+
+	userIDVO := valueobjects.ReconstituteUserID(userIDReq)
 
 	// 2. Resource Fetching
 	user, err := uc.userRepo.GetByID(userIDVO)
@@ -68,7 +66,7 @@ func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) 
 		return apperr.NotFound("specified role not found", requestID, nil)
 	}
 
-	now := uc.clock.NowUTC()
+	now := uc.clock.Now().UTC()
 	action := strings.ToLower(req.Action)
 
 	// 3. Domain Logic (Delegating mapping to FromDomain)
@@ -92,6 +90,6 @@ func (uc *updateRoleUseCase) Execute(requestID string, req dto.ManageRoleInput) 
 		return apperr.FromDomain(err, requestID)
 	}
 
-	uc.logger.Info("User role update successful", "request_id", requestID, "userID", req.UserID)
+	uc.logger.Info("User role update successful", "request_id", requestID, "userID", userIDReq)
 	return nil
 }

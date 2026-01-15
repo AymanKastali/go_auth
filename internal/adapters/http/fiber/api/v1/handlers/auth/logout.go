@@ -11,13 +11,13 @@ import (
 )
 
 type logoutHandler struct {
-	uc ports.LogoutUseCasePort
+	uc ports.ILogoutUseCase
 }
 
 var _ interfaces.ILogoutHandler = (*logoutHandler)(nil)
 
 func NewLogoutHandler(
-	uc ports.LogoutUseCasePort,
+	uc ports.ILogoutUseCase,
 ) interfaces.ILogoutHandler {
 	return &logoutHandler{uc: uc}
 }

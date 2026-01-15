@@ -11,13 +11,13 @@ import (
 )
 
 type loginHandler struct {
-	uc ports.LoginUseCasePort
+	uc ports.ILoginUseCase
 }
 
 var _ interfaces.ILoginHandler = (*loginHandler)(nil)
 
 func NewLoginHandler(
-	uc ports.LoginUseCasePort,
+	uc ports.ILoginUseCase,
 ) interfaces.ILoginHandler {
 	return &loginHandler{uc: uc}
 }

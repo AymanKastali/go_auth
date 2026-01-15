@@ -2,70 +2,48 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/valueobjects"
 )
 
-type DeviceMapper struct {
-	uuidParser interfaces.IUUIDParserService
-}
+type DeviceMapper struct{}
 
-var _ IDeviceMapper = (*DeviceMapper)(nil)
+func NewDeviceMapper() *DeviceMapper { return &DeviceMapper{} }
 
-func NewDeviceMapper(
-	uuidParser interfaces.IUUIDParserService,
-) IDeviceMapper {
-	return &DeviceMapper{
-		uuidParser: uuidParser,
-	}
-}
-
-func (m *DeviceMapper) ToDomain(d *models.Device) (*entities.Device, error) {
-	if d == nil {
-		return nil, nil
+func (m *DeviceMapper) ToDomain(model *models.Device) *entities.Device {
+	if model == nil {
+		return nil
 	}
 
-	deviceID, err := m.uuidParser.ParseDeviceID(d.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	userID, err := m.uuidParser.ParseUserID(d.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	device := entities.ReconstituteDevice(
-		deviceID,
-		userID,
-		d.Name,
-		d.UserAgent,
-		d.IPAddress,
-		d.IsActive,
-		d.CreatedAt,
-		d.UpdatedAt,
-		d.LastSeenAt,
-		d.RevokedAt,
+	return entities.ReconstituteDevice(
+		valueobjects.ReconstituteDeviceID(model.ID),
+		valueobjects.ReconstituteUserID(model.UserID),
+		model.Name,
+		model.UserAgent,
+		model.IPAddress,
+		model.IsActive,
+		model.CreatedAt,
+		model.UpdatedAt,
+		model.LastSeenAt,
+		model.RevokedAt,
 	)
-
-	return device, nil
 }
 
-func (m *DeviceMapper) ToModel(d *entities.Device) *models.Device {
-	if d == nil {
+func (m *DeviceMapper) ToModel(entity *entities.Device) *models.Device {
+	if entity == nil {
 		return nil
 	}
 
 	return &models.Device{
-		ID:         d.ID().Value(),
-		UserID:     d.UserID().Value(),
-		Name:       d.Name(),
-		UserAgent:  d.UserAgent(),
-		IPAddress:  d.IPAddress(),
-		IsActive:   d.IsActive(),
-		CreatedAt:  d.CreatedAt(),
-		UpdatedAt:  d.UpdatedAt(),
-		LastSeenAt: d.LastSeenAt(),
-		RevokedAt:  d.RevokedAt(),
+		ID:         entity.ID().Value(),
+		UserID:     entity.UserID().Value(),
+		Name:       entity.Name(),
+		UserAgent:  entity.UserAgent(),
+		IPAddress:  entity.IPAddress(),
+		IsActive:   entity.IsActive(),
+		CreatedAt:  entity.CreatedAt(),
+		UpdatedAt:  entity.UpdatedAt(),
+		LastSeenAt: entity.LastSeenAt(),
+		RevokedAt:  entity.RevokedAt(),
 	}
 }

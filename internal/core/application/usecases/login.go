@@ -3,10 +3,10 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -14,32 +14,28 @@ import (
 )
 
 type loginUseCase struct {
-	userRepo       dports.UserRepositoryPort
-	refreshRepo    dports.RefreshTokenRepositoryPort
-	deviceRepo     dports.DeviceRepositoryPort
-	roleRepo       dports.RoleRepositoryPort
-	passwordHasher aports.HashPasswordServicePort
-	tokenService   aports.TokenServicePort
-	uuidGenerator  interfaces.IUUIDGeneratorService
-	uuidParser     interfaces.IUUIDParserService
-	clock          interfaces.IClock
+	userRepo       dports.IUserRepository
+	refreshRepo    dports.IRefreshTokenRepository
+	deviceRepo     dports.IDeviceRepository
+	roleRepo       dports.IRoleRepository
+	passwordHasher dports.IPasswordService
+	tokenService   aports.ITokenService
+	idSvc          ports.IIDService
+	clock          dports.IClockService
 	logger         *slog.Logger
 }
 
-var _ aports.LoginUseCasePort = (*loginUseCase)(nil)
-
 func NewLoginUseCase(
-	userRepo dports.UserRepositoryPort,
-	refreshRepo dports.RefreshTokenRepositoryPort,
-	deviceRepo dports.DeviceRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	passwordHasher aports.HashPasswordServicePort,
-	tokenService aports.TokenServicePort,
-	uuidGenerator interfaces.IUUIDGeneratorService,
-	uuidParser interfaces.IUUIDParserService,
-	clock interfaces.IClock,
+	userRepo dports.IUserRepository,
+	refreshRepo dports.IRefreshTokenRepository,
+	deviceRepo dports.IDeviceRepository,
+	roleRepo dports.IRoleRepository,
+	passwordHasher dports.IPasswordService,
+	tokenService aports.ITokenService,
+	idSvc ports.IIDService,
+	clock dports.IClockService,
 	logger *slog.Logger,
-) aports.LoginUseCasePort {
+) *loginUseCase {
 	return &loginUseCase{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
@@ -47,8 +43,7 @@ func NewLoginUseCase(
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		tokenService:   tokenService,
-		uuidGenerator:  uuidGenerator,
-		uuidParser:     uuidParser,
+		idSvc:          idSvc,
 		clock:          clock,
 		logger:         logger,
 	}
@@ -80,7 +75,7 @@ func (uc *loginUseCase) Execute(
 	}
 
 	// 4. Generate Token ID
-	tokenID, err := uc.uuidGenerator.NewTokenID()
+	tokenID, err := valueobjects.NewTokenID(uc.idSvc.Generate())
 	if err != nil {
 		return nil, apperr.Internal("failed to generate unique token identifier", requestID, err)
 	}
@@ -110,19 +105,19 @@ func (uc *loginUseCase) resolveDevice(
 	deviceIDStr, name, ua, ip string,
 	currentTime time.Time,
 ) (*entities.Device, error) {
-
-	deviceID, err := uc.uuidParser.ParseDeviceID(deviceIDStr)
-	if err != nil {
-		return nil, apperr.Invalid("invalid device format", requestID, err)
+	if !uc.idSvc.IsValid(deviceIDStr) {
+		return nil, apperr.Invalid("invalid device id format", requestID, nil)
 	}
 
-	device, err := uc.deviceRepo.GetByID(deviceID)
+	deviceIDVO := valueobjects.ReconstituteDeviceID(deviceIDStr)
+
+	device, err := uc.deviceRepo.GetByID(deviceIDVO)
 	if err != nil {
 		return nil, apperr.FromDomain(err, requestID)
 	}
 
 	if device == nil {
-		device, err = entities.NewDevice(deviceID, userID, &name, &ua, &ip, currentTime)
+		device, err = entities.NewDevice(deviceIDVO, userID, &name, &ua, &ip, currentTime)
 		if err != nil {
 			return nil, apperr.FromDomain(err, requestID)
 		}

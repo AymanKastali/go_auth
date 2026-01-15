@@ -12,13 +12,13 @@ import (
 )
 
 type updateRoleHandler struct {
-	uc ports.UpdateRoleUseCasePort
+	uc ports.IUpdateRoleUseCase
 }
 
 var _ interfaces.IUpdateRoleHandler = (*updateRoleHandler)(nil)
 
 func NewUpdateRoleHandler(
-	uc ports.UpdateRoleUseCasePort,
+	uc ports.IUpdateRoleUseCase,
 ) interfaces.IUpdateRoleHandler {
 	return &updateRoleHandler{uc: uc}
 }

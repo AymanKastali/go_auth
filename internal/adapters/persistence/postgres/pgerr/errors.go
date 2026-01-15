@@ -10,7 +10,8 @@ type repoError struct {
 	msg           string
 	isConflict    bool
 	isNotFound    bool
-	isUnavailable bool // Changed from isConn to match the factory name
+	isUnavailable bool
+	isIntegrity   bool
 	isInternal    bool
 }
 
@@ -35,6 +36,11 @@ func IsNotFound(err error) bool {
 	return errors.As(err, &re) && re.isNotFound
 }
 
+func IsDataIntegrity(err error) bool {
+	var re *repoError
+	return errors.As(err, &re) && re.isIntegrity
+}
+
 func IsUnavailable(err error) bool {
 	var re *repoError
 	return errors.As(err, &re) && re.isUnavailable
@@ -55,6 +61,17 @@ func WrapUnavailable(err error, msg string) error {
 	return &repoError{inner: err, msg: msg, isUnavailable: true}
 }
 
+func WrapDataIntegrity(err error, msg string) error {
+	return &repoError{inner: err, msg: msg, isIntegrity: true}
+}
+
 func WrapInternal(err error, msg string) error {
 	return &repoError{inner: err, msg: msg, isInternal: true}
+}
+
+func NewIntegrityError(entity, field, value string) error {
+	return WrapDataIntegrity(
+		fmt.Errorf("invalid %s format for %s: '%s'", field, entity, value),
+		fmt.Sprintf("%s record violates domain invariants: corrupted %s", entity, field),
+	)
 }
