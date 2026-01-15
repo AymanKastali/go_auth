@@ -6,20 +6,15 @@ import (
 	"time"
 )
 
-type SeedAdminServicePort interface {
+type ISeedAdminService interface {
 	SeedAdmin() error
 }
 
-type SeedRolesServicePort interface {
+type ISeedRolesService interface {
 	SeedDefaultRoles() error
 }
 
-type HashPasswordServicePort interface {
-	Hash(raw string) (string, error)
-	Compare(raw string, hashed string) bool
-}
-
-type TokenServicePort interface {
+type ITokenService interface {
 	IssueAccessToken(
 		tokenID, userID, deviceID string,
 		roles []string,

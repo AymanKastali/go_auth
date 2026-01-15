@@ -43,7 +43,7 @@ services:
       POSTGRES_DB: ${GA_POSTGRES_DB}
       POSTGRES_PORT: ${GA_POSTGRES_PORT}
     ports: 
-      - "${GA_POSTGRES_PORT}:${GA_POSTGRES_PORT}"
+      - "5433:${GA_POSTGRES_PORT}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${GA_POSTGRES_USER} -d ${GA_POSTGRES_DB}"]
       interval: 5s

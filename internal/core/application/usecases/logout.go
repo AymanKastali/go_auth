@@ -2,33 +2,32 @@ package usecases
 
 import (
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
 type logoutUseCase struct {
-	refreshRepo dports.RefreshTokenRepositoryPort
-	tokenSvc    aports.TokenServicePort
-	uuidParser  interfaces.IUUIDParserService
-	clock       interfaces.IClock
+	refreshRepo dports.IRefreshTokenRepository
+	tokenSvc    aports.ITokenService
+	idSvc       ports.IIDService
+	clock       dports.IClockService
 	logger      *slog.Logger
 }
 
-var _ aports.LogoutUseCasePort = (*logoutUseCase)(nil)
-
 func NewLogoutUseCase(
-	refreshRepo dports.RefreshTokenRepositoryPort,
-	tokenSvc aports.TokenServicePort,
-	uuidParser interfaces.IUUIDParserService,
-	clock interfaces.IClock,
+	refreshRepo dports.IRefreshTokenRepository,
+	tokenSvc aports.ITokenService,
+	idSvc ports.IIDService,
+	clock dports.IClockService,
 	logger *slog.Logger,
-) aports.LogoutUseCasePort {
+) *logoutUseCase {
 	return &logoutUseCase{
 		refreshRepo: refreshRepo,
 		tokenSvc:    tokenSvc,
-		uuidParser:  uuidParser,
+		idSvc:       idSvc,
 		clock:       clock,
 		logger:      logger,
 	}
@@ -47,18 +46,17 @@ func (uc *logoutUseCase) Execute(requestID string, refreshToken string) error {
 		return apperr.FromDomain(err, requestID)
 	}
 
+	tokenIDStr := claims.JTI
+
 	// 2. Parse JTI from claims
-	tokenID, err := uc.uuidParser.ParseTokenID(claims.JTI)
-	if err != nil {
-		uc.logger.Error("Token ID in claims is malformed",
-			"request_id", requestID,
-			"jti", claims.JTI,
-			"error", err)
-		return apperr.Invalid("malformed token identifier", requestID, err)
+	if !uc.idSvc.IsValid(tokenIDStr) {
+		return apperr.Invalid("invalid jti format", requestID, nil)
 	}
 
+	tokenID := valueobjects.ReconstituteTokenID(tokenIDStr)
+
 	// 3. Revoke in Persistence
-	err = uc.refreshRepo.Revoke(tokenID, uc.clock.NowUTC())
+	err = uc.refreshRepo.Revoke(tokenID, uc.clock.Now().UTC())
 	if err != nil {
 		uc.logger.Error("Failed to revoke refresh token",
 			"request_id", requestID,

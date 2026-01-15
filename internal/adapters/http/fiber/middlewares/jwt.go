@@ -4,66 +4,66 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/interfaces"
 	aports "go_auth/internal/core/application/ports"
 	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func JWTMiddleware(
-	tokenService aports.TokenServicePort,
-	deviceRepo dports.DeviceRepositoryPort,
-	uuidParser interfaces.IUUIDParserService,
+	tokenService aports.ITokenService,
+	deviceRepo dports.IDeviceRepository,
+	idSvc dports.IIDService,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// 1. Get the existing Request Context (Pre-filled by your global middleware)
 		// This ensures we keep the same RequestID, IP, and UserAgent
 		baseReq := utils.GetContext(c)
+		requestID := baseReq.RequestID
 
 		// 2. Transport Validation
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return apperr.Invalid("authorization header is required", baseReq.RequestID, nil)
+			return apperr.Invalid("authorization header is required", requestID, nil)
 		}
 
 		// 3. Protocol Validation
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return apperr.Invalid("invalid authorization format", baseReq.RequestID, nil)
+			return apperr.Invalid("invalid authorization format", requestID, nil)
 		}
 
 		accessToken := parts[1]
 		if accessToken == "" {
-			return apperr.Invalid("token cannot be empty", baseReq.RequestID, nil)
+			return apperr.Invalid("token cannot be empty", requestID, nil)
 		}
 
 		// 4. Security Service: Validate Token Identity
 		claims, err := tokenService.ValidateAccessToken(accessToken)
 		if err != nil {
-			return apperr.FromDomain(err, baseReq.RequestID)
+			return apperr.FromDomain(err, requestID)
 		}
 
 		// 5. Domain Policy: Check Device/Session State
 		deviceIDStr := claims.DeviceID
+		if !idSvc.IsValid(deviceIDStr) {
+			return apperr.Invalid("invalid device id format", requestID, nil)
+		}
 		if deviceIDStr != "" && deviceRepo != nil {
-			deviceID, err := uuidParser.ParseDeviceID(deviceIDStr)
-			if err != nil {
-				return apperr.Invalid("malformed device id in token", baseReq.RequestID, err)
-			}
-
+			deviceID := valueobjects.ReconstituteDeviceID(deviceIDStr)
 			device, err := deviceRepo.GetByID(deviceID)
 			if err != nil {
-				return apperr.FromDomain(err, baseReq.RequestID)
+				return apperr.FromDomain(err, requestID)
 			}
 
 			if device == nil {
-				return apperr.Unauthorized("session device not recognized", baseReq.RequestID, nil)
+				return apperr.Unauthorized("session device not recognized", requestID, nil)
 			}
 
 			if err := device.EnsureUsable(); err != nil {
-				return apperr.FromDomain(err, baseReq.RequestID)
+				return apperr.FromDomain(err, requestID)
 			}
 		}
 

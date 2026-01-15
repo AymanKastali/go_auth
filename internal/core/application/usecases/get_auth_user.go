@@ -3,45 +3,37 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/application/interfaces"
-	aports "go_auth/internal/core/application/ports"
-	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
 type authUserUseCase struct {
-	userRepo   dports.UserRepositoryPort
-	roleRepo   dports.RoleRepositoryPort
-	uuidParser interfaces.IUUIDParserService
-	logger     *slog.Logger
+	userRepo ports.IUserRepository
+	roleRepo ports.IRoleRepository
+	idSvc    ports.IIDService
+	logger   *slog.Logger
 }
 
-var _ aports.AuthUserUseCasePort = (*authUserUseCase)(nil)
-
 func NewAuthUserUseCase(
-	userRepo dports.UserRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	uuidParser interfaces.IUUIDParserService,
+	userRepo ports.IUserRepository,
+	roleRepo ports.IRoleRepository,
+	idSvc ports.IIDService,
 	logger *slog.Logger,
-) aports.AuthUserUseCasePort {
+) *authUserUseCase {
 	return &authUserUseCase{
-		userRepo:   userRepo,
-		roleRepo:   roleRepo,
-		uuidParser: uuidParser,
-		logger:     logger,
+		userRepo: userRepo,
+		roleRepo: roleRepo,
+		idSvc:    idSvc,
+		logger:   logger,
 	}
 }
 
 func (uc *authUserUseCase) Execute(requestID string, userID string) (*dto.AuthUser, error) {
-	// 1. Parsing Input
-	userIDVO, err := uc.uuidParser.ParseUserID(userID)
-	if err != nil {
-		uc.logger.Warn("invalid user id format provided",
-			slog.String("user_id", userID),
-			slog.String("request_id", requestID),
-			slog.Any("error", err))
-		return nil, apperr.Invalid("invalid user id format", requestID, err)
+	if !uc.idSvc.IsValid(userID) {
+		return nil, apperr.Invalid("invalid user id format", requestID, nil)
 	}
+	userIDVO := valueobjects.ReconstituteUserID(userID)
 
 	// 2. Fetching User
 	user, err := uc.userRepo.GetByID(userIDVO)

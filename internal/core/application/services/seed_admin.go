@@ -3,10 +3,8 @@ package services
 import (
 	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/interfaces"
-	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
-	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
@@ -14,31 +12,29 @@ import (
 const seederTraceID = "system-seeder"
 
 type seedAdminService struct {
-	userRepo       dports.UserRepositoryPort
-	roleRepo       dports.RoleRepositoryPort
-	passwordHasher aports.HashPasswordServicePort
-	uuidGenerator  interfaces.IUUIDGeneratorService
-	clock          interfaces.IClock
+	userRepo       ports.IUserRepository
+	roleRepo       ports.IRoleRepository
+	passwordHasher ports.IPasswordService
+	idSvc          ports.IIDService
+	clock          ports.IClockService
 	cfg            *seed.SeederConfig
 	logger         *slog.Logger
 }
 
-var _ aports.SeedAdminServicePort = (*seedAdminService)(nil)
-
 func NewSeedAdminService(
-	userRepo dports.UserRepositoryPort,
-	roleRepo dports.RoleRepositoryPort,
-	passwordHasher aports.HashPasswordServicePort,
-	uuidGenerator interfaces.IUUIDGeneratorService,
-	clock interfaces.IClock,
+	userRepo ports.IUserRepository,
+	roleRepo ports.IRoleRepository,
+	passwordHasher ports.IPasswordService,
+	idSvc ports.IIDService,
+	clock ports.IClockService,
 	seederConfig *seed.SeederConfig,
 	logger *slog.Logger,
-) aports.SeedAdminServicePort {
+) *seedAdminService {
 	return &seedAdminService{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
-		uuidGenerator:  uuidGenerator,
+		idSvc:          idSvc,
 		clock:          clock,
 		cfg:            seederConfig,
 		logger:         logger,
@@ -97,7 +93,7 @@ func (s *seedAdminService) SeedAdmin() error {
 	}
 
 	// 6. Identity Generation
-	userID, err := s.uuidGenerator.NewUserID()
+	userID, err := valueobjects.NewUserID(s.idSvc.Generate())
 	if err != nil {
 		return apperr.Internal("failed to generate admin uuid", seederTraceID, err)
 	}
@@ -109,7 +105,7 @@ func (s *seedAdminService) SeedAdmin() error {
 		pw,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{adminRole.ID()},
-		s.clock.NowUTC(),
+		s.clock.Now().UTC(),
 	)
 	if err != nil {
 		return apperr.FromDomain(err, seederTraceID)

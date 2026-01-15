@@ -2,55 +2,38 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
+	"go_auth/internal/core/domain/valueobjects"
 )
 
-type RoleMapper struct {
-	uuidParser interfaces.IUUIDParserService
-}
+type RoleMapper struct{}
 
-var _ IRoleMapper = (*RoleMapper)(nil)
+func NewRoleMapper() *RoleMapper { return &RoleMapper{} }
 
-func NewRoleMapper(
-	p interfaces.IUUIDParserService,
-) IRoleMapper {
-	return &RoleMapper{
-		uuidParser: p,
-	}
-}
-
-func (m *RoleMapper) ToDomain(r *models.Role) (*aggregates.Role, error) {
-	if r == nil {
-		return nil, nil
+func (m *RoleMapper) ToDomain(model *models.Role) *aggregates.Role {
+	if model == nil {
+		return nil
 	}
 
-	roleID, err := m.uuidParser.ParseRoleID(r.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	role := aggregates.ReconstituteRole(
-		roleID,
-		r.Name,
-		r.CreatedAt,
-		r.UpdatedAt,
-		r.DeletedAt,
+	return aggregates.ReconstituteRole(
+		valueobjects.ReconstituteRoleID(model.ID),
+		model.Name,
+		model.CreatedAt,
+		model.UpdatedAt,
+		model.DeletedAt,
 	)
-
-	return role, nil
 }
 
-func (m *RoleMapper) ToModel(role *aggregates.Role) (*models.Role, error) {
-	if role == nil {
-		return nil, nil
+func (m *RoleMapper) ToModel(entity *aggregates.Role) *models.Role {
+	if entity == nil {
+		return nil
 	}
 
 	return &models.Role{
-		ID:        role.ID().Value(),
-		Name:      role.Name(),
-		CreatedAt: role.CreatedAt(),
-		UpdatedAt: role.UpdatedAt(),
-		DeletedAt: role.DeletedAt(),
-	}, nil
+		ID:        entity.ID().Value(),
+		Name:      entity.Name(),
+		CreatedAt: entity.CreatedAt(),
+		UpdatedAt: entity.UpdatedAt(),
+		DeletedAt: entity.DeletedAt(),
+	}
 }

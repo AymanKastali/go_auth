@@ -2,87 +2,53 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type UserMapper struct {
-	uuidParser interfaces.IUUIDParserService
-}
+type UserMapper struct{}
 
-var _ IUserMapper = (*UserMapper)(nil)
+func NewUserMapper() *UserMapper { return &UserMapper{} }
 
-func NewUserMapper(
-	uuidParser interfaces.IUUIDParserService,
-) IUserMapper {
-	return &UserMapper{
-		uuidParser: uuidParser,
-	}
-}
-
-func (m *UserMapper) ToDomain(u *models.User) (*aggregates.User, error) {
-	if u == nil {
-		return nil, nil
+func (m *UserMapper) ToDomain(model *models.User) *aggregates.User {
+	if model == nil {
+		return nil
 	}
 
-	userID, err := m.uuidParser.ParseUserID(u.ID)
-	if err != nil {
-		return nil, err
+	// Pure assignment. No validation logic lives here anymore.
+	roleIDs := make([]valueobjects.RoleID, len(model.Roles))
+	for i, r := range model.Roles {
+		roleIDs[i] = valueobjects.ReconstituteRoleID(r.ID)
 	}
 
-	emailVO := valueobjects.ReconstituteEmail(u.Email)
-
-	pwHashVO := valueobjects.ReconstituteHashedPassword(u.HashedPassword)
-
-	status := valueobjects.UserStatus(u.Status)
-
-	// 5. Map Roles (The reason roles were missing)
-	roleIDs := make([]valueobjects.RoleID, len(u.Roles))
-	for i, r := range u.Roles {
-		roleID, err := m.uuidParser.ParseRoleID(r.ID)
-		if err != nil {
-			return nil, err
-		}
-		roleIDs[i] = roleID
-	}
-
-	// 6. Reconstitute Aggregate
-	user := aggregates.ReconstituteUser(
-		userID,
-		emailVO,
-		pwHashVO,
-		status,
+	return aggregates.ReconstituteUser(
+		valueobjects.ReconstituteUserID(model.ID),
+		valueobjects.ReconstituteEmail(model.Email),
+		valueobjects.ReconstituteHashedPassword(model.HashedPassword),
+		valueobjects.UserStatus(model.Status),
 		roleIDs,
-		u.CreatedAt,
-		u.UpdatedAt,
-		u.DeletedAt,
+		model.CreatedAt, model.UpdatedAt, model.DeletedAt,
 	)
-
-	return user, nil
 }
 
-func (m *UserMapper) ToModel(u *aggregates.User) (*models.User, error) {
-	if u == nil {
-		return nil, nil
+func (m *UserMapper) ToModel(aggregate *aggregates.User) *models.User {
+	if aggregate == nil {
+		return nil
 	}
 
-	// Convert roleIDs → models.Role for Many-to-Many
-	roles := make([]models.Role, len(u.RoleIDs()))
-	for i, rid := range u.RoleIDs() {
-		roles[i] = models.Role{
-			ID: rid.Value(),
-		}
+	roles := make([]models.Role, len(aggregate.RoleIDs()))
+	for i, rid := range aggregate.RoleIDs() {
+		roles[i] = models.Role{ID: rid.Value()}
 	}
 
 	return &models.User{
-		ID:             u.ID().Value(),
-		Email:          u.Email().Value(),
-		HashedPassword: u.HashedPassword().Value(),
-		Status:         string(u.Status()),
+		ID:             aggregate.ID().Value(),
+		Email:          aggregate.Email().Value(),
+		HashedPassword: aggregate.HashedPassword().Value(),
+		Status:         aggregate.Status().Value(),
 		Roles:          roles,
-		CreatedAt:      u.CreatedAt(),
-		UpdatedAt:      u.UpdatedAt(),
-		DeletedAt:      u.DeletedAt(),
-	}, nil
+		CreatedAt:      aggregate.CreatedAt(),
+		UpdatedAt:      aggregate.UpdatedAt(),
+		DeletedAt:      aggregate.DeletedAt(),
+	}
 }

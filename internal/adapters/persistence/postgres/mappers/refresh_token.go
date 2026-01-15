@@ -2,75 +2,45 @@ package mappers
 
 import (
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/core/application/interfaces"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type RefreshTokenMapper struct {
-	uuidParser interfaces.IUUIDParserService
-}
+type RefreshTokenMapper struct{}
 
-var _ IRefreshTokenMapper = (*RefreshTokenMapper)(nil)
+func NewRefreshTokenMapper() *RefreshTokenMapper { return &RefreshTokenMapper{} }
 
-func NewRefreshTokenMapper() IRefreshTokenMapper {
-	return &RefreshTokenMapper{}
-}
-
-func (m *RefreshTokenMapper) ToDomain(rt *models.RefreshToken) (*entities.RefreshToken, error) {
-	if rt == nil {
-		return nil, nil
+func (m *RefreshTokenMapper) ToDomain(model *models.RefreshToken) *entities.RefreshToken {
+	if model == nil {
+		return nil
 	}
 
-	tokenID, err := m.uuidParser.ParseTokenID(rt.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	userID, err := m.uuidParser.ParseUserID(rt.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	deviceID, err := m.uuidParser.ParseDeviceID(rt.DeviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenVO := valueobjects.ReconstituteToken(rt.Token)
-
-	refreshToken := entities.ReconstituteRefreshToken(
-		tokenID,
-		userID,
-		deviceID,
-		tokenVO,
-		rt.ExpiresAt,
-		rt.RevokedAt,
-		rt.CreatedAt,
-		rt.UpdatedAt,
-		rt.DeletedAt,
+	return entities.ReconstituteRefreshToken(
+		valueobjects.ReconstituteTokenID(model.ID),
+		valueobjects.ReconstituteUserID(model.UserID),
+		valueobjects.ReconstituteDeviceID(model.DeviceID),
+		valueobjects.ReconstituteToken(model.Token),
+		model.ExpiresAt,
+		model.RevokedAt,
+		model.CreatedAt,
+		model.UpdatedAt,
+		model.DeletedAt,
 	)
-
-	if rt.RevokedAt != nil {
-		refreshToken.Revoke(*rt.RevokedAt)
-	}
-
-	return refreshToken, nil
 }
 
-func (m *RefreshTokenMapper) ToModel(e *entities.RefreshToken) *models.RefreshToken {
-	if e == nil {
+func (m *RefreshTokenMapper) ToModel(entity *entities.RefreshToken) *models.RefreshToken {
+	if entity == nil {
 		return nil
 	}
 
 	return &models.RefreshToken{
-		ID:        e.ID().Value(),
-		UserID:    e.UserID().Value(),
-		DeviceID:  e.DeviceID().Value(),
-		Token:     e.Token().Value(),
-		ExpiresAt: e.ExpiresAt(),
-		RevokedAt: e.RevokedAt(),
-		CreatedAt: e.CreatedAt(),
-		UpdatedAt: e.UpdatedAt(),
+		ID:        entity.ID().Value(),
+		UserID:    entity.UserID().Value(),
+		DeviceID:  entity.DeviceID().Value(),
+		Token:     entity.Token().Value(),
+		ExpiresAt: entity.ExpiresAt(),
+		RevokedAt: entity.RevokedAt(),
+		CreatedAt: entity.CreatedAt(),
+		UpdatedAt: entity.UpdatedAt(),
 	}
 }

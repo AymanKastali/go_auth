@@ -10,10 +10,10 @@ import (
 )
 
 type AuthUserHandler struct {
-	uc ports.AuthUserUseCasePort
+	uc ports.IAuthUserUseCase
 }
 
-func NewAuthUserHandler(uc ports.AuthUserUseCasePort) *AuthUserHandler {
+func NewAuthUserHandler(uc ports.IAuthUserUseCase) *AuthUserHandler {
 	return &AuthUserHandler{uc: uc}
 }
 

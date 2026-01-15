@@ -11,13 +11,13 @@ import (
 )
 
 type registerHandler struct {
-	uc ports.RegisterUseCasePort
+	uc ports.IRegisterUseCase
 }
 
 var _ interfaces.IRegisterHandler = (*registerHandler)(nil)
 
 func NewRegisterHandler(
-	uc ports.RegisterUseCasePort,
+	uc ports.IRegisterUseCase,
 ) interfaces.IRegisterHandler {
 	return &registerHandler{uc: uc}
 }

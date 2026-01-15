@@ -2,28 +2,33 @@ package repositories
 
 import (
 	"errors"
-	"go_auth/internal/adapters/persistence/postgres/mappers"
-	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr" // Use pgerr instead of derr
-	"go_auth/internal/core/domain/entities"
-	"go_auth/internal/core/domain/valueobjects"
 	"time"
+
+	"go_auth/internal/adapters/persistence/postgres/models"
+	"go_auth/internal/adapters/persistence/postgres/pgerr"
+	"go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/entities"
+	domainports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
 )
 
 type GormRefreshTokenRepository struct {
 	db     *gorm.DB
-	mapper mappers.IRefreshTokenMapper
+	mapper ports.IRefreshTokenMapper
+	idSvc  domainports.IIDService
 }
 
 func NewGormRefreshTokenRepository(
 	db *gorm.DB,
-	mapper mappers.IRefreshTokenMapper,
+	mapper ports.IRefreshTokenMapper,
+	idSvc domainports.IIDService,
 ) *GormRefreshTokenRepository {
 	return &GormRefreshTokenRepository{
 		db:     db,
 		mapper: mapper,
+		idSvc:  idSvc,
 	}
 }
 
@@ -45,9 +50,15 @@ func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*ent
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, pgerr.WrapUnavailable(err, "failed to fetch token by id")
+		return nil, pgerr.WrapUnavailable(err, "failed to fetch token")
 	}
-	return r.mapper.ToDomain(&model)
+
+	// GATEKEEPER
+	if err := model.Validate(r.idSvc); err != nil {
+		return nil, err
+	}
+
+	return r.mapper.ToDomain(&model), nil
 }
 
 func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.RefreshToken, error) {
@@ -59,19 +70,13 @@ func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.Refr
 		}
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch token by value")
 	}
-	return r.mapper.ToDomain(&model)
-}
 
-func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
-	result := r.db.Model(&models.RefreshToken{}).
-		Where("id = ? AND revoked_at IS NULL", tokenID.Value()).
-		Update("revoked_at", revokedAt)
-
-	if result.Error != nil {
-		return pgerr.WrapUnavailable(result.Error, "failed to revoke token")
+	// GATEKEEPER
+	if err := model.Validate(r.idSvc); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return r.mapper.ToDomain(&model), nil
 }
 
 func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
@@ -83,13 +88,24 @@ func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]
 
 	tokens := make([]*entities.RefreshToken, len(modelsList))
 	for i := range modelsList {
-		t, err := r.mapper.ToDomain(&modelsList[i])
-		if err != nil {
+		// ALL OR NOTHING
+		if err := modelsList[i].Validate(r.idSvc); err != nil {
 			return nil, err
 		}
-		tokens[i] = t
+		tokens[i] = r.mapper.ToDomain(&modelsList[i])
 	}
 	return tokens, nil
+}
+
+func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
+	result := r.db.Model(&models.RefreshToken{}).
+		Where("id = ? AND revoked_at IS NULL", tokenID.Value()).
+		Update("revoked_at", revokedAt)
+
+	if result.Error != nil {
+		return pgerr.WrapUnavailable(result.Error, "failed to revoke token")
+	}
+	return nil
 }
 
 func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bool, error) {
@@ -98,10 +114,9 @@ func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bo
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// If missing, consider it invalid/revoked
 			return true, nil
 		}
-		return false, pgerr.WrapUnavailable(err, "failed to check token revocation status")
+		return false, pgerr.WrapUnavailable(err, "failed to check revocation")
 	}
 
 	return token.RevokedAt != nil, nil

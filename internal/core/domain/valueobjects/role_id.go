@@ -18,6 +18,8 @@ func NewRoleID(value string) (RoleID, error) {
 	return RoleID{value: trimmed}, nil
 }
 
+func ReconstituteRoleID(s string) RoleID { return RoleID{value: s} }
+
 func (vo RoleID) Value() string           { return vo.value }
 func (vo RoleID) IsEmpty() bool           { return vo.value == "" }
 func (vo RoleID) Equal(other RoleID) bool { return vo.value == other.value }

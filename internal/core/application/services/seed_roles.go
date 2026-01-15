@@ -2,36 +2,32 @@ package services
 
 import (
 	"go_auth/internal/core/application/apperr"
-	"go_auth/internal/core/application/interfaces"
-	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
-	dports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
 )
 
-// Consistent trace ID for system-level background tasks
 const rolesSeederTraceID = "system-roles-seeder"
 
 type seedRolesService struct {
-	roleRepo      dports.RoleRepositoryPort
-	uuidGenerator interfaces.IUUIDGeneratorService
-	clock         interfaces.IClock
-	logger        *slog.Logger
+	roleRepo ports.IRoleRepository
+	idSvc    ports.IIDService
+	clock    ports.IClockService
+	logger   *slog.Logger
 }
 
-var _ aports.SeedRolesServicePort = (*seedRolesService)(nil)
-
 func NewSeedRolesService(
-	roleRepo dports.RoleRepositoryPort,
-	uuidGenerator interfaces.IUUIDGeneratorService,
-	clock interfaces.IClock,
+	roleRepo ports.IRoleRepository,
+	idSvc ports.IIDService,
+	clock ports.IClockService,
 	logger *slog.Logger,
-) aports.SeedRolesServicePort {
+) *seedRolesService {
 	return &seedRolesService{
-		roleRepo:      roleRepo,
-		uuidGenerator: uuidGenerator,
-		clock:         clock,
-		logger:        logger,
+		roleRepo: roleRepo,
+		idSvc:    idSvc,
+		clock:    clock,
+		logger:   logger,
 	}
 }
 
@@ -52,14 +48,14 @@ func (s *seedRolesService) SeedDefaultRoles() error {
 		}
 
 		// 2. Identity Generation
-		roleID, err := s.uuidGenerator.NewRoleID()
+		roleID, err := valueobjects.NewRoleID(s.idSvc.Generate())
 		if err != nil {
 			s.logger.Error("Failed to generate role ID", "error", err)
 			return apperr.Internal("failed to generate unique role id", rolesSeederTraceID, err)
 		}
 
 		// 3. Aggregate Instantiation
-		role, err := aggregates.NewRole(roleID, name, s.clock.NowUTC())
+		role, err := aggregates.NewRole(roleID, name, s.clock.Now().UTC())
 		if err != nil {
 			s.logger.Error("Failed to create role entity", "role", name, "error", err)
 			// Map domain validation failures (e.g., name too short) to AppError
