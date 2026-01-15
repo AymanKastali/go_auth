@@ -1,8 +1,8 @@
 package services
 
 import (
-	"go_auth/internal/adapters/seed"
 	"go_auth/internal/core/application/apperr"
+	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
@@ -17,7 +17,7 @@ type seedAdminService struct {
 	passwordHasher ports.IPasswordService
 	idSvc          ports.IIDService
 	clock          ports.IClockService
-	cfg            *seed.SeederConfig
+	cfg            aports.ISeederConfig
 	logger         *slog.Logger
 }
 
@@ -27,7 +27,7 @@ func NewSeedAdminService(
 	passwordHasher ports.IPasswordService,
 	idSvc ports.IIDService,
 	clock ports.IClockService,
-	seederConfig *seed.SeederConfig,
+	seederConfig aports.ISeederConfig,
 	logger *slog.Logger,
 ) *seedAdminService {
 	return &seedAdminService{
@@ -47,58 +47,51 @@ func (s *seedAdminService) SeedAdmin() error {
 
 	// 1. Config Check
 	if adminEmail == "" || adminPass == "" {
-		s.logger.Error("GA_ADMIN_EMAIL or GA_ADMIN_PASSWORD environment variables are not set")
+		s.logger.Error("seeding skipped: environment variables not set")
 		return apperr.Internal("seeder configuration missing", seederTraceID, nil)
 	}
 
 	// 2. Value Object Creation
 	emailVO, err := valueobjects.NewEmail(adminEmail)
 	if err != nil {
-		s.logger.Error("Failed to create Email value object", "error", err)
-		return apperr.Invalid("invalid admin email in config", seederTraceID, err)
+		return apperr.Map(err, seederTraceID)
 	}
 
 	// 3. Existence Check
 	existing, err := s.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		s.logger.Error("Failed to check admin existence", "error", err)
-		return apperr.FromDomain(err, seederTraceID)
+		return apperr.Map(err, seederTraceID)
 	}
 	if existing != nil {
-		s.logger.Info("Admin user already exists, skipping seeding", "email", adminEmail)
+		s.logger.Info("admin user already exists, skipping", "email", adminEmail)
 		return nil
 	}
 
-	// 4. Cryptography
+	// 4. Role Dependency Check (Strict)
+	// We use "ADMIN" standardized uppercase to match typical strict naming
+	adminRole, err := s.roleRepo.GetByName("ADMIN")
+	if err != nil {
+		return apperr.Map(err, seederTraceID)
+	}
+	if adminRole == nil {
+		s.logger.Error("DATA INTEGRITY VIOLATION: ADMIN role must exist before seeding admin user")
+		return apperr.Internal("required system roles missing", seederTraceID, nil)
+	}
+
+	// 5. Cryptography
 	hash, err := s.passwordHasher.Hash(adminPass)
 	if err != nil {
-		s.logger.Error("Failed to hash admin password", "error", err)
 		return apperr.Internal("cryptography failure during seeding", seederTraceID, err)
 	}
 
 	pw, err := valueobjects.NewHashedPassword(hash)
 	if err != nil {
-		return apperr.FromDomain(err, seederTraceID)
+		return apperr.Map(err, seederTraceID)
 	}
 
-	// 5. Role Dependency Check
-	adminRole, err := s.roleRepo.GetByName("admin")
-	if err != nil {
-		s.logger.Error("Failed to fetch admin role", "error", err)
-		return apperr.FromDomain(err, seederTraceID)
-	}
-	if adminRole == nil {
-		s.logger.Error("admin role does not exist")
-		return apperr.NotFound("required admin role missing from database", seederTraceID, nil)
-	}
+	// 6. Identity & Aggregate
+	userID := valueobjects.ReconstituteUserID(s.idSvc.Generate())
 
-	// 6. Identity Generation
-	userID, err := valueobjects.NewUserID(s.idSvc.Generate())
-	if err != nil {
-		return apperr.Internal("failed to generate admin uuid", seederTraceID, err)
-	}
-
-	// 7. Aggregate Instantiation
 	admin, err := aggregates.NewUser(
 		userID,
 		emailVO,
@@ -108,14 +101,14 @@ func (s *seedAdminService) SeedAdmin() error {
 		s.clock.Now().UTC(),
 	)
 	if err != nil {
-		return apperr.FromDomain(err, seederTraceID)
+		return apperr.Map(err, seederTraceID)
 	}
 
-	// 8. Persistence
+	// 7. Persistence
 	if err := s.userRepo.Create(admin); err != nil {
-		return apperr.FromDomain(err, seederTraceID)
+		return apperr.Map(err, seederTraceID)
 	}
 
-	s.logger.Info("Admin user successfully seeded", "email", adminEmail)
+	s.logger.Info("admin user successfully seeded", "email", adminEmail)
 	return nil
 }

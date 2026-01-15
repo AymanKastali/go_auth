@@ -1,10 +1,9 @@
-package auth_handlers
+package auth
 
 import (
-	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
+	"go_auth/internal/adapters/http"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
-	"go_auth/internal/core/application/apperr" // Now using the Kind-based apperr
 	"go_auth/internal/core/application/ports"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,37 +13,30 @@ type loginHandler struct {
 	uc ports.ILoginUseCase
 }
 
-var _ interfaces.ILoginHandler = (*loginHandler)(nil)
-
-func NewLoginHandler(
-	uc ports.ILoginUseCase,
-) interfaces.ILoginHandler {
+func NewLoginHandler(uc ports.ILoginUseCase) *loginHandler {
 	return &loginHandler{uc: uc}
 }
 
 func (h *loginHandler) Execute(c *fiber.Ctx) error {
+	ctx := utils.GetContext(c)
+	traceID := ctx.RequestID
+
 	var req dto.LoginRequest
 
-	// 1. Extract context (RequestID, DeviceID, etc.)
-	ctx := utils.GetContext(c)
-	requestID := ctx.RequestID
-
-	// 2. Parse request body
+	// 1. Protocol Layer: Syntax check (HTTP 400)
 	if err := c.BodyParser(&req); err != nil {
-		// FIX: Replaced BadRequest with apperr.Invalid (KindInvalid)
-		return apperr.Invalid("invalid login request format", requestID, err)
+		// Strictly an adapter concern; core is never reached
+		return http.NewBadRequest(err)
 	}
 
-	// 3. Request Validation
+	// 2. Application Layer: Schema validation (HTTP 422)
 	if err := utils.Validate(req); err != nil {
-		// Validation errors are logically 'Invalid' kinds at the app level
-		return apperr.Invalid("validation failed", requestID, err)
+		return http.NewBadRequest(err)
 	}
 
-	// 4. Call use case
-	// The use case now returns apperr.AppError with KindUnauthenticated, KindInternal, etc.
+	// 3. Core Execution: Orchestration
 	authResp, err := h.uc.Execute(
-		requestID,
+		traceID,
 		req.Email,
 		req.Password,
 		ctx.DeviceID,
@@ -53,17 +45,11 @@ func (h *loginHandler) Execute(c *fiber.Ctx) error {
 		ctx.IPAddress,
 	)
 	if err != nil {
-		// Just return the error; the GlobalErrorHandler will map the Kind to HTTP status
 		return err
 	}
 
-	// 5. Success Response
-	return utils.OK(
-		c,
-		dto.LoginResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-		},
-		"User logged in successfully",
-	)
+	return utils.OK(c, dto.LoginResponse{
+		AccessToken:  authResp.AccessToken,
+		RefreshToken: authResp.RefreshToken,
+	}, "authenticated")
 }

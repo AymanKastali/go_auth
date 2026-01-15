@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"go_auth/internal/adapters/http/fiber"
 	"go_auth/internal/adapters/persistence/postgres"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
@@ -17,7 +16,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	// 2. Load Database Configuration
-	dbCfg, err := postgres.LoadPostgresConfig()
+	dbCfg, err := postgres.NewPostgresConfig()
 	if err != nil {
 		slog.Error("Failed to load database configuration", "error", err)
 		os.Exit(1)
@@ -59,9 +58,8 @@ func main() {
 	// 8. Graceful Shutdown Implementation
 	// This ensures the server stops correctly on Ctrl+C or Docker stop
 	go func() {
-		addr := fmt.Sprintf(":%d", fiberCfg.Port())
 		slog.Info("Server is starting", "port", fiberCfg.Port())
-		if err := app.Listen(addr); err != nil {
+		if err := app.Listen(fiberCfg.ListenAddr()); err != nil {
 			slog.Error("Server runtime failure", "error", err)
 		}
 	}()

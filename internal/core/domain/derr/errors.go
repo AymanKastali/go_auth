@@ -4,124 +4,145 @@ import (
 	"fmt"
 )
 
-type Code int
+type Code string
 
 const (
-	CodeValidation Code = iota
-	CodeConflict
-	CodePermissionDenied
+	CodeNotFound   Code = "NOT_FOUND"
+	CodeValidation Code = "VALIDATION"
+	CodeConflict   Code = "CONFLICT"
+	CodeForbidden  Code = "FORBIDDEN"
+	CodeInternal   Code = "INTERNAL_ERROR"
 )
 
-type DomainError interface {
-	error
-	Code() Code
+// DomainError is now exported so JSON marshaling works.
+type DomainError struct {
+	Inner   error          `json:"-"`
+	Type    Code           `json:"code"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
-var _ DomainError = (*domainError)(nil)
+func (e *DomainError) Error() string {
+	if e.Inner != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Inner)
+	}
+	return e.Message
+}
+func (e *DomainError) Unwrap() error { return e.Inner }
 
-type domainError struct {
-	code    Code
-	message string
+// --- Internal Helpers ---
+
+func newErr(code Code, msg string, details map[string]any) *DomainError {
+	return &DomainError{
+		Type:    code,
+		Message: msg,
+		Details: details,
+	}
 }
 
-func (e *domainError) Error() string { return e.message }
-func (e *domainError) Code() Code    { return e.code }
-
-// --- Helpers (Internal) ---
-
-func newErr(code Code, msg string) DomainError {
-	return &domainError{code: code, message: msg}
+func validation(msg string, field string, reason string) *DomainError {
+	return newErr(CodeValidation, msg, map[string]any{
+		"field":  field,
+		"reason": reason,
+	})
 }
 
-func newErrRequired(field string) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("%s is required", field))
+func required(field string) *DomainError {
+	return validation(fmt.Sprintf("%s is required", field), field, "required")
 }
 
-func newErrInvalid(field string) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("%s is invalid", field))
+// --- 1. Identity & Resource Validation (Required) ---
+
+func ErrUserIDRequired() *DomainError      { return required("user_id") }
+func ErrEmailRequired() *DomainError       { return required("email") }
+func ErrPasswordRequired() *DomainError    { return required("password") }
+func ErrStatusRequired() *DomainError      { return required("status") }
+func ErrCurrentTimeRequired() *DomainError { return required("current_time") }
+func ErrRoleIDRequired() *DomainError      { return required("role_id") }
+func ErrRoleNameRequired() *DomainError    { return required("role_name") }
+func ErrDeviceIDRequired() *DomainError    { return required("device_id") }
+func ErrTokenRequired() *DomainError       { return required("token") }
+func ErrTokenIDRequired() *DomainError     { return required("token_id") }
+func ErrExpiresAtRequired() *DomainError   { return required("expiration_date") }
+
+// --- 2. Business Rule Violations (Rules) ---
+
+func ErrInvalidEmail() *DomainError {
+	return validation("email format is invalid", "email", "format")
 }
 
-// --- Validation Errors (Required) ---
-
-func ErrUserIDRequired() DomainError      { return newErrRequired("user id") }
-func ErrEmailRequired() DomainError       { return newErrRequired("email") }
-func ErrPasswordRequired() DomainError    { return newErrRequired("password") }
-func ErrStatusRequired() DomainError      { return newErrRequired("status") }
-func ErrCurrentTimeRequired() DomainError { return newErrRequired("current time") }
-func ErrRoleIDRequired() DomainError      { return newErrRequired("role id") }
-func ErrRoleNameRequired() DomainError    { return newErrRequired("role name") }
-func ErrDeviceIDRequired() DomainError    { return newErrRequired("device id") }
-func ErrTokenRequired() DomainError       { return newErrRequired("token") }
-func ErrTokenIDRequired() DomainError     { return newErrRequired("token id") }
-func ErrExpiresAtRequired() DomainError   { return newErrRequired("expiration date") }
-
-// --- Validation Errors (Rules) ---
-
-func ErrInvalidEmail() DomainError { return newErrInvalid("email") }
-
-func ErrExpirationInPast() DomainError {
-	return newErr(CodeValidation, "expiration date cannot be in the past")
+func ErrExpirationInPast() *DomainError {
+	return validation("expiration date cannot be in the past", "expires_at", "past_date")
 }
 
-func ErrMinimumRolesRequirement(min int) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("at least %d role(s) must be assigned", min))
+func ErrMinimumRolesRequirement(min int) *DomainError {
+	return validation(
+		fmt.Sprintf("at least %d role(s) must be assigned", min),
+		"roles",
+		fmt.Sprintf("min_%d", min),
+	)
 }
 
-func ErrRoleNotAssigned(roleID string) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("role %s is not assigned to this user", roleID))
+func ErrRoleNotAssigned(roleID string) *DomainError {
+	return validation("role is not assigned to this user", "role_id", "not_assigned")
 }
 
-func ErrRoleAlreadyAssigned(roleID string) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("role %s is already assigned to this user", roleID))
+func ErrRoleAlreadyAssigned(roleID string) *DomainError {
+	return validation("role is already assigned to this user", "role_id", "already_assigned")
 }
 
-func ErrTokenExpired(tokenID string) DomainError {
-	return newErr(CodeValidation, fmt.Sprintf("token %s is expired", tokenID))
+func ErrTokenExpired(tokenID string) *DomainError {
+	return newErr(CodeValidation, "the provided token has expired", map[string]any{
+		"token_id": tokenID,
+		"reason":   "expired",
+	})
 }
 
-// --- Permission / Ownership Errors ---
+// --- 3. Access & Ownership Errors (Forbidden) ---
 
-func ErrTokenDoesNotBelongToDevice(tokenID, deviceID string) DomainError {
-	return newErr(CodePermissionDenied, fmt.Sprintf("token %s does not belong to device %s", tokenID, deviceID))
-}
-
-func ErrDeviceDoesNotBelongToUser(deviceID, userID string) DomainError {
-	return newErr(CodePermissionDenied, fmt.Sprintf("device %s does not belong to user %s", deviceID, userID))
-}
-
-// --- Conflict Errors (State) ---
-
-func ErrDeviceRevoked(deviceID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("device %s is revoked", deviceID))
+func ErrTokenDoesNotBelongToDevice(tokenID, deviceID string) *DomainError {
+	return newErr(CodeForbidden, "access denied: token/device mismatch", map[string]any{
+		"token_id":  tokenID,
+		"device_id": deviceID,
+	})
 }
 
-func ErrDeviceDeleted(deviceID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("device %s is deleted", deviceID))
+func ErrDeviceDoesNotBelongToUser(deviceID, userID string) *DomainError {
+	return newErr(CodeForbidden, "access denied: device/user mismatch", map[string]any{
+		"device_id": deviceID,
+		"user_id":   userID,
+	})
 }
 
-func ErrTokenRevoked(tokenID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("token %s is revoked", tokenID))
+// --- 4. State Management Errors (Conflict) ---
+
+func ErrUserDeleted(userID string) *DomainError {
+	return newErr(CodeConflict, "action cannot be performed on a deleted user", map[string]any{"user_id": userID})
 }
-func ErrTokenDeleted(tokenID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("token %s is deleted", tokenID))
-}
-func ErrUserDeleted(userID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("user %s is deleted", userID))
+func ErrTokenDeleted(tokenID string) *DomainError {
+	return newErr(CodeConflict, "action cannot be performed on a deleted token", map[string]any{"token_id": tokenID})
 }
 
-// Standardizing "Already In Status" phrasing
-func ErrUserAlreadyActive(userID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("user %s is already active", userID))
+func ErrDeviceRevoked(deviceID string) *DomainError {
+	return newErr(CodeConflict, "device session has been revoked", map[string]any{"device_id": deviceID})
 }
 
-func ErrUserAlreadyInactive(userID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("user %s is already inactive", userID))
+func ErrTokenRevoked(tokenID string) *DomainError {
+	return newErr(CodeConflict, "token has been revoked", map[string]any{"token_id": tokenID})
 }
 
-func ErrDeviceAlreadyActive(deviceID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("device %s is already active", deviceID))
+func ErrStateConflict(resource, id, currentState string) *DomainError {
+	return newErr(CodeConflict, fmt.Sprintf("%s %s is already %s", resource, id, currentState), map[string]any{
+		"resource": resource,
+		"id":       id,
+		"state":    currentState,
+	})
 }
 
-func ErrDeviceAlreadyInactive(deviceID string) DomainError {
-	return newErr(CodeConflict, fmt.Sprintf("device %s is already inactive", deviceID))
+// Simplified "Already in Status" usage
+func ErrUserAlreadyActive(id string) *DomainError   { return ErrStateConflict("user", id, "active") }
+func ErrUserAlreadyInactive(id string) *DomainError { return ErrStateConflict("user", id, "inactive") }
+func ErrDeviceAlreadyInactive(id string) *DomainError {
+	return ErrStateConflict("device", id, "inactive")
 }
+func ErrDeviceAlreadyActive(id string) *DomainError { return ErrStateConflict("device", id, "active") }

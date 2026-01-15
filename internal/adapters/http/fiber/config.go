@@ -1,16 +1,10 @@
 package fiber
 
 import (
-	"go_auth/internal/adapters/http/fiber/fibererr"
-	"go_auth/internal/adapters/shared"
+	"errors"
+	"fmt"
 	"os"
 	"strconv"
-)
-
-const (
-	module     = "Fiber"
-	portKey    = "GA_PORT"
-	appNameKey = "GA_APP_NAME"
 )
 
 type FiberConfig struct {
@@ -18,44 +12,39 @@ type FiberConfig struct {
 	port    uint16
 }
 
+// NewFiberConfig loads and validates Fiber settings from environment variables.
 func NewFiberConfig() (*FiberConfig, error) {
-	return loadFiberConfig(os.Getenv)
-}
+	cfg := &FiberConfig{}
 
-func loadFiberConfig(getenv func(string) string) (*FiberConfig, error) {
 	// 1. App Name Validation
-	appName := getenv(appNameKey)
-	if appName == "" {
-		// FIXED: Passing the KEY name, not the empty variable
-		return nil, shared.NewMissingVarErr(module, appNameKey)
+	cfg.appName = os.Getenv("GA_APP_NAME")
+	if cfg.appName == "" {
+		return nil, errors.New("fiber config error: GA_APP_NAME is required")
 	}
 
 	// 2. Port Presence Validation
-	envPort := getenv(portKey)
-	if envPort == "" {
-		return nil, shared.NewMissingVarErr(module, portKey)
+	portStr := os.Getenv("GA_PORT")
+	if portStr == "" {
+		return nil, errors.New("fiber config error: GA_PORT is required")
 	}
 
 	// 3. Type Conversion Validation
-	p, err := strconv.Atoi(envPort)
+	p, err := strconv.Atoi(portStr)
 	if err != nil {
-		// If using a sub-package:
-		// return nil, fibererr.NewParseErr(portKey, err)
-
-		// If errors are in the same package (Recommended for simplicity):
-		return nil, fibererr.NewParseErr(portKey, err)
+		return nil, fmt.Errorf("fiber config error: GA_PORT must be a valid number: %w", err)
 	}
 
-	// 4. Logic/Range Validation
+	// 4. Logic/Range Validation (0-65535)
 	if p <= 0 || p > 65535 {
-		return nil, fibererr.NewInvalidPortErr(portKey)
+		return nil, fmt.Errorf("fiber config error: GA_PORT %d is out of valid range (1-65535)", p)
 	}
 
-	return &FiberConfig{
-		appName: appName,
-		port:    uint16(p),
-	}, nil
+	cfg.port = uint16(p)
+	return cfg, nil
 }
 
 func (c *FiberConfig) AppName() string { return c.appName }
 func (c *FiberConfig) Port() uint16    { return c.port }
+
+// ListenAddr returns the formatted string for the Fiber Listen method (e.g., ":8080")
+func (c *FiberConfig) ListenAddr() string { return fmt.Sprintf(":%d", c.port) }

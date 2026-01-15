@@ -31,44 +31,40 @@ func NewSeedRolesService(
 	}
 }
 
-// SeedDefaultRoles creates user, admin roles if they don't exist
+// SeedDefaultRoles ensures fundamental system roles exist.
 func (s *seedRolesService) SeedDefaultRoles() error {
-	defaultRoles := []string{"admin", "user"}
+	// Standardizing to uppercase for strict matching
+	defaultRoles := []string{"ADMIN", "USER"}
 
 	for _, name := range defaultRoles {
-		// 1. Check existence
-		exists, err := s.roleRepo.GetByName(name)
+		// 1. Existence Check
+		existing, err := s.roleRepo.GetByName(name)
 		if err != nil {
-			s.logger.Error("Failed to check role existence", "role", name, "error", err)
-			// Wrap infrastructure/repo errors
-			return apperr.FromDomain(err, rolesSeederTraceID)
+			// Maps technical DB errors to apperr.Internal (500)
+			return apperr.Map(err, rolesSeederTraceID)
 		}
-		if exists != nil {
+
+		if existing != nil {
+			s.logger.Debug("Role already exists, skipping", "role", name)
 			continue
 		}
 
 		// 2. Identity Generation
-		roleID, err := valueobjects.NewRoleID(s.idSvc.Generate())
-		if err != nil {
-			s.logger.Error("Failed to generate role ID", "error", err)
-			return apperr.Internal("failed to generate unique role id", rolesSeederTraceID, err)
-		}
+		roleID := valueobjects.ReconstituteRoleID(s.idSvc.Generate())
 
-		// 3. Aggregate Instantiation
+		// 3. Aggregate Instantiation (Business Invariants)
 		role, err := aggregates.NewRole(roleID, name, s.clock.Now().UTC())
 		if err != nil {
-			s.logger.Error("Failed to create role entity", "role", name, "error", err)
-			// Map domain validation failures (e.g., name too short) to AppError
-			return apperr.FromDomain(err, rolesSeederTraceID)
+			// Maps domain validation (e.g., invalid name) to apperr.Validation (422)
+			return apperr.Map(err, rolesSeederTraceID)
 		}
 
 		// 4. Persistence
 		if err := s.roleRepo.Save(role); err != nil {
-			s.logger.Error("Failed to save role", "role", name, "error", err)
-			return apperr.FromDomain(err, rolesSeederTraceID)
+			return apperr.Map(err, rolesSeederTraceID)
 		}
 
-		s.logger.Info("Role successfully seeded", "role", name)
+		s.logger.Info("System role successfully seeded", "role", name)
 	}
 
 	return nil
