@@ -67,6 +67,9 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			case apperr.TypeConflict:
 				statusCode = netHTTP.StatusConflict
 				l.Warn("resource_conflict", slog.String("msg", aErr.Message))
+			case apperr.TypeForbidden:
+				statusCode = netHTTP.StatusForbidden
+				l.Warn("forbidden_access", slog.String("msg", aErr.Message))
 			case apperr.TypeInternal:
 				l.Error("application_internal_failure",
 					slog.String("cause", aErr.Cause.Error()),

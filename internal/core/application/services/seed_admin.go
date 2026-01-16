@@ -14,7 +14,7 @@ const seederTraceID = "system-seeder"
 type seedAdminService struct {
 	userRepo       ports.IUserRepository
 	roleRepo       ports.IRoleRepository
-	passwordHasher ports.IPasswordService
+	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
 	clock          ports.IClockService
 	cfg            aports.ISeederConfig
@@ -24,7 +24,7 @@ type seedAdminService struct {
 func NewSeedAdminService(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
-	passwordHasher ports.IPasswordService,
+	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
 	clock ports.IClockService,
 	seederConfig aports.ISeederConfig,
@@ -78,15 +78,15 @@ func (s *seedAdminService) SeedAdmin() error {
 		return apperr.Internal("required system roles missing", seederTraceID, nil)
 	}
 
-	// 5. Cryptography
-	hash, err := s.passwordHasher.Hash(adminPass)
-	if err != nil {
-		return apperr.Internal("cryptography failure during seeding", seederTraceID, err)
-	}
-
-	pw, err := valueobjects.NewHashedPassword(hash)
+	rawPwd, err := valueobjects.NewRawPassword(adminPass)
 	if err != nil {
 		return apperr.Map(err, seederTraceID)
+	}
+
+	// 5. Cryptography
+	hashedPwd, err := s.passwordHasher.Hash(rawPwd)
+	if err != nil {
+		return apperr.Internal("cryptography failure during seeding", seederTraceID, err)
 	}
 
 	// 6. Identity & Aggregate
@@ -95,7 +95,7 @@ func (s *seedAdminService) SeedAdmin() error {
 	admin, err := aggregates.NewUser(
 		userID,
 		emailVO,
-		pw,
+		hashedPwd,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{adminRole.ID()},
 		s.clock.Now().UTC(),

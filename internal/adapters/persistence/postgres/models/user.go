@@ -24,7 +24,7 @@ func (User) TableName() string {
 
 func (u *User) Validate(
 	idService ports.IIDService,
-	passService ports.IPasswordService,
+	passService ports.IPasswordHasherService,
 ) error {
 	// 1. Identity
 	if !idService.IsValid(u.ID) {
@@ -32,8 +32,8 @@ func (u *User) Validate(
 	}
 
 	// 2. Password Hash Integrity
-	if !passService.IsValidHash(u.HashedPassword) {
-		return pgerr.NewIntegrityError("User", "HashedPassword", "invalid_bcrypt_format")
+	if u.HashedPassword != "" && !passService.IsValidFormat(u.HashedPassword) {
+		return pgerr.NewIntegrityError("User", "HashedPassword", "corrupted_hash_format")
 	}
 
 	// 3. Status/Enum

@@ -1,6 +1,9 @@
 package ports
 
-import "time"
+import (
+	"go_auth/internal/core/domain/valueobjects"
+	"time"
+)
 
 type IIDService interface {
 	Generate() string
@@ -11,8 +14,8 @@ type IClockService interface {
 	Now() time.Time
 }
 
-type IPasswordService interface {
-	Hash(raw string) (string, error)
-	Compare(raw string, hashed string) bool
-	IsValidHash(hashed string) bool
+type IPasswordHasherService interface {
+	Hash(raw valueobjects.RawPassword) (valueobjects.HashedPassword, error)
+	Compare(plain string, hashed valueobjects.HashedPassword) error
+	IsValidFormat(hashed string) bool
 }

@@ -42,7 +42,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 
 	// UUID Service
 	idSvc := adaptersvc.NewUUIDService()
-	pwsHashSvc := adaptersvc.NewBcryptHashedPassword(12)
+	pwsHashSvc := adaptersvc.NewBcryptHasher(12)
 
 	// -------------------
 	// Mappers
