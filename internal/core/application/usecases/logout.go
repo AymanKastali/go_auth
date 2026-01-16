@@ -3,7 +3,6 @@ package usecases
 import (
 	"go_auth/internal/core/application/apperr"
 	aports "go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -12,7 +11,7 @@ import (
 type logoutUseCase struct {
 	refreshRepo dports.IRefreshTokenRepository
 	tokenSvc    aports.ITokenService
-	idSvc       ports.IIDService
+	idSvc       dports.IIDService
 	clock       dports.IClockService
 	logger      *slog.Logger
 }
@@ -20,7 +19,7 @@ type logoutUseCase struct {
 func NewLogoutUseCase(
 	refreshRepo dports.IRefreshTokenRepository,
 	tokenSvc aports.ITokenService,
-	idSvc ports.IIDService,
+	idSvc dports.IIDService,
 	clock dports.IClockService,
 	logger *slog.Logger,
 ) *logoutUseCase {
