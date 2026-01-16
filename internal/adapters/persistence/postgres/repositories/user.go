@@ -18,14 +18,14 @@ type GormUserRepository struct {
 	db     *gorm.DB
 	mapper ports.IUserMapper
 	idSvc  domainports.IIDService
-	pwdSvc domainports.IPasswordService
+	pwdSvc domainports.IPasswordHasherService
 }
 
 func NewGormUserRepository(
 	db *gorm.DB,
 	mapper ports.IUserMapper,
 	idSvc domainports.IIDService,
-	pwdSvc domainports.IPasswordService,
+	pwdSvc domainports.IPasswordHasherService,
 ) *GormUserRepository {
 	return &GormUserRepository{
 		db:     db,

@@ -91,6 +91,28 @@ func ErrRoleAlreadyAssigned(roleID string) *DomainError {
 	return validation("role is already assigned to this user", "role_id", "already_assigned")
 }
 
+func ErrPasswordTooShort(min int) *DomainError {
+	err := validation(
+		fmt.Sprintf("password must be at least %d characters long", min),
+		"password",
+		"too_short",
+	)
+	err.Details["min_length"] = min
+	return err
+}
+
+func ErrPasswordTooWeak(requirements string) *DomainError {
+	return validation(
+		fmt.Sprintf("password does not meet complexity requirements: %s", requirements),
+		"password",
+		"low_entropy",
+	)
+}
+
+func ErrPasswordMismatch() *DomainError {
+	return validation("invalid credentials provided", "password", "mismatch")
+}
+
 func ErrTokenExpired(tokenID string) *DomainError {
 	return newErr(CodeValidation, "the provided token has expired", map[string]any{
 		"token_id": tokenID,

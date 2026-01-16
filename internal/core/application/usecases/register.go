@@ -12,7 +12,7 @@ import (
 type registerUseCase struct {
 	userRepo       ports.IUserRepository
 	roleRepo       ports.IRoleRepository
-	passwordHasher ports.IPasswordService
+	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
 	clock          ports.IClockService
 	logger         *slog.Logger
@@ -21,7 +21,7 @@ type registerUseCase struct {
 func NewRegisterUseCase(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
-	passwordHasher ports.IPasswordService,
+	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
 	clock ports.IClockService,
 	logger *slog.Logger,
@@ -63,17 +63,15 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 		return nil, apperr.Conflict("an account with this email already exists", traceID, nil)
 	}
 
-	hash, err := uc.passwordHasher.Hash(password)
-	if err != nil {
-		// Log as Error: This is a system failure. The Error Handler will also log it,
-		// but we log here to capture exactly where the crypto failed.
-		l.Error("cryptography_service_failure", slog.Any("error", err))
-		return nil, apperr.Internal("failed to secure password", traceID, err)
-	}
-
-	pw, err := valueobjects.NewHashedPassword(hash)
+	rawPwd, err := valueobjects.NewRawPassword(password)
 	if err != nil {
 		return nil, apperr.Map(err, traceID)
+	}
+
+	hashedPwd, err := uc.passwordHasher.Hash(rawPwd)
+	if err != nil {
+		l.Error("cryptography_service_failure", slog.Any("error", err))
+		return nil, apperr.Internal("failed to secure password", traceID, err)
 	}
 
 	userRole, err := uc.roleRepo.GetByName("USER")
@@ -96,7 +94,7 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 	user, err := aggregates.NewUser(
 		userID,
 		emailVO,
-		pw,
+		hashedPwd,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{userRole.ID()},
 		uc.clock.Now().UTC(),

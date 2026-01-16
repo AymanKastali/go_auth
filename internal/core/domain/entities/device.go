@@ -43,7 +43,7 @@ func NewDevice(
 		name:       name,
 		userAgent:  userAgent,
 		ipAddress:  ipAddress,
-		isActive:   true,
+		isActive:   false,
 		createdAt:  currentTime,
 		updatedAt:  currentTime,
 		lastSeenAt: currentTime,

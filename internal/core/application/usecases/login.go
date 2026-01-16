@@ -17,7 +17,7 @@ type loginUseCase struct {
 	refreshRepo    dports.IRefreshTokenRepository
 	deviceRepo     dports.IDeviceRepository
 	roleRepo       dports.IRoleRepository
-	passwordHasher dports.IPasswordService
+	passwordHasher dports.IPasswordHasherService
 	tokenService   aports.ITokenService
 	idSvc          dports.IIDService
 	clock          dports.IClockService
@@ -29,7 +29,7 @@ func NewLoginUseCase(
 	refreshRepo dports.IRefreshTokenRepository,
 	deviceRepo dports.IDeviceRepository,
 	roleRepo dports.IRoleRepository,
-	passwordHasher dports.IPasswordService,
+	passwordHasher dports.IPasswordHasherService,
 	tokenService aports.ITokenService,
 	idSvc dports.IIDService,
 	clock dports.IClockService,
@@ -87,9 +87,13 @@ func (uc *loginUseCase) authenticate(traceID, email, password string) (*aggregat
 		return nil, apperr.Map(err, traceID)
 	}
 
-	// Security: Generic message for both account-not-found and wrong-password
-	if user == nil || !uc.passwordHasher.Compare(password, user.HashedPassword().Value()) {
-		uc.logger.Warn("Failed login attempt", "email", email, "trace_id", traceID)
+	if user == nil {
+		uc.logger.Warn("Login attempt for non-existent user", "email", email, "trace_id", traceID)
+		return nil, apperr.Unauthorized("invalid credentials", traceID, nil)
+	}
+
+	if err := uc.passwordHasher.Compare(password, user.HashedPassword()); err != nil {
+		uc.logger.Warn("Wrong password attempt", "email", email, "trace_id", traceID)
 		return nil, apperr.Unauthorized("invalid credentials", traceID, nil)
 	}
 

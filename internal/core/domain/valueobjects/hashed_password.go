@@ -1,23 +1,6 @@
 package valueobjects
 
-import (
-	"go_auth/internal/core/domain/derr"
-	"strings"
-)
-
-type HashedPassword struct {
-	value string
-}
-
-func NewHashedPassword(value string) (HashedPassword, error) {
-	trimmed := strings.TrimSpace(value)
-
-	if trimmed == "" {
-		return HashedPassword{}, derr.ErrPasswordRequired()
-	}
-
-	return HashedPassword{value: trimmed}, nil
-}
+type HashedPassword struct{ value string }
 
 func ReconstituteHashedPassword(value string) HashedPassword {
 	return HashedPassword{value: value}
