@@ -1,9 +1,9 @@
 package fiber
 
 import (
-	auth_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
-	"go_auth/internal/adapters/http/fiber/api/v1/handlers/interfaces"
-	user_handlers "go_auth/internal/adapters/http/fiber/api/v1/handlers/user"
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/roles"
+	"go_auth/internal/adapters/http/fiber/api/v1/handlers/users"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
@@ -21,12 +21,12 @@ import (
 )
 
 type Deps struct {
-	RegisterHandler     interfaces.IRegisterHandler
-	LoginHandler        interfaces.ILoginHandler
-	RefreshTokenHandler interfaces.IRefreshTokenHandler
-	LogoutHandler       interfaces.ILogoutHandler
-	UpdateRoleHandler   interfaces.IUpdateRoleHandler
-	AuthUserHandler     *user_handlers.AuthUserHandler
+	RegisterHandler     *auth.RegisterHandler
+	LoginHandler        *auth.LoginHandler
+	RefreshTokenHandler *auth.RefreshTokenHandler
+	LogoutHandler       *auth.LogoutHandler
+	UpdateRoleHandler   *roles.UpdateRoleHandler
+	AuthUserHandler     *users.AuthUserHandler
 	AuthMiddleware      fiber.Handler
 	Logger              *slog.Logger
 }
@@ -161,12 +161,12 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Handlers
 	// -------------------
 	return &Deps{
-		RegisterHandler:     auth_handlers.NewRegisterHandler(registerUC),
-		LoginHandler:        auth_handlers.NewLoginHandler(loginUC),
-		RefreshTokenHandler: auth_handlers.NewRefreshTokenHandler(refreshUC),
-		LogoutHandler:       auth_handlers.NewLogoutHandler(logoutUC),
-		UpdateRoleHandler:   auth_handlers.NewUpdateRoleHandler(roleUC),
-		AuthUserHandler:     user_handlers.NewAuthUserHandler(authUserUC),
+		RegisterHandler:     auth.NewRegisterHandler(registerUC, logger),
+		LoginHandler:        auth.NewLoginHandler(loginUC),
+		RefreshTokenHandler: auth.NewRefreshTokenHandler(refreshUC),
+		LogoutHandler:       auth.NewLogoutHandler(logoutUC),
+		UpdateRoleHandler:   roles.NewUpdateRoleHandler(roleUC),
+		AuthUserHandler:     users.NewAuthUserHandler(authUserUC),
 		AuthMiddleware: middlewares.JWTMiddleware(
 			jwtService,
 			deviceRepo,

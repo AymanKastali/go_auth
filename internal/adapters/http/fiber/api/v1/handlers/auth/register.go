@@ -5,45 +5,51 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-type registerHandler struct {
-	uc ports.IRegisterUseCase
+type RegisterHandler struct {
+	uc     ports.IRegisterUseCase
+	logger *slog.Logger
 }
 
-func NewRegisterHandler(uc ports.IRegisterUseCase) *registerHandler {
-	return &registerHandler{uc: uc}
+func NewRegisterHandler(
+	uc ports.IRegisterUseCase,
+	logger *slog.Logger,
+) *RegisterHandler {
+	return &RegisterHandler{uc: uc, logger: logger}
 }
 
-func (h *registerHandler) Execute(c *fiber.Ctx) error {
-	// 1. Context Acquisition
+func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 	ctx := utils.GetContext(c)
 	traceID := ctx.RequestID
 
+	l := h.logger.With(
+		slog.String("trace_id", traceID),
+		slog.String("handler", "RegisterHandler"),
+	)
+
+	l.Info("registration request received")
+
 	var req dto.RegisterRequest
 
-	// 2. Protocol Layer: Syntax Check (HTTP 400)
 	if err := c.BodyParser(&req); err != nil {
-		// Strictly an infrastructure concern
 		return http.NewBadRequest(err)
 	}
 
-	// 3. Application Layer: Schema Validation (HTTP 422)
 	if err := utils.Validate(req); err != nil {
 		return http.NewBadRequest(err)
 	}
 
-	// 4. Core Execution: Business Logic
-	// The UC handles hashing, checking email uniqueness, and persistence
 	domainResp, err := h.uc.Execute(traceID, req.Email, req.Password)
 	if err != nil {
-		// Propagates apperr.TypeConflict (409) or TypeInternal (500)
 		return err
 	}
 
-	// 5. Success Presentation (HTTP 201 Created)
+	l.Info("user registered successfully", slog.String("user_id", domainResp.UserID))
+
 	return utils.Created(
 		c,
 		dto.RegisteredUserResponse{

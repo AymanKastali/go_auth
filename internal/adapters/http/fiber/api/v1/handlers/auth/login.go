@@ -9,15 +9,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type loginHandler struct {
+type LoginHandler struct {
 	uc ports.ILoginUseCase
 }
 
-func NewLoginHandler(uc ports.ILoginUseCase) *loginHandler {
-	return &loginHandler{uc: uc}
+func NewLoginHandler(uc ports.ILoginUseCase) *LoginHandler {
+	return &LoginHandler{uc: uc}
 }
 
-func (h *loginHandler) Execute(c *fiber.Ctx) error {
+func (h *LoginHandler) Execute(c *fiber.Ctx) error {
 	ctx := utils.GetContext(c)
 	traceID := ctx.RequestID
 

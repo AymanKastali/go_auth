@@ -10,6 +10,8 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+    tty: true           # Add this: keeps the container alive
+    stdin_open: true    # Add this: allows interactive sessions
     env_file:
       - .env
     ports:

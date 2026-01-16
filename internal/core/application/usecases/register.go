@@ -37,30 +37,38 @@ func NewRegisterUseCase(
 }
 
 func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.RegisteredUserDTO, error) {
-	uc.logger.Info("Starting user registration", "email", email, "trace_id", traceID)
+	l := uc.logger.With(
+		slog.String("trace_id", traceID),
+		slog.String("use_case", "RegisterUser"),
+	)
 
-	// 1. Email Value Object (Validation)
+	start := uc.clock.Now()
+	l.Info("registration_started", slog.String("email", email))
+
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		// Maps derr.CodeValidation to apperr.TypeValidation
 		return nil, apperr.Map(err, traceID)
 	}
 
-	// 2. Existence Check
 	existingUser, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
 		return nil, apperr.Map(err, traceID)
 	}
 	if existingUser != nil {
-		uc.logger.Warn("Registration attempt with existing email", "email", email, "trace_id", traceID)
+		// Log as Warn: This is a meaningful business event (potential bot or user error)
+		l.Warn("registration_rejected",
+			slog.String("reason", "email_exists"),
+			slog.String("email", email),
+		)
 		return nil, apperr.Conflict("an account with this email already exists", traceID, nil)
 	}
 
-	// 3. Cryptography (Orchestration)
 	hash, err := uc.passwordHasher.Hash(password)
 	if err != nil {
-		uc.logger.Error("Password hashing failed", "trace_id", traceID, "error", err)
-		return nil, apperr.Internal("cryptography failure during registration", traceID, err)
+		// Log as Error: This is a system failure. The Error Handler will also log it,
+		// but we log here to capture exactly where the crypto failed.
+		l.Error("cryptography_service_failure", slog.Any("error", err))
+		return nil, apperr.Internal("failed to secure password", traceID, err)
 	}
 
 	pw, err := valueobjects.NewHashedPassword(hash)
@@ -68,17 +76,18 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 		return nil, apperr.Map(err, traceID)
 	}
 
-	// 4. Role Fetching (Dependency Check)
-	userRole, err := uc.roleRepo.GetByName("USER") // Assuming standardized uppercase names
+	userRole, err := uc.roleRepo.GetByName("USER")
 	if err != nil {
 		return nil, apperr.Map(err, traceID)
 	}
 	if userRole == nil {
-		uc.logger.Error("System misconfiguration: 'USER' role missing", "trace_id", traceID)
+		l.Error("missing_critical_configuration",
+			slog.String("resource", "USER_role"),
+			slog.String("impact", "user_cannot_register"),
+		)
 		return nil, apperr.Internal("required system configuration missing", traceID, nil)
 	}
 
-	// 5. Aggregate Instantiation
 	userID, err := valueobjects.NewUserID(uc.idSvc.Generate())
 	if err != nil {
 		return nil, apperr.Internal("identity generation failed", traceID, err)
@@ -96,13 +105,14 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 		return nil, apperr.Map(err, traceID)
 	}
 
-	// 6. Persistence
 	if err := uc.userRepo.Create(user); err != nil {
-		// Automatically handles 409 Conflict if DB returns duplicate key via Map
 		return nil, apperr.Map(err, traceID)
 	}
 
-	uc.logger.Info("User registration successful", "user_id", user.ID().Value(), "trace_id", traceID)
+	l.Info("registration_completed",
+		slog.String("user_id", user.ID().Value()),
+		slog.String("latency", uc.clock.Now().Sub(start).String()),
+	)
 
 	return &dto.RegisteredUserDTO{
 		UserID: user.ID().Value(),

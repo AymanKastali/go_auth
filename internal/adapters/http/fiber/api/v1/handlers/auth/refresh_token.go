@@ -9,15 +9,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type refreshTokenHandler struct {
+type RefreshTokenHandler struct {
 	uc ports.IRefreshTokenUseCase
 }
 
-func NewRefreshTokenHandler(uc ports.IRefreshTokenUseCase) *refreshTokenHandler {
-	return &refreshTokenHandler{uc: uc}
+func NewRefreshTokenHandler(uc ports.IRefreshTokenUseCase) *RefreshTokenHandler {
+	return &RefreshTokenHandler{uc: uc}
 }
 
-func (h *refreshTokenHandler) Execute(c *fiber.Ctx) error {
+func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	// 1. Context Acquisition
 	ctx := utils.GetContext(c)
 	traceID := ctx.RequestID

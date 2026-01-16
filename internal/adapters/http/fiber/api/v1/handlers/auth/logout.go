@@ -10,15 +10,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type logoutHandler struct {
+type LogoutHandler struct {
 	uc ports.ILogoutUseCase
 }
 
-func NewLogoutHandler(uc ports.ILogoutUseCase) *logoutHandler {
-	return &logoutHandler{uc: uc}
+func NewLogoutHandler(uc ports.ILogoutUseCase) *LogoutHandler {
+	return &LogoutHandler{uc: uc}
 }
 
-func (h *logoutHandler) Execute(c *fiber.Ctx) error {
+func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
 	// 1. Retrieve Auth Context (Hydrated by JWTMiddleware)
 	auth, ok := utils.GetAuthContext(c)
 	if !ok {

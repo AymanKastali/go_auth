@@ -1,4 +1,4 @@
-package user_handlers
+package users
 
 import (
 	"go_auth/internal/adapters/http/fiber/dto"
