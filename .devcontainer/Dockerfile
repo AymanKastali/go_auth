@@ -1,28 +1,21 @@
-# Build stage
-FROM golang:1.25 AS builder
-
+# --- Lint Stage ---
+FROM golangci/golangci-lint:v2.8.0 AS linter
 WORKDIR /go_auth
-
-# Copy modules and download deps
-COPY go.mod go.sum ./
-RUN go mod tidy
-
-# Copy source
 COPY . .
+# Run linter. Build will fail if linting fails.
+RUN golangci-lint run ./...
 
-# Build the Go Fiber binary
+# --- Build stage ---
+FROM golang:1.25 AS builder
+# Copy from linter stage to ensure it ran successfully
+COPY --from=linter /go_auth /go_auth
+WORKDIR /go_auth
+RUN go mod tidy
 RUN go build -o /go_auth_bin/main ./cmd/server/main.go
 
-# Final stage
+# --- Final stage ---
 FROM golang:1.25
-
 WORKDIR /go_auth
-
-# Copy the binary from builder
 COPY --from=builder /go_auth_bin/main /go_auth_bin/main
-
-# Expose port for Fiber
 EXPOSE 8080
-
-# Run the server
 CMD ["/go_auth_bin/main"]

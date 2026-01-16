@@ -118,7 +118,9 @@ func (uc *loginUseCase) resolveDevice(
 		if err != nil {
 			return nil, apperr.Map(err, traceID)
 		}
-		device.Activate(currentTime)
+		if err := device.Activate(currentTime); err != nil {
+			return nil, apperr.Map(err, traceID)
+		}
 	} else {
 		// Validate existing device context
 		if err := device.BelongsTo(userID); err != nil {
@@ -129,8 +131,12 @@ func (uc *loginUseCase) resolveDevice(
 		}
 
 		// Update metadata
-		device.MarkSeen(currentTime)
-		device.UpdateMetadata(currentTime, &name, &ua, &ip)
+		if err := device.MarkSeen(currentTime); err != nil {
+			return nil, apperr.Map(err, traceID)
+		}
+		if err := device.UpdateMetadata(currentTime, &name, &ua, &ip); err != nil {
+			return nil, apperr.Map(err, traceID)
+		}
 	}
 
 	if err := uc.deviceRepo.Upsert(device); err != nil {
