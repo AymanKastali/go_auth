@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// 7. Initialize Fiber App
-	app := fiber.NewFiberApp(deps, fiberCfg)
+	app := fiber.NewFiberApp(deps, fiberCfg, logger)
 
 	// 8. Graceful Shutdown Implementation
 	// This ensures the server stops correctly on Ctrl+C or Docker stop

@@ -4,17 +4,17 @@ import (
 	"go_auth/internal/adapters/http/fiber/api/v1/routes"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/http/fiber/utils"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
-func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
+func NewFiberApp(d *Deps, cfg *FiberConfig, l *slog.Logger) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      cfg.AppName(),
-		ErrorHandler: middlewares.GlobalErrorHandler,
+		ErrorHandler: middlewares.NewGlobalErrorHandler(l),
 	})
 
 	// Middlewares
@@ -26,7 +26,6 @@ func NewFiberApp(d *Deps, cfg *FiberConfig) *fiber.App {
 	})
 
 	app.Use(recover.New())
-	app.Use(logger.New())
 
 	// Routes
 	registerRoutes(app, d)

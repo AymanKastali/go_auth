@@ -1,4 +1,4 @@
-package auth
+package roles
 
 import (
 	"go_auth/internal/adapters/http"
@@ -11,15 +11,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type updateRoleHandler struct {
+type UpdateRoleHandler struct {
 	uc ports.IUpdateRoleUseCase
 }
 
-func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *updateRoleHandler {
-	return &updateRoleHandler{uc: uc}
+func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *UpdateRoleHandler {
+	return &UpdateRoleHandler{uc: uc}
 }
 
-func (h *updateRoleHandler) Execute(c *fiber.Ctx) error {
+func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
 	// 1. Retrieve Auth Context (Hydrated by JWTMiddleware)
 	auth, ok := utils.GetAuthContext(c)
 	if !ok {
