@@ -19,16 +19,15 @@ const (
 type AppError struct {
 	Type    ErrorType      `json:"type"`
 	Message string         `json:"message"`
-	TraceID string         `json:"trace_id"`
 	Details map[string]any `json:"details,omitempty"`
 	Cause   error          `json:"-"` // Hidden from user, kept for logging
 }
 
 func (e *AppError) Error() string {
 	if e.Cause != nil {
-		return fmt.Sprintf("[%s] %s: %v", e.TraceID, e.Message, e.Cause)
+		return fmt.Sprintf("%s: %v", e.Message, e.Cause)
 	}
-	return fmt.Sprintf("[%s] %s", e.TraceID, e.Message)
+	return e.Message
 }
 
 func (e *AppError) Unwrap() error {

@@ -12,21 +12,16 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// NewGlobalErrorHandler returns a fiber.ErrorHandler that uses a structured logger.
 func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
 		if err == nil {
 			return nil
 		}
 
-		ctxMeta := utils.GetContext(c)
-
-		// Create a logger enriched with request context
-		l := logger.With(
-			slog.String("trace_id", ctxMeta.RequestID),
+		reqCtx := utils.GetReqCtx(c)
+		l := reqCtx.Logger.With(
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
-			slog.String("ip", c.IP()),
 		)
 
 		statusCode := netHTTP.StatusInternalServerError
@@ -34,20 +29,18 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			Success: false,
 			Type:    string(apperr.TypeInternal),
 			Message: "An unexpected system error occurred",
-			TraceID: ctxMeta.RequestID,
+			TraceID: reqCtx.RequestID,
 		}
 
-		// 1. Handle Protocol Errors (400s)
 		if protoStatus := http.MapToStatus(err); protoStatus != 0 {
 			statusCode = protoStatus
-			resp.Type = "BAD_REQUEST"
+			resp.Type = "PROTOCOL_ERROR"
 			resp.Message = err.Error()
 
-			l.Warn("protocol_error", slog.String("msg", err.Error()))
+			l.Warn("Protocol error detected", slog.String("error", err.Error()))
 			return c.Status(statusCode).JSON(resp)
 		}
 
-		// 2. Handle Structured Application Errors
 		var aErr *apperr.AppError
 		if errors.As(err, &aErr) {
 			resp.Type = string(aErr.Type)
@@ -57,41 +50,42 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			switch aErr.Type {
 			case apperr.TypeValidation:
 				statusCode = netHTTP.StatusUnprocessableEntity
-				l.Warn("validation_failed", slog.Any("details", aErr.Details))
+				l.Warn("Application validation failed", slog.Any("details", aErr.Details))
 			case apperr.TypeUnauthorized:
 				statusCode = netHTTP.StatusUnauthorized
-				l.Warn("unauthorized_access")
+				l.Warn("Unauthorized access attempt")
 			case apperr.TypeNotFound:
 				statusCode = netHTTP.StatusNotFound
-				l.Debug("resource_not_found", slog.String("msg", aErr.Message))
+				l.Debug("Resource not found", slog.String("message", aErr.Message))
 			case apperr.TypeConflict:
 				statusCode = netHTTP.StatusConflict
-				l.Warn("resource_conflict", slog.String("msg", aErr.Message))
+				l.Warn("Resource conflict", slog.String("message", aErr.Message))
 			case apperr.TypeForbidden:
 				statusCode = netHTTP.StatusForbidden
-				l.Warn("forbidden_access", slog.String("msg", aErr.Message))
+				l.Warn("Forbidden access attempt", slog.String("message", aErr.Message))
 			case apperr.TypeInternal:
-				l.Error("application_internal_failure",
-					slog.String("cause", aErr.Cause.Error()),
+				l.Error("Application internal failure",
+					slog.Any("error", aErr.Cause),
 					slog.Any("details", aErr.Details),
 				)
 			default:
-				l.Error("unmapped_app_error", slog.String("type", string(aErr.Type)))
+				l.Error("Unmapped application error type", slog.String("type", string(aErr.Type)))
 			}
 
 			return c.Status(statusCode).JSON(resp)
 		}
 
-		// 3. Handle Fiber/Infrastructure Errors (e.g., 404 Route Not Found)
 		var fiberErr *fiber.Error
 		if errors.As(err, &fiberErr) {
 			statusCode = fiberErr.Code
 			resp.Message = fiberErr.Message
 			resp.Type = "INFRASTRUCTURE_ERROR"
-			l.Warn("fiber_infrastructure_error", slog.Int("status", fiberErr.Code), slog.String("msg", fiberErr.Message))
+			l.Warn("Fiber infrastructure error",
+				slog.Int("status", fiberErr.Code),
+				slog.String("error", fiberErr.Message),
+			)
 		} else {
-			// 4. Catch-all for everything else
-			l.Error("unhandled_exception", slog.String("error", err.Error()))
+			l.Error("Unhandled system exception", slog.Any("error", err))
 		}
 
 		return c.Status(statusCode).JSON(resp)

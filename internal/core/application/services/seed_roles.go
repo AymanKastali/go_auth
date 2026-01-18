@@ -31,40 +31,51 @@ func NewSeedRolesService(
 	}
 }
 
-// SeedDefaultRoles ensures fundamental system roles exist.
 func (s *seedRolesService) SeedDefaultRoles() error {
-	// Standardizing to uppercase for strict matching
 	defaultRoles := []string{"ADMIN", "USER"}
+	l := s.logger.With(slog.String("trace_id", rolesSeederTraceID))
+	now := s.clock.Now().UTC()
+
+	l.Info("Starting system roles seeding process")
 
 	for _, name := range defaultRoles {
-		// 1. Existence Check
 		existing, err := s.roleRepo.GetByName(name)
 		if err != nil {
-			// Maps technical DB errors to apperr.Internal (500)
-			return apperr.Map(err, rolesSeederTraceID)
+			l.Error("Database error checking role existence",
+				slog.String("role", name),
+				slog.Any("error", err),
+			)
+			return apperr.Map(err)
 		}
 
 		if existing != nil {
-			s.logger.Debug("Role already exists, skipping", "role", name)
+			l.Debug("System role already exists, skipping", slog.String("role", name))
 			continue
 		}
 
-		// 2. Identity Generation
 		roleID := valueobjects.ReconstituteRoleID(s.idSvc.Generate())
 
-		// 3. Aggregate Instantiation (Business Invariants)
-		role, err := aggregates.NewRole(roleID, name, s.clock.Now().UTC())
+		role, err := aggregates.NewRole(roleID, name, now)
 		if err != nil {
-			// Maps domain validation (e.g., invalid name) to apperr.Validation (422)
-			return apperr.Map(err, rolesSeederTraceID)
+			l.Error("Domain validation failed during role instantiation",
+				slog.String("role", name),
+				slog.Any("error", err),
+			)
+			return apperr.Map(err)
 		}
 
-		// 4. Persistence
 		if err := s.roleRepo.Save(role); err != nil {
-			return apperr.Map(err, rolesSeederTraceID)
+			l.Error("Database error persisting system role",
+				slog.String("role", name),
+				slog.Any("error", err),
+			)
+			return apperr.Map(err)
 		}
 
-		s.logger.Info("System role successfully seeded", "role", name)
+		l.Info("System role successfully seeded",
+			slog.String("role", name),
+			slog.String("role_id", roleID.Value()),
+		)
 	}
 
 	return nil

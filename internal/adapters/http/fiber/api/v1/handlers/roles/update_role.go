@@ -4,9 +4,9 @@ import (
 	"go_auth/internal/adapters/http"
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
-	"go_auth/internal/core/application/apperr"
 	app_dto "go_auth/internal/core/application/dto"
 	"go_auth/internal/core/application/ports"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -20,42 +20,54 @@ func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *UpdateRoleHandler {
 }
 
 func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
-	// 1. Retrieve Auth Context (Hydrated by JWTMiddleware)
-	auth, ok := utils.GetAuthContext(c)
-	if !ok {
-		// Strictly an Unauthorized concern if security context is missing
-		return apperr.Unauthorized("session identity missing", "transport-layer", nil)
-	}
-	traceID := auth.RequestID
+	reqCtx := utils.GetReqCtx(c)
+	l := reqCtx.Logger
 
 	var req dto.ManageRoleRequest
 
-	// 2. Protocol Layer: Syntax Check (HTTP 400)
+	l.Info("Handling role update request")
+
 	if err := c.BodyParser(&req); err != nil {
-		// Use the Protocol Adapter for infrastructure failures
+		l.Warn("Failed to parse role update request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
 
-	// 3. Application Layer: Schema Validation (HTTP 422)
+	l.Debug("Validating role update data",
+		slog.String("target_user_id", req.UserID),
+		slog.String("role", req.Role),
+		slog.String("action", req.Action),
+	)
+
 	if err := utils.Validate(req); err != nil {
+		l.Warn("Role update request validation failed",
+			slog.String("target_user_id", req.UserID),
+			slog.Any("error", err),
+		)
 		return http.NewBadRequest(err)
 	}
 
-	// 4. Input Mapping
-	// Decouples the HTTP contract from the Core application DTO
 	input := app_dto.ManageRoleInput{
 		UserID: req.UserID,
 		Role:   req.Role,
 		Action: req.Action,
 	}
 
-	// 5. Core Execution: Business Policy
-	// The UC handles permission checks (can the current user do this?) and state updates
-	if err := h.uc.Execute(traceID, input); err != nil {
-		// Propagates apperr.TypeNotFound, TypeForbidden, or TypeConflict
+	if err := h.uc.Execute(
+		c.UserContext(),
+		input,
+	); err != nil {
+		l.Warn("Role update execution failed",
+			slog.String("target_user_id", req.UserID),
+			slog.Any("error", err),
+		)
 		return err
 	}
 
-	// 6. Success Response: HTTP 204 No Content
+	l.Info("User role updated successfully",
+		slog.String("target_user_id", req.UserID),
+		slog.String("role", req.Role),
+		slog.String("action", req.Action),
+	)
+
 	return utils.NoContent(c)
 }

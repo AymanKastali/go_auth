@@ -1,40 +1,41 @@
 package ports
 
 import (
+	"context"
 	"go_auth/internal/core/application/dto"
 )
 
 type IAuthUserUseCase interface {
 	Execute(
-		requestID, userID string,
+		c context.Context, userID string,
 	) (*dto.AuthUser, error)
 }
 
 type ILoginUseCase interface {
 	Execute(
-		requestID, email, password, deviceIDStr, deviceName, userAgent, ipAddress string,
+		c context.Context, email, password string,
 	) (*dto.AuthResponse, error)
 }
 type ILogoutUseCase interface {
 	Execute(
-		requestID, refreshToken string,
+		c context.Context, refreshToken string,
 	) error
 }
 
 type IRefreshTokenUseCase interface {
 	Execute(
-		requestID, oldRefreshToken, deviceIDStr string,
+		c context.Context, oldRefreshToken string,
 	) (*dto.AuthResponse, error)
 }
 
 type IRegisterUseCase interface {
 	Execute(
-		requestID, email, password string,
+		c context.Context, email, password string,
 	) (*dto.RegisteredUserDTO, error)
 }
 
 type IUpdateRoleUseCase interface {
 	Execute(
-		requestID string, req dto.ManageRoleInput,
+		c context.Context, req dto.ManageRoleInput,
 	) error
 }

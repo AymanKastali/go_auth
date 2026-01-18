@@ -1,7 +1,9 @@
 package usecases
 
 import (
+	"context"
 	"go_auth/internal/core/application/apperr"
+	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
@@ -13,7 +15,6 @@ type logoutUseCase struct {
 	tokenSvc    aports.ITokenService
 	idSvc       dports.IIDService
 	clock       dports.IClockService
-	logger      *slog.Logger
 }
 
 func NewLogoutUseCase(
@@ -21,60 +22,53 @@ func NewLogoutUseCase(
 	tokenSvc aports.ITokenService,
 	idSvc dports.IIDService,
 	clock dports.IClockService,
-	logger *slog.Logger,
 ) *logoutUseCase {
 	return &logoutUseCase{
 		refreshRepo: refreshRepo,
 		tokenSvc:    tokenSvc,
 		idSvc:       idSvc,
 		clock:       clock,
-		logger:      logger,
 	}
 }
 
-func (uc *logoutUseCase) Execute(traceID string, refreshToken string) error {
-	uc.logger.Info("Starting logout process", "trace_id", traceID)
+func (uc *logoutUseCase) Execute(
+	c context.Context,
+	refreshToken string,
+) error {
+	req := dto.GetRequestContext(c)
+	l := req.Logger
 
-	// 1. Validate Token (Infrastructure check)
+	l.Info("Executing user logout")
+
 	claims, err := uc.tokenSvc.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		uc.logger.Warn("Invalid refresh token provided for logout",
-			"trace_id", traceID,
-			"error", err)
-
-		// If the token is already invalid/expired, logout is technically "done"
-		// but we return Unauthorized to let the client know the session was already dead.
-		return apperr.Unauthorized("session invalid or already expired", traceID, err)
+		l.Warn("Logout failed: invalid or expired refresh token", slog.Any("error", err))
+		return apperr.Unauthorized("session invalid or already expired", err)
 	}
 
 	tokenIDStr := claims.JTI
-
-	// 2. Technical Validation
 	if !uc.idSvc.IsValid(tokenIDStr) {
-		return apperr.Validation("invalid token identifier format", traceID, map[string]any{"jti": tokenIDStr})
+		l.Warn("Logout failed: malformed token identifier", slog.String("jti", tokenIDStr))
+		return apperr.Validation("invalid token identifier format", map[string]any{"jti": tokenIDStr})
 	}
 
 	tokenID := valueobjects.ReconstituteTokenID(tokenIDStr)
-
-	// 3. Revoke in Persistence (State Change)
-	// We use the clock to ensure the revocation timestamp is consistent
 	now := uc.clock.Now().UTC()
-	err = uc.refreshRepo.Revoke(tokenID, now)
-	if err != nil {
-		uc.logger.Error("Failed to revoke refresh token",
-			"trace_id", traceID,
-			"token_id", tokenID.Value(),
-			"error", err)
 
-		// apperr.Map handles derr.CodeNotFound (already revoked)
-		// or database connection failures automatically.
-		return apperr.Map(err, traceID)
+	l.Debug("Revoking session", slog.String("token_id", tokenID.Value()))
+
+	if err := uc.refreshRepo.Revoke(tokenID, now); err != nil {
+		l.Error("Database error during token revocation",
+			slog.String("token_id", tokenID.Value()),
+			slog.Any("error", err),
+		)
+		return apperr.Map(err)
 	}
 
-	uc.logger.Info("Logout successful",
-		"trace_id", traceID,
-		"user_id", claims.Subject,
-		"token_id", tokenID.Value())
+	l.Info("Logout successful",
+		slog.String("user_id", claims.Subject),
+		slog.String("token_id", tokenID.Value()),
+	)
 
 	return nil
 }
