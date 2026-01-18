@@ -20,7 +20,7 @@ func (e *Role) ID() valueobjects.RoleID {
 }
 
 func (e *Role) Name() string {
-	return e.name
+	return strings.ToLower(e.name)
 }
 
 func (e *Role) CreatedAt() time.Time {
@@ -44,7 +44,8 @@ func NewRole(
 		return nil, derr.ErrRoleIDRequired()
 	}
 
-	if strings.TrimSpace(name) == "" {
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
 		return nil, derr.ErrRoleNameRequired()
 	}
 
@@ -54,12 +55,11 @@ func NewRole(
 
 	return &Role{
 		id:        roleID,
-		name:      name,
+		name:      strings.ToLower(trimmedName),
 		createdAt: currentTime,
 		updatedAt: currentTime,
 	}, nil
 }
-
 func ReconstituteRole(
 	roleID valueobjects.RoleID,
 	name string,
@@ -68,7 +68,7 @@ func ReconstituteRole(
 ) *Role {
 	return &Role{
 		id:        roleID,
-		name:      name,
+		name:      strings.ToLower(strings.TrimSpace(name)),
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 		deletedAt: deletedAt,

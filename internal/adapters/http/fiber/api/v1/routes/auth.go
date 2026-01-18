@@ -18,10 +18,23 @@ func RegisterAuthRoutes(
 	tokenMiddleware fiber.Handler,
 ) {
 	authRoutes := app.Group("/api/v1/auth")
-	authRoutes.Post("/register", registerHandler.Execute)
-	authRoutes.Post("/login", loginHandler.Execute)
-	authRoutes.Post("/logout", tokenMiddleware, logoutHandler.Execute)
-	authRoutes.Post("/refresh", refreshTokenHandler.Execute)
+	authRoutes.Post(
+		"/register",
+		registerHandler.Execute,
+	)
+	authRoutes.Post(
+		"/login",
+		loginHandler.Execute,
+	)
+	authRoutes.Post(
+		"/logout",
+		tokenMiddleware,
+		logoutHandler.Execute,
+	)
+	authRoutes.Post(
+		"/refresh",
+		refreshTokenHandler.Execute,
+	)
 	authRoutes.Patch(
 		"/roles",
 		tokenMiddleware,

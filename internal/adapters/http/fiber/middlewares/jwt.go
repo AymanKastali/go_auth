@@ -14,7 +14,7 @@ import (
 )
 
 func JWTMiddleware(
-	tokenService aports.ITokenService,
+	tokenSvc aports.ITokenService,
 	deviceRepo dports.IDeviceRepository,
 	idSvc dports.IIDService,
 ) fiber.Handler {
@@ -36,7 +36,7 @@ func JWTMiddleware(
 			return apperr.Validation("invalid authorization format", map[string]any{"scheme": "bearer"})
 		}
 
-		claims, err := tokenService.ValidateAccessToken(parts[1])
+		claims, err := tokenSvc.ValidateAccessToken(parts[1])
 		if err != nil {
 			l.Warn("Authentication failed: token validation error", slog.Any("error", err))
 			return apperr.Unauthorized("invalid or expired token", err)

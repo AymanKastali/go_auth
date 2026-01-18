@@ -37,11 +37,11 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	// Clock Service
-	clockService := adaptersvc.NewClockService()
+	// Clock Svc
+	clockSvc := adaptersvc.NewClockSvc()
 
-	// UUID Service
-	idSvc := adaptersvc.NewUUIDService()
+	// UUID Svc
+	idSvc := adaptersvc.NewUUIDSvc()
 	pwsHashSvc := adaptersvc.NewBcryptHasher(12)
 
 	// -------------------
@@ -63,11 +63,11 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Security services
 	// -------------------
-	jwtCfg, err := jwt.NewJWTConfig()
+	jwtCfg, err := jwt.NewJWTCfg()
 	if err != nil {
 		return nil, err
 	}
-	jwtService := jwt.NewJWTService(jwtCfg)
+	jwtSvc := jwt.NewJWTSvc(jwtCfg)
 
 	// -------------------
 	// Seed admin
@@ -76,22 +76,22 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	if err != nil {
 		return nil, err
 	}
-	rolesSeeder := services.NewSeedRolesService(
+	rolesSeeder := services.NewSeedRolesSvc(
 		roleRepo,
 		idSvc,
-		clockService,
+		clockSvc,
 		logger,
 	)
 	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
 		log.Fatal(err)
 	}
 
-	adminUserSeeder := services.NewSeedAdminService(
+	adminUserSeeder := services.NewSeedAdminSvc(
 		userRepo,
 		roleRepo,
 		pwsHashSvc,
 		idSvc,
-		clockService,
+		clockSvc,
 		seederCfg,
 		logger,
 	)
@@ -107,7 +107,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		roleRepo,
 		pwsHashSvc,
 		idSvc,
-		clockService,
+		clockSvc,
 	)
 
 	loginUC := usecases.NewLoginUseCase(
@@ -116,16 +116,16 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		deviceRepo,
 		roleRepo,
 		pwsHashSvc,
-		jwtService,
+		jwtSvc,
 		idSvc,
-		clockService,
+		clockSvc,
 	)
 
 	logoutUC := usecases.NewLogoutUseCase(
 		refreshTokenRepo,
-		jwtService,
+		jwtSvc,
 		idSvc,
-		clockService,
+		clockSvc,
 	)
 
 	refreshUC := usecases.NewRefreshTokenUseCase(
@@ -133,9 +133,9 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		refreshTokenRepo,
 		deviceRepo,
 		roleRepo,
-		jwtService,
+		jwtSvc,
 		idSvc,
-		clockService,
+		clockSvc,
 	)
 
 	authUserUC := usecases.NewAuthUserUseCase(
@@ -148,7 +148,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		userRepo,
 		roleRepo,
 		idSvc,
-		clockService,
+		clockSvc,
 	)
 
 	// -------------------
@@ -162,7 +162,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		UpdateRoleHandler:   roles.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     users.NewAuthUserHandler(authUserUC),
 		AuthMiddleware: middlewares.JWTMiddleware(
-			jwtService,
+			jwtSvc,
 			deviceRepo,
 			idSvc,
 		),

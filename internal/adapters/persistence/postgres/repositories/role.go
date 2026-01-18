@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"strings"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
@@ -65,7 +66,10 @@ func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, 
 
 func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 	var model models.Role
-	err := r.db.Where("name = ?", name).First(&model).Error
+
+	normalizedName := strings.ToLower(strings.TrimSpace(name))
+
+	err := r.db.Where("LOWER(name) = ?", normalizedName).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -74,7 +78,6 @@ func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch role by name")
 	}
 
-	// GATEKEEPER
 	if err := model.Validate(r.idSvc); err != nil {
 		return nil, err
 	}

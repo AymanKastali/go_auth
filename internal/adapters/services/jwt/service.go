@@ -23,7 +23,7 @@ type jwtService struct {
 
 var _ ports.ITokenService = (*jwtService)(nil)
 
-func NewJWTService(cfg *JWTConfig) ports.ITokenService {
+func NewJWTSvc(cfg *JWTConfig) ports.ITokenService {
 	return &jwtService{
 		privateKey: cfg.PrivateKey(),
 		publicKey:  cfg.PublicKey(),

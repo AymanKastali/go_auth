@@ -14,20 +14,20 @@ type updateRoleUseCase struct {
 	userRepo ports.IUserRepository
 	roleRepo ports.IRoleRepository
 	idSvc    ports.IIDService
-	clock    ports.IClockService
+	clockSvc ports.IClockService
 }
 
 func NewUpdateRoleUseCase(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
 	idSvc ports.IIDService,
-	clock ports.IClockService,
+	clockSvc ports.IClockService,
 ) *updateRoleUseCase {
 	return &updateRoleUseCase{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
 		idSvc:    idSvc,
-		clock:    clock,
+		clockSvc: clockSvc,
 	}
 }
 
@@ -65,7 +65,7 @@ func (uc *updateRoleUseCase) Execute(
 		return apperr.NotFound("Role", roleName)
 	}
 
-	now := uc.clock.Now().UTC()
+	now := uc.clockSvc.Now().UTC()
 	action := strings.ToLower(input.Action)
 
 	req.Logger.Debug("Applying role modification",

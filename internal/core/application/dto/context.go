@@ -42,3 +42,9 @@ func GetRequestContext(ctx context.Context) *RequestContext {
 		return &RequestContext{RequestID: "system", Logger: slog.Default()}
 	}
 }
+
+func GetAuthCtx(ctx context.Context) (*AuthContext, bool) {
+	val := Extract(ctx)
+	auth, ok := val.(*AuthContext)
+	return auth, ok
+}

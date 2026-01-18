@@ -25,7 +25,7 @@ func (c *JWTConfig) Audience() string            { return c.audience }
 func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
 func (c *JWTConfig) RefreshTTL() time.Duration   { return c.refreshTTL }
 
-func NewJWTConfig() (*JWTConfig, error) {
+func NewJWTCfg() (*JWTConfig, error) {
 	cfg := &JWTConfig{}
 
 	// 1. Strings
