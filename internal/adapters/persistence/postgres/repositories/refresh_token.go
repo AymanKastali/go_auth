@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"errors"
-	"time"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
@@ -61,81 +60,37 @@ func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*ent
 	return r.mapper.ToDomain(&model), nil
 }
 
-func (r *GormRefreshTokenRepository) GetByToken(tokenStr string) (*entities.RefreshToken, error) {
-	var model models.RefreshToken
-	err := r.db.Where("token = ?", tokenStr).First(&model).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, pgerr.WrapUnavailable(err, "failed to fetch token by value")
-	}
-
-	// GATEKEEPER
-	if err := model.Validate(r.idSvc); err != nil {
-		return nil, err
-	}
-
-	return r.mapper.ToDomain(&model), nil
-}
-
-func (r *GormRefreshTokenRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
-	var modelsList []models.RefreshToken
-	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
-	if err != nil {
-		return nil, pgerr.WrapUnavailable(err, "failed to fetch user tokens")
-	}
-
-	tokens := make([]*entities.RefreshToken, len(modelsList))
-	for i := range modelsList {
-		// ALL OR NOTHING
-		if err := modelsList[i].Validate(r.idSvc); err != nil {
-			return nil, err
-		}
-		tokens[i] = r.mapper.ToDomain(&modelsList[i])
-	}
-	return tokens, nil
-}
-
-func (r *GormRefreshTokenRepository) Revoke(tokenID valueobjects.TokenID, revokedAt time.Time) error {
-	result := r.db.Model(&models.RefreshToken{}).
-		Where("id = ? AND revoked_at IS NULL", tokenID.Value()).
-		Update("revoked_at", revokedAt)
-
-	if result.Error != nil {
-		return pgerr.WrapUnavailable(result.Error, "failed to revoke token")
-	}
-	return nil
-}
-
-func (r *GormRefreshTokenRepository) IsRevoked(tokenID valueobjects.TokenID) (bool, error) {
-	var token models.RefreshToken
-	err := r.db.Select("revoked_at").First(&token, "id = ?", tokenID.Value()).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return true, nil
-		}
-		return false, pgerr.WrapUnavailable(err, "failed to check revocation")
-	}
-
-	return token.RevokedAt != nil, nil
-}
-
-func (r *GormRefreshTokenRepository) RevokeByDeviceID(
+func (r *GormRefreshTokenRepository) GetActiveByUserIDAndDeviceID(
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
-	revokedAt time.Time,
-) error {
-	err := r.db.Model(&models.RefreshToken{}).
-		Where("user_id = ? AND device_id = ? AND revoked_at IS NULL",
-			userID.Value(),
-			deviceID.Value(),
-		).
-		Update("revoked_at", revokedAt).Error
+) ([]*entities.RefreshToken, error) {
+	var tokenModels []models.RefreshToken
+
+	// 1. Fetch from DB with explicit 'Active' criteria
+	// We use .Find() which doesn't return ErrRecordNotFound if empty,
+	// it just returns an empty slice, which is correct for this use case.
+	err := r.db.Where(
+		"user_id = ? AND device_id = ? AND revoked_at IS NULL AND expires_at > NOW()",
+		userID.Value(),
+		deviceID.Value(),
+	).Find(&tokenModels).Error
 
 	if err != nil {
-		return pgerr.WrapUnavailable(err, "failed to revoke device tokens")
+		return nil, pgerr.WrapUnavailable(err, "failed to query active tokens")
 	}
-	return nil
+
+	// 2. Map Models to Domain Entities
+	results := make([]*entities.RefreshToken, 0, len(tokenModels))
+	for _, model := range tokenModels {
+		// Run infrastructure validation (ID format checks, etc.)
+		if err := model.Validate(r.idSvc); err != nil {
+			// If one record is corrupt, we log/skip or return error based on strictness
+			return nil, pgerr.WrapInternal(err, "database contains invalid token data")
+		}
+
+		domainEntity := r.mapper.ToDomain(&model)
+		results = append(results, domainEntity)
+	}
+
+	return results, nil
 }
