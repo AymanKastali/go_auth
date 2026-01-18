@@ -85,12 +85,14 @@ func (uc *logoutUseCase) Execute(
 	}
 
 	// 4. Revoke and Persist
-	now := uc.clockSvc.Now().UTC()
-	if err := tokenEntity.Revoke(now); err != nil {
+	currentTime := uc.clockSvc.Now().UTC()
+	if err := tokenEntity.Revoke(currentTime); err != nil {
+		l.Error("Error during token revocation", slog.Any("error", err))
 		return apperr.Map(err)
 	}
 
 	if err := uc.refreshRepo.Save(tokenEntity); err != nil {
+		l.Error("Database error during token revocation", slog.Any("error", err))
 		return apperr.Map(err)
 	}
 

@@ -188,11 +188,32 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 	currentTime time.Time,
 ) (*dto.AuthResponse, error) {
 
+	// 1. Fetch existing active tokens for this specific User + Device
+	// This allows the domain to decide what to do with them.
+	oldTokens, err := uc.refreshRepo.GetActiveByUserIDAndDeviceID(user.ID(), device.ID())
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
+
+	// 2. Revoke old tokens via the Domain Entity
+	for _, ot := range oldTokens {
+		// Business logic lives here (e.g., setting RevokedAt, checking if already revoked)
+		if err := ot.Revoke(currentTime); err != nil {
+			req.Logger.Warn("Could not revoke old token", slog.String("id", ot.ID().Value()))
+			continue
+		}
+
+		// Persist the state change back to the DB
+		if err := uc.refreshRepo.Save(ot); err != nil {
+			return nil, apperr.Map(err)
+		}
+	}
+
+	// 3. Issue new tokens via the Token Service
 	at, _, err := uc.tokenSvc.IssueAccessToken(
 		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, currentTime,
 	)
 	if err != nil {
-		req.Logger.Error("Token service failure: access token", slog.Any("error", err))
 		return nil, apperr.Internal("failed to issue access token", err)
 	}
 
@@ -200,10 +221,10 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 		tokenID.Value(), user.ID().Value(), device.ID().Value(), currentTime,
 	)
 	if err != nil {
-		req.Logger.Error("Token service failure: refresh token", slog.Any("error", err))
 		return nil, apperr.Internal("failed to issue refresh token", err)
 	}
 
+	// 4. Create the NEW RefreshToken Entity (IMPORTANT: Do NOT call .Revoke() on this)
 	rtEntity, err := entities.NewRefreshToken(
 		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, currentTime,
 	)
@@ -211,17 +232,12 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 		return nil, apperr.Map(err)
 	}
 
-	if err := uc.refreshRepo.RevokeByDeviceID(user.ID(), device.ID(), currentTime); err != nil {
-		req.Logger.Error("Database error during session revocation", slog.Any("error", err))
-		return nil, apperr.Map(err)
-	}
-
+	// 5. Save the new active session
 	if err := uc.refreshRepo.Save(rtEntity); err != nil {
-		req.Logger.Error("Database error during session persistence", slog.Any("error", err))
 		return nil, apperr.Map(err)
 	}
 
-	req.Logger.Info("Login session established successfully", slog.String("token_id", tokenID.Value()))
+	req.Logger.Info("Login session established and old tokens cleared", slog.String("token_id", tokenID.Value()))
 
 	return &dto.AuthResponse{
 		AccessToken:  at.Value(),

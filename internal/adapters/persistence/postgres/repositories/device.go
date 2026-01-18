@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"errors"
-	"time"
 
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/adapters/persistence/postgres/pgerr"
@@ -72,20 +71,6 @@ func (r *GormDeviceRepository) Upsert(e *entities.Device) error {
 	model := r.mapper.ToModel(e)
 	if err := r.db.Save(model).Error; err != nil {
 		return pgerr.WrapUnavailable(err, "failed to save device")
-	}
-	return nil
-}
-
-func (r *GormDeviceRepository) Revoke(deviceID valueobjects.DeviceID, revokedAt time.Time) error {
-	result := r.db.Model(&models.Device{}).
-		Where("id = ? AND is_active = ?", deviceID.Value(), true).
-		Updates(map[string]any{
-			"is_active":  false,
-			"revoked_at": revokedAt,
-		})
-
-	if result.Error != nil {
-		return pgerr.WrapUnavailable(result.Error, "failed to revoke device")
 	}
 	return nil
 }
