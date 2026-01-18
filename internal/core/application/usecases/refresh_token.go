@@ -44,7 +44,7 @@ func NewRefreshTokenUseCase(
 }
 
 func (uc *refreshTokenUseCase) Execute(c context.Context, oldRefreshToken string) (*dto.AuthResponse, error) {
-	req := dto.GetRequestContext(c)
+	req := dto.FromContext(c)
 	currentTime := uc.clockSvc.Now().UTC()
 
 	// 1. Validate the session and get the existing domain entity

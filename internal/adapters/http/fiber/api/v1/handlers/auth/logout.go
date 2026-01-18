@@ -19,7 +19,7 @@ func NewLogoutHandler(uc ports.ILogoutUseCase) *LogoutHandler {
 }
 
 func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
-	reqCtx := utils.GetReqCtx(c)
+	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
 	var req dto.LogoutRequest

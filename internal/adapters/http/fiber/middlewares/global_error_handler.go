@@ -18,7 +18,7 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			return nil
 		}
 
-		reqCtx := utils.GetReqCtx(c)
+		reqCtx := utils.ReqCtx(c)
 		l := reqCtx.Logger.With(
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),

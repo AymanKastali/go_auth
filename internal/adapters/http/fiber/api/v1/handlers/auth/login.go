@@ -19,7 +19,7 @@ func NewLoginHandler(uc ports.ILoginUseCase) *LoginHandler {
 }
 
 func (h *LoginHandler) Execute(c *fiber.Ctx) error {
-	reqCtx := utils.GetReqCtx(c)
+	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
 	var req dto.LoginRequest

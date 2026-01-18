@@ -31,20 +31,29 @@ func Extract(ctx context.Context) any {
 	return ctx.Value(ctxKey{})
 }
 
-func GetRequestContext(ctx context.Context) *RequestContext {
-	val := Extract(ctx)
+func FromContext(ctx context.Context) *RequestContext {
+	val := ctx.Value(ctxKey{})
 	switch t := val.(type) {
 	case *AuthContext:
 		return t.RequestContext
 	case *RequestContext:
 		return t
 	default:
-		return &RequestContext{RequestID: "system", Logger: slog.Default()}
+		// Use a "System" context instead of a default to make debugging easier
+		return &RequestContext{RequestID: "sys_gen", Logger: slog.Default()}
 	}
 }
 
-func GetAuthCtx(ctx context.Context) (*AuthContext, bool) {
-	val := Extract(ctx)
-	auth, ok := val.(*AuthContext)
+func AuthFromContext(ctx context.Context) (*AuthContext, bool) {
+	auth, ok := ctx.Value(ctxKey{}).(*AuthContext)
 	return auth, ok
+}
+
+// MustAuthFromContext is a helper for use cases that require authentication.
+func MustAuthFromContext(ctx context.Context) *AuthContext {
+	auth, ok := AuthFromContext(ctx)
+	if !ok {
+		panic("auth context missing in a protected route")
+	}
+	return auth
 }
