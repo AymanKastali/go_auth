@@ -12,5 +12,9 @@ func RegisterUserRoutes(
 	tokenMiddleware fiber.Handler,
 ) {
 	userRoutes := app.Group("/api/v1/users")
-	userRoutes.Get("/me", tokenMiddleware, getAuthUserHandler.Execute)
+	userRoutes.Get(
+		"/me",
+		tokenMiddleware,
+		getAuthUserHandler.Execute,
+	)
 }

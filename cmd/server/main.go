@@ -11,69 +11,70 @@ import (
 )
 
 func main() {
-	// 1. Initialize Logger (Using slog for consistency with Use Cases)
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	// 2. Load Database Configuration
-	dbCfg, err := postgres.NewPostgresConfig()
-	if err != nil {
-		slog.Error("Failed to load database configuration", "error", err)
-		os.Exit(1)
-	}
-
-	// 3. Establish Database Connection
-	db, err := postgres.NewPostgresConnection(dbCfg)
-	if err != nil {
-		if pgerr.IsUnavailable(err) {
-			slog.Error("CRITICAL: Database is unavailable. Check network or credentials.", "error", err)
-		}
-		slog.Error("Database connection failed", "error", err)
-		os.Exit(1)
-	}
-
-	// 4. Run Migrations
-	if err := postgres.AutoMigrate(db); err != nil {
-		slog.Error("Database migration failed", "error", err)
-		os.Exit(1)
-	}
-
-	// 5. Initialize Dependencies (Dependency Injection)
-	deps, err := fiber.InitDeps(db)
-	if err != nil {
-		slog.Error("Failed to initialize application dependencies", "error", err)
-		os.Exit(1)
-	}
-
-	// 6. Load Fiber Configuration
+	// 1. Config & Logger Setup
 	fiberCfg, err := fiber.NewFiberConfig()
 	if err != nil {
 		slog.Error("Failed to load fiber configuration", "error", err)
 		os.Exit(1)
 	}
 
-	// 7. Initialize Fiber App
-	app := fiber.NewFiberApp(deps, fiberCfg, logger)
+	opts := &slog.HandlerOptions{Level: fiberCfg.LogLevel()}
+	l := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	slog.SetDefault(l)
 
-	// 8. Graceful Shutdown Implementation
-	// This ensures the server stops correctly on Ctrl+C or Docker stop
+	// 2. Database Initialization
+	dbCfg, err := postgres.NewPostgresConfig()
+	if err != nil {
+		l.Error("Failed to load database configuration", "error", err)
+		os.Exit(1)
+	}
+
+	db, err := postgres.NewPostgresConnection(dbCfg)
+	if err != nil {
+		if pgerr.IsUnavailable(err) {
+			l.Error("CRITICAL: Database is unavailable", "error", err)
+		}
+		os.Exit(1)
+	}
+
+	// 3. Migration & Deps
+	if err := postgres.AutoMigrate(db); err != nil {
+		l.Error("Database migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	deps, err := fiber.InitDeps(db)
+	if err != nil {
+		l.Error("Failed to initialize dependencies", "error", err)
+		os.Exit(1)
+	}
+
+	app := fiber.NewFiberApp(deps, fiberCfg, l)
+
+	// 4. Server Execution
 	go func() {
-		slog.Info("Server is starting", "port", fiberCfg.Port())
+		l.Info("Server is starting", "port", fiberCfg.Port())
 		if err := app.Listen(fiberCfg.ListenAddr()); err != nil {
-			slog.Error("Server runtime failure", "error", err)
+			l.Error("Server runtime failure", "error", err)
 		}
 	}()
 
-	// Listen for shutdown signals
+	// 5. Graceful Shutdown Signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	<-quit
-	slog.Info("Shutting down server...")
+	l.Info("Shutting down server...")
 
+	// 6. Final Resource Cleanup
 	if err := app.Shutdown(); err != nil {
-		slog.Error("Graceful shutdown failed", "error", err)
+		l.Error("Fiber shutdown failed", "error", err)
 	}
 
-	slog.Info("Server stopped.")
+	// Using the new callable method from postgres package
+	if err := postgres.Close(db); err != nil {
+		l.Error("Database connection pool close failed", "error", err)
+	}
+
+	l.Info("Server stopped.")
 }

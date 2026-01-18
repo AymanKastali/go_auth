@@ -10,31 +10,31 @@ import (
 
 const rolesSeederTraceID = "system-roles-seeder"
 
-type seedRolesService struct {
+type seedRolesSvc struct {
 	roleRepo ports.IRoleRepository
 	idSvc    ports.IIDService
-	clock    ports.IClockService
-	logger   *slog.Logger
+	clockSvc ports.IClockService
+	l        *slog.Logger
 }
 
-func NewSeedRolesService(
+func NewSeedRolesSvc(
 	roleRepo ports.IRoleRepository,
 	idSvc ports.IIDService,
-	clock ports.IClockService,
-	logger *slog.Logger,
-) *seedRolesService {
-	return &seedRolesService{
+	clockSvc ports.IClockService,
+	l *slog.Logger,
+) *seedRolesSvc {
+	return &seedRolesSvc{
 		roleRepo: roleRepo,
 		idSvc:    idSvc,
-		clock:    clock,
-		logger:   logger,
+		clockSvc: clockSvc,
+		l:        l,
 	}
 }
 
-func (s *seedRolesService) SeedDefaultRoles() error {
-	defaultRoles := []string{"ADMIN", "USER"}
-	l := s.logger.With(slog.String("trace_id", rolesSeederTraceID))
-	now := s.clock.Now().UTC()
+func (s *seedRolesSvc) SeedDefaultRoles() error {
+	defaultRoles := []string{"admin", "user"}
+	l := s.l.With(slog.String("trace_id", rolesSeederTraceID))
+	now := s.clockSvc.Now().UTC()
 
 	l.Info("Starting system roles seeding process")
 

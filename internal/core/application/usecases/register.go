@@ -15,7 +15,7 @@ type registerUseCase struct {
 	roleRepo       ports.IRoleRepository
 	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
-	clock          ports.IClockService
+	clockSvc       ports.IClockService
 }
 
 func NewRegisterUseCase(
@@ -23,14 +23,14 @@ func NewRegisterUseCase(
 	roleRepo ports.IRoleRepository,
 	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
-	clock ports.IClockService,
+	clockSvc ports.IClockService,
 ) *registerUseCase {
 	return &registerUseCase{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		idSvc:          idSvc,
-		clock:          clock,
+		clockSvc:       clockSvc,
 	}
 }
 
@@ -39,7 +39,7 @@ func (uc *registerUseCase) Execute(
 	email, password string,
 ) (*dto.RegisteredUserDTO, error) {
 	req := dto.GetRequestContext(c)
-	now := uc.clock.Now().UTC()
+	now := uc.clockSvc.Now().UTC()
 
 	req.Logger.Info("Executing user registration", slog.String("email", email))
 
@@ -70,7 +70,7 @@ func (uc *registerUseCase) Execute(
 		return nil, apperr.Internal("failed to secure password", err)
 	}
 
-	userRole, err := uc.roleRepo.GetByName("USER")
+	userRole, err := uc.roleRepo.GetByName("user")
 	if err != nil {
 		req.Logger.Error("Database error during default role lookup", slog.Any("error", err))
 		return nil, apperr.Map(err)
@@ -105,7 +105,7 @@ func (uc *registerUseCase) Execute(
 
 	req.Logger.Info("User registration completed successfully",
 		slog.String("user_id", user.ID().Value()),
-		slog.Duration("duration", uc.clock.Now().Sub(now)),
+		slog.Duration("duration", uc.clockSvc.Now().Sub(now)),
 	)
 
 	return &dto.RegisteredUserDTO{

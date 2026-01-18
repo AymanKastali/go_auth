@@ -11,40 +11,40 @@ import (
 
 const seederTraceID = "system-seeder"
 
-type seedAdminService struct {
+type seedAdminSvc struct {
 	userRepo       ports.IUserRepository
 	roleRepo       ports.IRoleRepository
 	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
-	clock          ports.IClockService
+	clockSvc       ports.IClockService
 	cfg            aports.ISeederConfig
-	logger         *slog.Logger
+	l              *slog.Logger
 }
 
-func NewSeedAdminService(
+func NewSeedAdminSvc(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
 	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
-	clock ports.IClockService,
-	seederConfig aports.ISeederConfig,
-	logger *slog.Logger,
-) *seedAdminService {
-	return &seedAdminService{
+	clockSvc ports.IClockService,
+	seederCfg aports.ISeederConfig,
+	l *slog.Logger,
+) *seedAdminSvc {
+	return &seedAdminSvc{
 		userRepo:       userRepo,
 		roleRepo:       roleRepo,
 		passwordHasher: passwordHasher,
 		idSvc:          idSvc,
-		clock:          clock,
-		cfg:            seederConfig,
-		logger:         logger,
+		clockSvc:       clockSvc,
+		cfg:            seederCfg,
+		l:              l,
 	}
 }
 
-func (s *seedAdminService) SeedAdmin() error {
+func (s *seedAdminSvc) SeedAdmin() error {
 	adminEmail := s.cfg.AdminEmail()
 	adminPass := s.cfg.AdminPassword()
-	l := s.logger.With(slog.String("trace_id", seederTraceID))
+	l := s.l.With(slog.String("trace_id", seederTraceID))
 
 	l.Info("Starting admin user seeding process")
 
@@ -72,7 +72,7 @@ func (s *seedAdminService) SeedAdmin() error {
 		return nil
 	}
 
-	adminRole, err := s.roleRepo.GetByName("ADMIN")
+	adminRole, err := s.roleRepo.GetByName("admin")
 	if err != nil {
 		l.Error("Database error retrieving ADMIN role", slog.Any("error", err))
 		return apperr.Map(err)
@@ -94,7 +94,7 @@ func (s *seedAdminService) SeedAdmin() error {
 	}
 
 	userID := valueobjects.ReconstituteUserID(s.idSvc.Generate())
-	now := s.clock.Now().UTC()
+	now := s.clockSvc.Now().UTC()
 
 	admin, err := aggregates.NewUser(
 		userID,

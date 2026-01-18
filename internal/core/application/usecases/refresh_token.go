@@ -20,7 +20,7 @@ type refreshTokenUseCase struct {
 	roleRepo    dports.IRoleRepository
 	tokenSvc    aports.ITokenService
 	idSvc       dports.IIDService
-	clock       dports.IClockService
+	clockSvc    dports.IClockService
 }
 
 func NewRefreshTokenUseCase(
@@ -30,7 +30,7 @@ func NewRefreshTokenUseCase(
 	roleRepo dports.IRoleRepository,
 	tokenSvc aports.ITokenService,
 	idSvc dports.IIDService,
-	clock dports.IClockService,
+	clockSvc dports.IClockService,
 ) *refreshTokenUseCase {
 	return &refreshTokenUseCase{
 		userRepo:    userRepo,
@@ -39,7 +39,7 @@ func NewRefreshTokenUseCase(
 		roleRepo:    roleRepo,
 		tokenSvc:    tokenSvc,
 		idSvc:       idSvc,
-		clock:       clock,
+		clockSvc:    clockSvc,
 	}
 }
 
@@ -48,7 +48,7 @@ func (uc *refreshTokenUseCase) Execute(
 	oldRefreshToken string,
 ) (*dto.AuthResponse, error) {
 	req := dto.GetRequestContext(c)
-	now := uc.clock.Now().UTC()
+	now := uc.clockSvc.Now().UTC()
 
 	req.Logger.Info("Executing token rotation", slog.String("device_id", req.DeviceID))
 

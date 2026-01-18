@@ -6,7 +6,7 @@ import (
 
 type ClockService struct{}
 
-func NewClockService() *ClockService {
+func NewClockSvc() *ClockService {
 	return &ClockService{}
 }
 
