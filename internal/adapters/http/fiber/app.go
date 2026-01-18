@@ -3,7 +3,6 @@ package fiber
 import (
 	"go_auth/internal/adapters/http/fiber/api/v1/routes"
 	"go_auth/internal/adapters/http/fiber/middlewares"
-	"go_auth/internal/adapters/http/fiber/utils"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,11 +18,7 @@ func NewFiberApp(d *Deps, cfg *FiberConfig, l *slog.Logger) *fiber.App {
 
 	// Middlewares
 	app.Use(requestid.New())
-	// This packs the RequestID, IP, DeviceID, etc., into dto.ContextKey
-	app.Use(func(c *fiber.Ctx) error {
-		utils.SetContext(c)
-		return c.Next()
-	})
+	app.Use(middlewares.NewContextMiddleware(l))
 
 	app.Use(recover.New())
 

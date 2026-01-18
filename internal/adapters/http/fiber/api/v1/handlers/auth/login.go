@@ -5,6 +5,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/dto"
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/ports"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,35 +19,42 @@ func NewLoginHandler(uc ports.ILoginUseCase) *LoginHandler {
 }
 
 func (h *LoginHandler) Execute(c *fiber.Ctx) error {
-	ctx := utils.GetContext(c)
-	traceID := ctx.RequestID
+	reqCtx := utils.GetReqCtx(c)
+	l := reqCtx.Logger
 
 	var req dto.LoginRequest
 
-	// 1. Protocol Layer: Syntax check (HTTP 400)
+	l.Info("Handling login request")
+
 	if err := c.BodyParser(&req); err != nil {
-		// Strictly an adapter concern; core is never reached
+		l.Warn("Failed to parse login request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
 
-	// 2. Application Layer: Schema validation (HTTP 422)
+	l.Debug("Validating login credentials", slog.String("email", req.Email))
+
 	if err := utils.Validate(req); err != nil {
+		l.Warn("Login request validation failed",
+			slog.String("email", req.Email),
+			slog.Any("error", err),
+		)
 		return http.NewBadRequest(err)
 	}
 
-	// 3. Core Execution: Orchestration
 	authResp, err := h.uc.Execute(
-		traceID,
+		c.UserContext(),
 		req.Email,
 		req.Password,
-		ctx.DeviceID,
-		ctx.DeviceName,
-		ctx.UserAgent,
-		ctx.IPAddress,
 	)
 	if err != nil {
+		l.Warn("Login execution failed",
+			slog.String("email", req.Email),
+			slog.Any("error", err),
+		)
 		return err
 	}
+
+	l.Info("User authenticated successfully", slog.String("email", req.Email))
 
 	return utils.OK(c, dto.LoginResponse{
 		AccessToken:  authResp.AccessToken,

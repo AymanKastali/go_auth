@@ -1,49 +1,44 @@
 package middlewares
 
 import (
+	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
-	"slices"
+	"log/slog"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func RequireRole(requiredRoleName string) fiber.Handler {
-	required := strings.ToLower(requiredRoleName)
+	required := strings.ToUpper(requiredRoleName)
 
 	return func(c *fiber.Ctx) error {
-		// 1. Extract TraceID (passed from JWTMiddleware or RequestID middleware)
-		requestID, _ := c.Locals("request_id").(string)
-		if requestID == "" {
-			requestID = "system-rbac"
-		}
+		reqCtx := utils.GetReqCtx(c)
+		l := reqCtx.Logger
 
-		// 2. Retrieve Roles from Context
-		rolesRaw := c.Locals("roles")
-		if rolesRaw == nil {
-			// If no roles are found, the user isn't authenticated or the middleware order is wrong
-			return apperr.Unauthorized("authentication session not found", requestID, nil)
-		}
-
-		roles, ok := rolesRaw.([]string)
+		auth, ok := utils.GetAuthCtx(c)
 		if !ok {
-			// Technical failure: the data type in Locals is corrupted
-			return apperr.Internal("integrity failure: invalid role data format", requestID, nil)
+			l.Warn("Role check failed: no authenticated session found")
+			return apperr.Unauthorized("authentication session not found", nil)
 		}
 
-		// 3. Normalize roles for case-insensitive comparison
-		normalizedRoles := make([]string, len(roles))
-		for i, r := range roles {
-			normalizedRoles[i] = strings.ToLower(r)
+		hasRole := false
+		for _, r := range auth.Roles {
+			if strings.ToUpper(r) == required {
+				hasRole = true
+				break
+			}
 		}
 
-		// 4. Authorization Logic
-		if slices.Contains(normalizedRoles, required) {
-			return c.Next()
+		if !hasRole {
+			l.Warn("Access denied: insufficient permissions",
+				slog.String("required_role", required),
+				slog.Any("user_roles", auth.Roles),
+			)
+			return apperr.Forbidden("insufficient permissions to access this resource", nil)
 		}
 
-		// 5. Explicit Permission Denied
-		// This results in a 403 Forbidden via the GlobalErrorHandler
-		return apperr.Unauthorized("insufficient permissions to access this resource", requestID, nil)
+		l.Debug("Role authorization successful", slog.String("role", required))
+		return c.Next()
 	}
 }

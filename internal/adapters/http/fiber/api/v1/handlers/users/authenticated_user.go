@@ -5,6 +5,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,34 +19,39 @@ func NewAuthUserHandler(uc ports.IAuthUserUseCase) *AuthUserHandler {
 }
 
 func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
-	// 1. Extract TraceID (Required by the new AppError system)
-	auth, ok := utils.GetAuthContext(c)
-	if !ok {
-		// This should theoretically never happen if JWTMiddleware is present
-		return apperr.Unauthorized("identity not found in context", "system", nil)
-	}
-	userID := auth.UserID
-	requestID := auth.RequestID
+	reqCtx := utils.GetReqCtx(c)
+	l := reqCtx.Logger
 
-	// 3. Call application layer with BOTH arguments: (ctx.RequestID, userID)
-	profile, err := h.uc.Execute(requestID, userID)
+	auth, ok := utils.GetAuthCtx(c)
+	if !ok {
+		l.Error("identity missing from context in protected route")
+		return apperr.Unauthorized("identity not found in context", nil)
+	}
+
+	l.Info("Retrieving authenticated user profile", slog.String("user_id", auth.UserID))
+
+	profile, err := h.uc.Execute(
+		c.UserContext(),
+		auth.UserID,
+	)
 	if err != nil {
-		// Use Case already returns a properly wrapped apperr.AppError
+		l.Warn("Failed to retrieve user profile",
+			slog.String("user_id", auth.UserID),
+			slog.Any("error", err),
+		)
 		return err
 	}
 
-	// Note: We removed the profile == nil check here because the Use Case
-	// now correctly returns apperr.NotFound if the user doesn't exist.
-
-	// 4. Map application DTO → web response DTO
 	userResponse := dto.UserResponse{
 		ID:        profile.ID,
 		Email:     profile.Email,
 		Status:    profile.Status,
-		Roles:     profile.Roles, // Assuming slice of strings
+		Roles:     profile.Roles,
 		CreatedAt: profile.CreatedAt,
 		UpdatedAt: profile.UpdatedAt,
 	}
+
+	l.Debug("User profile retrieved successfully", slog.String("user_id", auth.UserID))
 
 	return utils.OK(c, userResponse, "User profile retrieved successfully")
 }

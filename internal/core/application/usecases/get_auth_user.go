@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/domain/ports"
@@ -12,63 +13,71 @@ type authUserUseCase struct {
 	userRepo ports.IUserRepository
 	roleRepo ports.IRoleRepository
 	idSvc    ports.IIDService
-	logger   *slog.Logger
 }
 
 func NewAuthUserUseCase(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
 	idSvc ports.IIDService,
-	logger *slog.Logger,
 ) *authUserUseCase {
 	return &authUserUseCase{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
 		idSvc:    idSvc,
-		logger:   logger,
 	}
 }
 
-func (uc *authUserUseCase) Execute(traceID string, userID string) (*dto.AuthUser, error) {
-	uc.logger.Info("Compiling user authentication data", "user_id", userID, "trace_id", traceID)
+func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthUser, error) {
+	req := dto.GetRequestContext(c)
+	l := req.Logger
 
-	// 1. Validation
+	l.Info("Executing auth user profile retrieval", slog.String("target_user_id", userID))
+
 	if !uc.idSvc.IsValid(userID) {
-		return nil, apperr.Validation("invalid user id format", traceID, map[string]any{"user_id": userID})
+		l.Warn("Invalid user ID format provided", slog.String("user_id", userID))
+		return nil, apperr.Validation("invalid user id format", map[string]any{"user_id": userID})
 	}
+
 	userIDVO := valueobjects.ReconstituteUserID(userID)
 
-	// 2. Fetch User
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		l.Error("Database error during user lookup", slog.String("user_id", userID), slog.Any("error", err))
+		return nil, apperr.Map(err)
 	}
 
 	if user == nil {
-		return nil, apperr.NotFound("User", userID, traceID)
+		l.Warn("User profile not found", slog.String("user_id", userID))
+		return nil, apperr.NotFound("User", userID)
 	}
 
-	// 3. Hydrate Role Names (Strict Integrity Check)
 	roleIDs := user.RoleIDs()
 	roles := make([]string, len(roleIDs))
 
-	for i, rID := range roleIDs {
-		role, err := uc.roleRepo.GetByID(rID)
+	l.Debug("Hydrating user roles", slog.Int("role_count", len(roleIDs)))
+
+	for i, roleID := range roleIDs {
+		role, err := uc.roleRepo.GetByID(roleID)
 		if err != nil {
-			return nil, apperr.Map(err, traceID)
+			l.Error("Database error during role lookup",
+				slog.String("user_id", userID),
+				slog.String("role_id", roleID.Value()),
+				slog.Any("error", err),
+			)
+			return nil, apperr.Map(err)
 		}
 
 		if role == nil {
-			// STRICT: We do not use placeholders. A missing role reference is a 500 Internal error.
-			uc.logger.Error("DATA INTEGRITY VIOLATION: user assigned to non-existent role",
-				"user_id", userID,
-				"role_id", rID.Value(),
-				"trace_id", traceID,
+			l.Error("CRITICAL: Data integrity violation - role not found",
+				slog.String("user_id", userID),
+				slog.String("missing_role_id", roleID.Value()),
 			)
-			return nil, apperr.Internal("system data integrity violation: role not found", traceID, nil)
+			return nil, apperr.Internal("system data integrity violation: role not found", nil)
 		}
 		roles[i] = role.Name()
 	}
+
+	l.Info("Successfully compiled user authentication data", slog.String("user_id", userID))
 
 	return &dto.AuthUser{
 		ID:        user.ID().Value(),

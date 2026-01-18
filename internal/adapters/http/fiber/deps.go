@@ -108,7 +108,6 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		pwsHashSvc,
 		idSvc,
 		clockService,
-		logger,
 	)
 
 	loginUC := usecases.NewLoginUseCase(
@@ -120,7 +119,6 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		jwtService,
 		idSvc,
 		clockService,
-		logger,
 	)
 
 	logoutUC := usecases.NewLogoutUseCase(
@@ -128,7 +126,6 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		jwtService,
 		idSvc,
 		clockService,
-		logger,
 	)
 
 	refreshUC := usecases.NewRefreshTokenUseCase(
@@ -139,14 +136,12 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		jwtService,
 		idSvc,
 		clockService,
-		logger,
 	)
 
 	authUserUC := usecases.NewAuthUserUseCase(
 		userRepo,
 		roleRepo,
 		idSvc,
-		logger,
 	)
 
 	roleUC := usecases.NewUpdateRoleUseCase(
@@ -154,14 +149,13 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		roleRepo,
 		idSvc,
 		clockService,
-		logger,
 	)
 
 	// -------------------
 	// Handlers
 	// -------------------
 	return &Deps{
-		RegisterHandler:     auth.NewRegisterHandler(registerUC, logger),
+		RegisterHandler:     auth.NewRegisterHandler(registerUC),
 		LoginHandler:        auth.NewLoginHandler(loginUC),
 		RefreshTokenHandler: auth.NewRefreshTokenHandler(refreshUC),
 		LogoutHandler:       auth.NewLogoutHandler(logoutUC),

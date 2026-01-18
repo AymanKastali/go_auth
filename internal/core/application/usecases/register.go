@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/domain/aggregates"
@@ -15,7 +16,6 @@ type registerUseCase struct {
 	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
 	clock          ports.IClockService
-	logger         *slog.Logger
 }
 
 func NewRegisterUseCase(
@@ -24,7 +24,6 @@ func NewRegisterUseCase(
 	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
 	clock ports.IClockService,
-	logger *slog.Logger,
 ) *registerUseCase {
 	return &registerUseCase{
 		userRepo:       userRepo,
@@ -32,63 +31,59 @@ func NewRegisterUseCase(
 		passwordHasher: passwordHasher,
 		idSvc:          idSvc,
 		clock:          clock,
-		logger:         logger,
 	}
 }
 
-func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.RegisteredUserDTO, error) {
-	l := uc.logger.With(
-		slog.String("trace_id", traceID),
-		slog.String("use_case", "RegisterUser"),
-	)
+func (uc *registerUseCase) Execute(
+	c context.Context,
+	email, password string,
+) (*dto.RegisteredUserDTO, error) {
+	req := dto.GetRequestContext(c)
+	now := uc.clock.Now().UTC()
 
-	start := uc.clock.Now()
-	l.Info("registration_started", slog.String("email", email))
+	req.Logger.Info("Executing user registration", slog.String("email", email))
 
 	emailVO, err := valueobjects.NewEmail(email)
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		req.Logger.Warn("Registration failed: invalid email format", slog.String("email", email))
+		return nil, apperr.Map(err)
 	}
 
 	existingUser, err := uc.userRepo.GetByEmail(emailVO)
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		req.Logger.Error("Database error during email uniqueness check", slog.Any("error", err))
+		return nil, apperr.Map(err)
 	}
 	if existingUser != nil {
-		// Log as Warn: This is a meaningful business event (potential bot or user error)
-		l.Warn("registration_rejected",
-			slog.String("reason", "email_exists"),
-			slog.String("email", email),
-		)
-		return nil, apperr.Conflict("an account with this email already exists", traceID, nil)
+		req.Logger.Warn("Registration rejected: email already exists", slog.String("email", email))
+		return nil, apperr.Conflict("an account with this email already exists", nil)
 	}
 
 	rawPwd, err := valueobjects.NewRawPassword(password)
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		return nil, apperr.Map(err)
 	}
 
 	hashedPwd, err := uc.passwordHasher.Hash(rawPwd)
 	if err != nil {
-		l.Error("cryptography_service_failure", slog.Any("error", err))
-		return nil, apperr.Internal("failed to secure password", traceID, err)
+		req.Logger.Error("Cryptography service failure during hashing", slog.Any("error", err))
+		return nil, apperr.Internal("failed to secure password", err)
 	}
 
 	userRole, err := uc.roleRepo.GetByName("USER")
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		req.Logger.Error("Database error during default role lookup", slog.Any("error", err))
+		return nil, apperr.Map(err)
 	}
 	if userRole == nil {
-		l.Error("missing_critical_configuration",
-			slog.String("resource", "USER_role"),
-			slog.String("impact", "user_cannot_register"),
-		)
-		return nil, apperr.Internal("required system configuration missing", traceID, nil)
+		req.Logger.Error("CRITICAL: Missing system configuration - USER role not found")
+		return nil, apperr.Internal("required system configuration missing", nil)
 	}
 
 	userID, err := valueobjects.NewUserID(uc.idSvc.Generate())
 	if err != nil {
-		return nil, apperr.Internal("identity generation failed", traceID, err)
+		req.Logger.Error("Identity generation service failure", slog.Any("error", err))
+		return nil, apperr.Internal("identity generation failed", err)
 	}
 
 	user, err := aggregates.NewUser(
@@ -97,19 +92,20 @@ func (uc *registerUseCase) Execute(traceID, email, password string) (*dto.Regist
 		hashedPwd,
 		valueobjects.UserActive,
 		[]valueobjects.RoleID{userRole.ID()},
-		uc.clock.Now().UTC(),
+		now,
 	)
 	if err != nil {
-		return nil, apperr.Map(err, traceID)
+		return nil, apperr.Map(err)
 	}
 
 	if err := uc.userRepo.Create(user); err != nil {
-		return nil, apperr.Map(err, traceID)
+		req.Logger.Error("Database error during user creation", slog.Any("error", err))
+		return nil, apperr.Map(err)
 	}
 
-	l.Info("registration_completed",
+	req.Logger.Info("User registration completed successfully",
 		slog.String("user_id", user.ID().Value()),
-		slog.String("latency", uc.clock.Now().Sub(start).String()),
+		slog.Duration("duration", uc.clock.Now().Sub(now)),
 	)
 
 	return &dto.RegisteredUserDTO{

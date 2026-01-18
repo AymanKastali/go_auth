@@ -11,44 +11,48 @@ import (
 )
 
 type RegisterHandler struct {
-	uc     ports.IRegisterUseCase
-	logger *slog.Logger
+	uc ports.IRegisterUseCase
 }
 
 func NewRegisterHandler(
 	uc ports.IRegisterUseCase,
-	logger *slog.Logger,
 ) *RegisterHandler {
-	return &RegisterHandler{uc: uc, logger: logger}
+	return &RegisterHandler{uc: uc}
 }
 
 func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
-	ctx := utils.GetContext(c)
-	traceID := ctx.RequestID
-
-	l := h.logger.With(
-		slog.String("trace_id", traceID),
-		slog.String("handler", "RegisterHandler"),
-	)
-
-	l.Info("registration request received")
+	reqCtx := utils.GetReqCtx(c)
+	l := reqCtx.Logger
 
 	var req dto.RegisterRequest
 
+	l.Info("Handling registration request")
+
 	if err := c.BodyParser(&req); err != nil {
+		l.Warn("Failed to parse registration request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
+
+	l.Debug("Validating registration data", slog.String("email", req.Email))
 
 	if err := utils.Validate(req); err != nil {
+		l.Warn("Registration request validation failed",
+			slog.String("email", req.Email),
+			slog.Any("error", err),
+		)
 		return http.NewBadRequest(err)
 	}
 
-	domainResp, err := h.uc.Execute(traceID, req.Email, req.Password)
+	domainResp, err := h.uc.Execute(c.UserContext(), req.Email, req.Password)
 	if err != nil {
+		l.Warn("Registration execution failed",
+			slog.String("email", req.Email),
+			slog.Any("error", err),
+		)
 		return err
 	}
 
-	l.Info("user registered successfully", slog.String("user_id", domainResp.UserID))
+	l.Info("User registered successfully", slog.String("user_id", domainResp.UserID))
 
 	return utils.Created(
 		c,
