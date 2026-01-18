@@ -28,7 +28,7 @@ func NewAuthUserUseCase(
 }
 
 func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthUser, error) {
-	req := dto.GetRequestContext(c)
+	req := dto.FromContext(c)
 	l := req.Logger
 
 	l.Info("Executing auth user profile retrieval", slog.String("target_user_id", userID))

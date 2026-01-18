@@ -20,7 +20,7 @@ func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *UpdateRoleHandler {
 }
 
 func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
-	reqCtx := utils.GetReqCtx(c)
+	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
 	var req dto.ManageRoleRequest

@@ -19,7 +19,7 @@ func JWTMiddleware(
 	idSvc dports.IIDService,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		baseReq := utils.GetReqCtx(c)
+		baseReq := utils.ReqCtx(c)
 		l := baseReq.Logger
 
 		l.Debug("Authenticating request")

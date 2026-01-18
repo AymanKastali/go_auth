@@ -19,7 +19,7 @@ func NewRefreshTokenHandler(uc ports.IRefreshTokenUseCase) *RefreshTokenHandler 
 }
 
 func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
-	reqCtx := utils.GetReqCtx(c)
+	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
 	var req dto.RefreshTokenRequest

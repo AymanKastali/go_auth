@@ -13,10 +13,10 @@ func RequireRole(requiredRoleName string) fiber.Handler {
 	required := strings.ToUpper(requiredRoleName)
 
 	return func(c *fiber.Ctx) error {
-		reqCtx := utils.GetReqCtx(c)
+		reqCtx := utils.ReqCtx(c)
 		l := reqCtx.Logger
 
-		auth, ok := utils.GetAuthCtx(c)
+		auth, ok := utils.AuthCtx(c)
 		if !ok {
 			l.Warn("Role check failed: no authenticated session found")
 			return apperr.Unauthorized("authentication session not found", nil)

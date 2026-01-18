@@ -19,10 +19,10 @@ func NewAuthUserHandler(uc ports.IAuthUserUseCase) *AuthUserHandler {
 }
 
 func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
-	reqCtx := utils.GetReqCtx(c)
+	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
-	auth, ok := utils.GetAuthCtx(c)
+	auth, ok := utils.AuthCtx(c)
 	if !ok {
 		l.Error("identity missing from context in protected route")
 		return apperr.Unauthorized("identity not found in context", nil)

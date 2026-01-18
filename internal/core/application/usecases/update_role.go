@@ -35,7 +35,7 @@ func (uc *updateRoleUseCase) Execute(
 	c context.Context,
 	input dto.ManageRoleInput,
 ) error {
-	req := dto.GetRequestContext(c)
+	req := dto.FromContext(c)
 
 	req.Logger.Info("Executing role management action",
 		slog.String("target_user_id", input.UserID),

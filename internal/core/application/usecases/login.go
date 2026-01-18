@@ -50,7 +50,7 @@ func (uc *loginUseCase) Execute(
 	c context.Context,
 	email, password string,
 ) (*dto.AuthResponse, error) {
-	req := dto.GetRequestContext(c)
+	req := dto.FromContext(c)
 	l := req.Logger
 	currentTime := uc.clockSvc.Now().UTC()
 

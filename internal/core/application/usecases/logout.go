@@ -35,11 +35,7 @@ func (uc *logoutUseCase) Execute(
 	c context.Context,
 	refreshToken string,
 ) error {
-	auth, ok := dto.GetAuthCtx(c)
-	if !ok {
-		slog.Error("logout called without auth context")
-		return apperr.Internal("authentication context missing", nil)
-	}
+	auth := dto.MustAuthFromContext(c)
 	l := auth.Logger
 
 	l.Info("Executing user logout", slog.String("user_id", auth.UserID))
