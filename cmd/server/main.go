@@ -53,8 +53,9 @@ func main() {
 
 	// 4. Server Execution
 	go func() {
-		l.Info("Server is starting", "port", fiberCfg.Port())
-		if err := app.Listen(fiberCfg.ListenAddr()); err != nil {
+		addr := fiberCfg.ListenAddr()
+		l.Info("Server is starting", "addr", addr)
+		if err := app.Listen(addr); err != nil {
 			l.Error("Server runtime failure", "error", err)
 		}
 	}()

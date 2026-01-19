@@ -26,6 +26,7 @@
             }
         }
     },
-    "postCreateCommand": "if [ ! -f go.mod ]; then go mod init go_auth_app; fi && go mod tidy",
+    // "postCreateCommand": "if [ ! -f go.mod ]; then go mod init go_auth_app; fi && go mod tidy",
+    "postCreateCommand": "go mod download",
     "shutdownAction": "none"
 }

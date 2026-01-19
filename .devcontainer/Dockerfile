@@ -18,4 +18,5 @@ FROM golang:1.25
 WORKDIR /go_auth
 COPY --from=builder /go_auth_bin/main /go_auth_bin/main
 EXPOSE 8080
+EXPOSE 2345
 CMD ["/go_auth_bin/main"]
