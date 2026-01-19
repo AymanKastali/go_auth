@@ -6,13 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
-	"strings"
 )
 
 type FiberConfig struct {
-	appName  string
-	port     uint16
-	logLevel string
+	appName string
+	port    uint16
+	debug   bool
 }
 
 func NewFiberConfig() (*FiberConfig, error) {
@@ -36,28 +35,38 @@ func NewFiberConfig() (*FiberConfig, error) {
 	if p <= 0 || p > 65535 {
 		return nil, fmt.Errorf("fiber config error: GA_PORT %d is out of valid range (1-65535)", p)
 	}
+
+	debugStr := os.Getenv("GA_DEBUG")
+	if debugStr != "" {
+		debug, err := strconv.ParseBool(debugStr)
+		if err != nil {
+			return nil, fmt.Errorf("fiber config error: GA_DEBUG must be a valid boolean: %w", err)
+		}
+		cfg.debug = debug
+	} else {
+		cfg.debug = false
+	}
+
 	cfg.port = uint16(p)
 
 	lvl := os.Getenv("GA_LOG_LEVEL")
 	if lvl == "" {
 		lvl = "INFO"
 	}
-	cfg.logLevel = strings.ToUpper(lvl)
 
 	return cfg, nil
 }
 
 func (c *FiberConfig) AppName() string { return c.appName }
 func (c *FiberConfig) Port() uint16    { return c.port }
+func (c *FiberConfig) Debug() bool     { return c.debug }
 
 func (c *FiberConfig) LogLevel() slog.Level {
-	switch c.logLevel {
-	case "DEBUG":
+	switch c.debug {
+	case true:
 		return slog.LevelDebug
-	case "WARN":
-		return slog.LevelWarn
-	case "ERROR":
-		return slog.LevelError
+	case false:
+		return slog.LevelInfo
 	default:
 		return slog.LevelInfo
 	}
