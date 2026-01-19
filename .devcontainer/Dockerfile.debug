@@ -1,0 +1,17 @@
+FROM golang:1.25 AS dev
+
+# 1. Install Delve
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+WORKDIR /workspace
+
+# 2. Copy everything (needed for live debugging)
+COPY . .
+
+# 3. Expose only your 2 fucking ports
+EXPOSE 8080 2345
+
+# 4. Run Delve
+# This compiles and runs main.go, then listens on 2345 for VS Code to connect.
+# The "--" separates Delve flags from your own app flags.
+ENTRYPOINT ["dlv", "debug", "./cmd/server/main.go", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--", "--port=8080"]

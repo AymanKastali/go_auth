@@ -4,29 +4,16 @@
         "docker-compose.yml"
     ],
     "service": "web",
-    "workspaceFolder": "/go_auth",
-    "features": {
-        "ghcr.io/devcontainers/features/go:1": {
-            "version": "1.25.5",
-            "installGolangCI": "2.8.0"
-        },
-        "ghcr.io/devcontainers/features/git:1": {}
-    },
+    "workspaceFolder": "/workspace",
     "customizations": {
         "vscode": {
             "extensions": [
-                "golang.go", // Required for Go support
+                "golang.go",
                 "cweijan.vscode-postgresql-client2",
                 "mhutchie.git-graph",
                 "streetsidesoftware.code-spell-checker"
-            ],
-            "settings": {
-                "go.lintTool": "golangci-lint",
-                "go.lintOnSave": "package"
-            }
+            ]
         }
     },
-    // "postCreateCommand": "if [ ! -f go.mod ]; then go mod init go_auth_app; fi && go mod tidy",
-    "postCreateCommand": "go mod download",
     "shutdownAction": "none"
 }
