@@ -1,7 +1,8 @@
 {
     "name": "GoAuth",
     "dockerComposeFile": [
-        "docker-compose.yml"
+        "../docker-compose.yml",
+        "../docker-compose.override.yml"
     ],
     "service": "web",
     "workspaceFolder": "/workspace",

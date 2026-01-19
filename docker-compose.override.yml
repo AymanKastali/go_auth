@@ -1,0 +1,22 @@
+services:
+  web:
+    container_name: "${GA_PROJECT_NAME}_app"
+    build:
+      context: .
+      dockerfile: build/Dockerfile.debug
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    ports:
+      - "${GA_PORT}:${GA_PORT}"
+      - "2345:2345"
+    volumes:
+      - .:/workspace:cached
+    depends_on:
+      postgres:
+        condition: service_healthy
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
