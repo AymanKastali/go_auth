@@ -48,12 +48,6 @@ func NewFiberConfig() (*FiberConfig, error) {
 	}
 
 	cfg.port = uint16(p)
-
-	lvl := os.Getenv("GA_LOG_LEVEL")
-	if lvl == "" {
-		lvl = "INFO"
-	}
-
 	return cfg, nil
 }
 
