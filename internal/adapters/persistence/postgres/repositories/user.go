@@ -113,3 +113,12 @@ func (r *GormUserRepository) Update(a *aggregates.User) error {
 		return nil
 	})
 }
+
+func (r *GormUserRepository) ExistsByEmail(email valueobjects.Email) (bool, error) {
+	var exists bool
+	err := r.db.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email.Value()).Scan(&exists).Error
+	if err != nil {
+		return false, pgerr.WrapUnavailable(err, "failed to check email existence")
+	}
+	return exists, nil
+}

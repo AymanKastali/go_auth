@@ -11,6 +11,7 @@ type IUserRepository interface {
 	Update(a *aggregates.User) error
 	GetByID(id valueobjects.UserID) (*aggregates.User, error)
 	GetByEmail(email valueobjects.Email) (*aggregates.User, error)
+	ExistsByEmail(email valueobjects.Email) (bool, error)
 }
 
 type IDeviceRepository interface {

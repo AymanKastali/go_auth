@@ -12,6 +12,7 @@ import (
 	"go_auth/internal/adapters/services/jwt"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
+	domainsvc "go_auth/internal/core/domain/services"
 	"log"
 	"log/slog"
 	"os"
@@ -99,15 +100,20 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		log.Fatal(err)
 	}
 
+	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(
+		userRepo,
+		roleRepo,
+	)
+
 	// -------------------
 	// Use cases
 	// -------------------
 	registerUC := usecases.NewRegisterUseCase(
 		userRepo,
-		roleRepo,
 		pwsHashSvc,
 		idSvc,
 		clockSvc,
+		registrationPolicy,
 	)
 
 	loginUC := usecases.NewLoginUseCase(

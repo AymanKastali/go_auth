@@ -161,6 +161,17 @@ func ErrStateConflict(resource, id, currentState string) *DomainError {
 	})
 }
 
+func ErrEmailAlreadyUsed(email string) *DomainError {
+	return newErr(
+		CodeConflict,
+		"an account with this email already exists",
+		map[string]any{
+			"email":  email,
+			"reason": "already_used",
+		},
+	)
+}
+
 // Simplified "Already in Status" usage
 func ErrUserAlreadyActive(id string) *DomainError   { return ErrStateConflict("user", id, "active") }
 func ErrUserAlreadyInactive(id string) *DomainError { return ErrStateConflict("user", id, "inactive") }
@@ -168,3 +179,14 @@ func ErrDeviceAlreadyInactive(id string) *DomainError {
 	return ErrStateConflict("device", id, "inactive")
 }
 func ErrDeviceAlreadyActive(id string) *DomainError { return ErrStateConflict("device", id, "active") }
+
+func ErrMissingDefaultRole(roleName string) *DomainError {
+	return newErr(
+		CodeInternal,
+		"required default role is missing",
+		map[string]any{
+			"role_name": roleName,
+			"reason":    "missing_default_role",
+		},
+	)
+}
