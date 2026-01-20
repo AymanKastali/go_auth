@@ -12,6 +12,8 @@ import (
 	"go_auth/internal/adapters/services/jwt"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
+	"go_auth/internal/core/domain/factories"
+	domainsvc "go_auth/internal/core/domain/services"
 	"log"
 	"log/slog"
 	"os"
@@ -37,12 +39,12 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	// Clock Svc
+	// -------------------
+	// Domain / infra services
+	// -------------------
 	clockSvc := adaptersvc.NewClockSvc()
-
-	// UUID Svc
 	idSvc := adaptersvc.NewUUIDSvc()
-	pwsHashSvc := adaptersvc.NewBcryptHasher(12)
+	pwdHashSvc := adaptersvc.NewBcryptHasher(12)
 
 	// -------------------
 	// Mappers
@@ -55,7 +57,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Repositories
 	// -------------------
-	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwsHashSvc)
+	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwdHashSvc)
 	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
 	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper, idSvc)
@@ -70,86 +72,51 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	jwtSvc := jwt.NewJWTSvc(jwtCfg)
 
 	// -------------------
-	// Seed admin
+	// Seed default roles and admin
 	// -------------------
 	seederCfg, err := seeder.NewSeederConfig()
 	if err != nil {
 		return nil, err
 	}
-	rolesSeeder := services.NewSeedRolesSvc(
-		roleRepo,
-		idSvc,
-		clockSvc,
-		logger,
-	)
+
+	rolesSeeder := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger)
 	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
 		log.Fatal(err)
 	}
 
-	adminUserSeeder := services.NewSeedAdminSvc(
-		userRepo,
-		roleRepo,
-		pwsHashSvc,
-		idSvc,
-		clockSvc,
-		seederCfg,
-		logger,
-	)
-	if err := adminUserSeeder.SeedAdmin(); err != nil {
+	adminSeeder := services.NewSeedAdminSvc(userRepo, roleRepo, pwdHashSvc, idSvc, clockSvc, seederCfg, logger)
+	if err := adminSeeder.SeedAdmin(); err != nil {
 		log.Fatal(err)
 	}
+
+	// -------------------
+	// Domain services & factories
+	// -------------------
+	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
+	userFactory := factories.NewDefaultUserFactory(
+		registrationPolicy,
+		idSvc,
+		clockSvc,
+	)
 
 	// -------------------
 	// Use cases
 	// -------------------
 	registerUC := usecases.NewRegisterUseCase(
 		userRepo,
-		roleRepo,
-		pwsHashSvc,
-		idSvc,
-		clockSvc,
+		pwdHashSvc,
+		userFactory,
 	)
 
 	loginUC := usecases.NewLoginUseCase(
-		userRepo,
-		refreshTokenRepo,
-		deviceRepo,
-		roleRepo,
-		pwsHashSvc,
-		jwtSvc,
-		idSvc,
-		clockSvc,
+		userRepo, refreshTokenRepo, deviceRepo, roleRepo,
+		pwdHashSvc, jwtSvc, idSvc, clockSvc,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(
-		refreshTokenRepo,
-		jwtSvc,
-		idSvc,
-		clockSvc,
-	)
-
-	refreshUC := usecases.NewRefreshTokenUseCase(
-		userRepo,
-		refreshTokenRepo,
-		deviceRepo,
-		roleRepo,
-		jwtSvc,
-		idSvc,
-		clockSvc,
-	)
-
-	authUserUC := usecases.NewAuthUserUseCase(
-		userRepo,
-		roleRepo,
-		idSvc,
-	)
-
-	roleUC := usecases.NewUpdateRoleUseCase(
-		userRepo,
-		roleRepo,
-		idSvc,
-		clockSvc,
-	)
+	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, jwtSvc, idSvc, clockSvc)
+	refreshUC := usecases.NewRefreshTokenUseCase(userRepo, refreshTokenRepo, deviceRepo, roleRepo, jwtSvc, idSvc, clockSvc)
+	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
+	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 
 	// -------------------
 	// Handlers
@@ -161,11 +128,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		LogoutHandler:       auth.NewLogoutHandler(logoutUC),
 		UpdateRoleHandler:   roles.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     users.NewAuthUserHandler(authUserUC),
-		AuthMiddleware: middlewares.JWTMiddleware(
-			jwtSvc,
-			deviceRepo,
-			idSvc,
-		),
-		Logger: logger,
+		AuthMiddleware:      middlewares.JWTMiddleware(jwtSvc, deviceRepo, idSvc),
+		Logger:              logger,
 	}, nil
 }

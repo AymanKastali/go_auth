@@ -5,8 +5,13 @@ RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 WORKDIR /workspace
 
+COPY go.mod go.sum ./
+RUN go mod download
+
 # 2. Copy everything (needed for live debugging)
-COPY . .
+COPY ./build ./build
+COPY ./cmd ./cmd
+COPY ./internal ./internal
 
 # 3. Expose only your 2 fucking ports
 EXPOSE 8080 2345

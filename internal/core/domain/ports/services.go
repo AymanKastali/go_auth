@@ -19,3 +19,8 @@ type IPasswordHasherService interface {
 	Compare(plain string, hashed valueobjects.HashedPassword) error
 	IsValidFormat(hashed string) bool
 }
+
+type IUserRegistrationPolicy interface {
+	Validate(email valueobjects.Email) error
+	DefaultRoles() ([]valueobjects.RoleID, error)
+}
