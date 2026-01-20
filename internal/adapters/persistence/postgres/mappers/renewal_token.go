@@ -6,41 +6,38 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type RefreshTokenMapper struct{}
+type RenewalTokenMapper struct{}
 
-func NewRefreshTokenMapper() *RefreshTokenMapper { return &RefreshTokenMapper{} }
+func NewRenewalTokenMapper() *RenewalTokenMapper { return &RenewalTokenMapper{} }
 
-func (m *RefreshTokenMapper) ToDomain(model *models.RefreshToken) *entities.RefreshToken {
+func (m *RenewalTokenMapper) ToDomain(model *models.RenewalToken) *entities.RenewalToken {
 	if model == nil {
 		return nil
 	}
 
-	return entities.ReconstituteRefreshToken(
+	return entities.ReconstituteRenewalToken(
 		valueobjects.ReconstituteTokenID(model.ID),
 		valueobjects.ReconstituteUserID(model.UserID),
 		valueobjects.ReconstituteDeviceID(model.DeviceID),
-		valueobjects.ReconstituteToken(model.Token),
+		valueobjects.ReconstituteHashedToken(model.Hash),
 		model.ExpiresAt,
 		model.RevokedAt,
 		model.CreatedAt,
-		model.UpdatedAt,
-		model.DeletedAt,
 	)
 }
 
-func (m *RefreshTokenMapper) ToModel(entity *entities.RefreshToken) *models.RefreshToken {
+func (m *RenewalTokenMapper) ToModel(entity *entities.RenewalToken) *models.RenewalToken {
 	if entity == nil {
 		return nil
 	}
 
-	return &models.RefreshToken{
+	return &models.RenewalToken{
 		ID:        entity.ID().Value(),
 		UserID:    entity.UserID().Value(),
 		DeviceID:  entity.DeviceID().Value(),
-		Token:     entity.Token().Value(),
+		Hash:      entity.Hash().Value(),
 		ExpiresAt: entity.ExpiresAt(),
 		RevokedAt: entity.RevokedAt(),
 		CreatedAt: entity.CreatedAt(),
-		UpdatedAt: entity.UpdatedAt(),
 	}
 }

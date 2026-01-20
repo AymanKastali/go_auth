@@ -2,8 +2,6 @@ package ports
 
 import (
 	"go_auth/internal/core/application/dto"
-	"go_auth/internal/core/domain/valueobjects"
-	"time"
 )
 
 type ISeedAdminService interface {
@@ -14,16 +12,13 @@ type ISeedRolesService interface {
 	SeedDefaultRoles() error
 }
 
-type ITokenService interface {
-	IssueAccessToken(
-		tokenID, userID, deviceID string,
-		roles []string,
-		currentTime time.Time,
-	) (token valueobjects.Token, claims dto.AccessTokenClaims, err error)
-	IssueRefreshToken(
-		tokenID, userID, deviceID string,
-		currentTime time.Time,
-	) (token valueobjects.Token, claims dto.RefreshTokenClaims, err error)
-	ValidateAccessToken(token string) (*dto.AccessTokenClaims, error)
-	ValidateRefreshToken(token string) (*dto.RefreshTokenClaims, error)
+type ISessionTokenIssuerService interface {
+	Issue(ctx dto.IssueSessionToken) (dto.IssuedSessionToken, error)
+	Validate(raw string) (dto.SessionTokenMetadata, error)
 }
+
+// type ISessionRenewalTokenService interface {
+// 	Issue(ctx dto.IssueRenewalToken) (dto.IssuedRenewalToken, error)
+// 	Rotate(raw string) (dto.IssuedRenewalToken, error)
+// 	Revoke(raw string) error
+// }

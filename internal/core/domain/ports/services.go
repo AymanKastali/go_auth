@@ -16,8 +16,17 @@ type IClockService interface {
 
 type IPasswordHasherService interface {
 	Hash(raw valueobjects.RawPassword) (valueobjects.HashedPassword, error)
-	Compare(plain string, hashed valueobjects.HashedPassword) error
+	Compare(raw string, hashed valueobjects.HashedPassword) error
 	IsValidFormat(hashed string) bool
+}
+
+type IRandomTokenGenerator interface {
+	Generate(size int) (string, error)
+}
+
+type ITokenHasherService interface {
+	Hash(raw string) (valueobjects.HashedToken, error)
+	Compare(raw string, hashed valueobjects.HashedToken) bool
 }
 
 type IUserRegistrationPolicy interface {

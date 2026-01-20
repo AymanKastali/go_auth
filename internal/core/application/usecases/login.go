@@ -14,35 +14,44 @@ import (
 )
 
 type loginUseCase struct {
-	userRepo       dports.IUserRepository
-	refreshRepo    dports.IRefreshTokenRepository
-	deviceRepo     dports.IDeviceRepository
-	roleRepo       dports.IRoleRepository
-	passwordHasher dports.IPasswordHasherService
-	tokenSvc       aports.ITokenService
-	idSvc          dports.IIDService
-	clockSvc       dports.IClockService
+	userRepo         dports.IUserRepository
+	renewalTokenRepo dports.IRenewalTokenRepository
+	deviceRepo       dports.IDeviceRepository
+	roleRepo         dports.IRoleRepository
+	passwordHasher   dports.IPasswordHasherService
+	sessionTokenSvc  aports.ISessionTokenIssuerService
+	idSvc            dports.IIDService
+	clockSvc         dports.IClockService
+	tokenHasher      dports.ITokenHasherService
+	// sessionRenewalSvc aports.ISessionRenewalTokenService
+	tokenGenerator dports.IRandomTokenGenerator
 }
 
 func NewLoginUseCase(
 	userRepo dports.IUserRepository,
-	refreshRepo dports.IRefreshTokenRepository,
+	renewalTokenRepo dports.IRenewalTokenRepository,
 	deviceRepo dports.IDeviceRepository,
 	roleRepo dports.IRoleRepository,
 	passwordHasher dports.IPasswordHasherService,
-	tokenSvc aports.ITokenService,
+	sessionTokenSvc aports.ISessionTokenIssuerService,
 	idSvc dports.IIDService,
 	clockSvc dports.IClockService,
+	tokenHasher dports.ITokenHasherService,
+	// sessionRenewalSvc aports.ISessionRenewalTokenService,
+	tokenGenerator dports.IRandomTokenGenerator,
 ) *loginUseCase {
 	return &loginUseCase{
-		userRepo:       userRepo,
-		refreshRepo:    refreshRepo,
-		deviceRepo:     deviceRepo,
-		roleRepo:       roleRepo,
-		passwordHasher: passwordHasher,
-		tokenSvc:       tokenSvc,
-		idSvc:          idSvc,
-		clockSvc:       clockSvc,
+		userRepo:         userRepo,
+		renewalTokenRepo: renewalTokenRepo,
+		deviceRepo:       deviceRepo,
+		roleRepo:         roleRepo,
+		passwordHasher:   passwordHasher,
+		sessionTokenSvc:  sessionTokenSvc,
+		idSvc:            idSvc,
+		clockSvc:         clockSvc,
+		tokenHasher:      tokenHasher,
+		// sessionRenewalSvc: sessionRenewalSvc,
+		tokenGenerator: tokenGenerator,
 	}
 }
 
@@ -190,7 +199,7 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 
 	// 1. Fetch existing active tokens for this specific User + Device
 	// This allows the domain to decide what to do with them.
-	oldTokens, err := uc.refreshRepo.GetActiveByUserIDAndDeviceID(user.ID(), device.ID())
+	oldTokens, err := uc.renewalTokenRepo.FindByUserAndDevice(user.ID(), device.ID())
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
@@ -204,43 +213,49 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 		}
 
 		// Persist the state change back to the DB
-		if err := uc.refreshRepo.Save(ot); err != nil {
+		if err := uc.renewalTokenRepo.Save(ot); err != nil {
 			return nil, apperr.Map(err)
 		}
 	}
 
 	// 3. Issue new tokens via the Token Service
-	at, _, err := uc.tokenSvc.IssueAccessToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, currentTime,
-	)
+	at, err := uc.sessionTokenSvc.Issue(dto.IssueSessionToken{
+		TokenID:   tokenID.Value(),
+		UserID:    user.ID().Value(),
+		DeviceID:  device.ID().Value(),
+		Roles:     roles,
+		IssuedAt:  currentTime,
+		ExpiresAt: currentTime.Add(15 * time.Minute),
+	})
 	if err != nil {
 		return nil, apperr.Internal("failed to issue access token", err)
 	}
 
-	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), currentTime,
-	)
+	// 4. Create the NEW RefreshToken Entity
+	rawToken, err := uc.tokenGenerator.Generate(32)
 	if err != nil {
-		return nil, apperr.Internal("failed to issue refresh token", err)
+		return nil, apperr.Internal("failed to generate refresh token", err)
 	}
-
-	// 4. Create the NEW RefreshToken Entity (IMPORTANT: Do NOT call .Revoke() on this)
-	rtEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, currentTime,
+	hashedToken, err := uc.tokenHasher.Hash(rawToken)
+	if err != nil {
+		return nil, apperr.Internal("failed to hash refresh token", err)
+	}
+	rtEntity, err := entities.NewRenewalToken(
+		tokenID, user.ID(), device.ID(), hashedToken, currentTime.Add(60*time.Minute), currentTime,
 	)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 
 	// 5. Save the new active session
-	if err := uc.refreshRepo.Save(rtEntity); err != nil {
+	if err := uc.renewalTokenRepo.Save(rtEntity); err != nil {
 		return nil, apperr.Map(err)
 	}
 
 	req.Logger.Info("Login session established and old tokens cleared", slog.String("token_id", tokenID.Value()))
 
 	return &dto.AuthResponse{
-		AccessToken:  at.Value(),
-		RefreshToken: rt.Value(),
+		AccessToken:  string(at.Raw),
+		RefreshToken: string(rtEntity.Hash().Value()),
 	}, nil
 }

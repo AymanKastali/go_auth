@@ -56,6 +56,7 @@ func required(field string) *DomainError {
 func ErrUserIDRequired() *DomainError      { return required("user_id") }
 func ErrEmailRequired() *DomainError       { return required("email") }
 func ErrPasswordRequired() *DomainError    { return required("password") }
+func ErrTokenHashRequired() *DomainError   { return required("token_hash") }
 func ErrStatusRequired() *DomainError      { return required("status") }
 func ErrCurrentTimeRequired() *DomainError { return required("current_time") }
 func ErrRoleIDRequired() *DomainError      { return required("role_id") }

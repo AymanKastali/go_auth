@@ -46,13 +46,16 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	idSvc := adaptersvc.NewUUIDSvc()
 	pwdHashSvc := adaptersvc.NewBcryptHasher(12)
 
+	tokenHasher := adaptersvc.NewHMACHasher([]byte("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY=="))
+	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator() // implements IRandomTokenGenerator
+
 	// -------------------
 	// Mappers
 	// -------------------
 	userMapper := mappers.NewUserMapper()
 	roleMapper := mappers.NewRoleMapper()
 	deviceMapper := mappers.NewDeviceMapper()
-	refreshTokenMapper := mappers.NewRefreshTokenMapper()
+	refreshTokenMapper := mappers.NewRenewalTokenMapper()
 
 	// -------------------
 	// Repositories
@@ -60,16 +63,16 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwdHashSvc)
 	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
-	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper, idSvc)
+	refreshTokenRepo := repositories.NewGormRenewalTokenRepository(db, refreshTokenMapper)
 
 	// -------------------
-	// Security services
+	// Security services (JWT)
 	// -------------------
 	jwtCfg, err := jwt.NewJWTCfg()
 	if err != nil {
 		return nil, err
 	}
-	jwtSvc := jwt.NewJWTSvc(jwtCfg)
+	jwtSvc := jwt.NewJWTSessionTokenIssuerService(jwtCfg.PrivateKey(), jwtCfg.PublicKey(), jwtCfg.Issuer(), jwtCfg.Audience())
 
 	// -------------------
 	// Seed default roles and admin
@@ -79,13 +82,11 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		return nil, err
 	}
 
-	rolesSeeder := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger)
-	if err := rolesSeeder.SeedDefaultRoles(); err != nil {
+	if err := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger).SeedDefaultRoles(); err != nil {
 		log.Fatal(err)
 	}
 
-	adminSeeder := services.NewSeedAdminSvc(userRepo, roleRepo, pwdHashSvc, idSvc, clockSvc, seederCfg, logger)
-	if err := adminSeeder.SeedAdmin(); err != nil {
+	if err := services.NewSeedAdminSvc(userRepo, roleRepo, pwdHashSvc, idSvc, clockSvc, seederCfg, logger).SeedAdmin(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -93,28 +94,39 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// Domain services & factories
 	// -------------------
 	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
-	userFactory := factories.NewDefaultUserFactory(
-		registrationPolicy,
-		idSvc,
-		clockSvc,
-	)
+	userFactory := factories.NewDefaultUserFactory(registrationPolicy, idSvc, clockSvc)
 
 	// -------------------
 	// Use cases
 	// -------------------
-	registerUC := usecases.NewRegisterUseCase(
-		userRepo,
-		pwdHashSvc,
-		userFactory,
-	)
+	registerUC := usecases.NewRegisterUseCase(userRepo, pwdHashSvc, userFactory)
 
 	loginUC := usecases.NewLoginUseCase(
-		userRepo, refreshTokenRepo, deviceRepo, roleRepo,
-		pwdHashSvc, jwtSvc, idSvc, clockSvc,
+		userRepo,
+		refreshTokenRepo,
+		deviceRepo,
+		roleRepo,
+		pwdHashSvc,
+		jwtSvc,
+		idSvc,
+		clockSvc,
+		tokenHasher,
+		tokenGenerator,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, jwtSvc, idSvc, clockSvc)
-	refreshUC := usecases.NewRefreshTokenUseCase(userRepo, refreshTokenRepo, deviceRepo, roleRepo, jwtSvc, idSvc, clockSvc)
+	refreshUC := usecases.NewRenewalTokenUseCase( // renamed to match your latest code
+		userRepo,
+		refreshTokenRepo,
+		deviceRepo,
+		roleRepo,
+		jwtSvc,
+		idSvc,
+		clockSvc,
+		tokenHasher,
+		tokenGenerator,
+	)
+
+	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc, tokenHasher)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 
