@@ -20,7 +20,7 @@ type IPasswordHasherService interface {
 	IsValidFormat(hashed string) bool
 }
 
-type UserRegistrationPolicy interface {
+type IUserRegistrationPolicy interface {
 	Validate(email valueobjects.Email) error
 	DefaultRoles() ([]valueobjects.RoleID, error)
 }
