@@ -15,7 +15,8 @@ type IUserRepository interface {
 }
 
 type IDeviceRepository interface {
-	GetByID(deviceID valueobjects.DeviceID) (*entities.Device, error)
+	GetByID(id valueobjects.DeviceID) (*entities.Device, error)
+	GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error)
 	Upsert(e *entities.Device) error
 	GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error)
 }
@@ -27,10 +28,10 @@ type IRoleRepository interface {
 	GetAll() ([]*aggregates.Role, error)
 }
 
-type IRenewalTokenRepository interface {
-	Save(token *entities.RenewalToken) error
-	FindByHash(hash valueobjects.HashedToken) (*entities.RenewalToken, error)
-	FindByID(id valueobjects.TokenID) (*entities.RenewalToken, error)
-	FindByUser(userID valueobjects.UserID) ([]*entities.RenewalToken, error)
-	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RenewalToken, error)
+type IRefreshTokenRepository interface {
+	Save(token *entities.RefreshToken) error
+	FindByRawToken(raw valueobjects.RawRefreshToken) (*entities.RefreshToken, error)
+	FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error)
+	FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error)
+	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error)
 }

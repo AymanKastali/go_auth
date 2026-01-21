@@ -4,35 +4,32 @@ import (
 	"context"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/valueobjects"
 )
 
 type LogoutUseCase struct {
-	renewalRepo ports.IRenewalTokenRepository
-	clock       ports.IClockService
-	hasher      ports.ITokenHasherService
+	refreshRepo ports.IRefreshTokenRepository
+	clockSvc    ports.IClockService
 }
 
 func NewLogoutUseCase(
-	repo ports.IRenewalTokenRepository,
-	clock ports.IClockService,
-	hasher ports.ITokenHasherService,
+	repo ports.IRefreshTokenRepository,
+	clockSvc ports.IClockService,
 ) *LogoutUseCase {
 	return &LogoutUseCase{
-		renewalRepo: repo,
-		clock:       clock,
-		hasher:      hasher,
+		refreshRepo: repo,
+		clockSvc:    clockSvc,
 	}
 }
 
 func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
-	now := uc.clock.Now().UTC()
-
-	hashed, err := uc.hasher.Hash(rawToken)
+	now := uc.clockSvc.Now()
+	tokenVO, err := valueobjects.NewRawRefreshToken(rawToken)
 	if err != nil {
 		return apperr.Map(err)
 	}
 
-	tokenEntity, err := uc.renewalRepo.FindByHash(hashed)
+	tokenEntity, err := uc.refreshRepo.FindByRawToken(tokenVO)
 	if err != nil {
 		return apperr.Map(err)
 	}
@@ -44,5 +41,5 @@ func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
 		return apperr.Map(err)
 	}
 
-	return uc.renewalRepo.Save(tokenEntity)
+	return uc.refreshRepo.Save(tokenEntity)
 }

@@ -55,7 +55,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	userMapper := mappers.NewUserMapper()
 	roleMapper := mappers.NewRoleMapper()
 	deviceMapper := mappers.NewDeviceMapper()
-	refreshTokenMapper := mappers.NewRenewalTokenMapper()
+	refreshTokenMapper := mappers.NewRefreshTokenMapper()
 
 	// -------------------
 	// Repositories
@@ -63,7 +63,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwdHashSvc)
 	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
-	refreshTokenRepo := repositories.NewGormRenewalTokenRepository(db, refreshTokenMapper)
+	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper, tokenHasher)
 
 	// -------------------
 	// Security services (JWT)
@@ -72,7 +72,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	if err != nil {
 		return nil, err
 	}
-	jwtSvc := jwt.NewJWTSessionTokenIssuerService(jwtCfg.PrivateKey(), jwtCfg.PublicKey(), jwtCfg.Issuer(), jwtCfg.Audience())
+	sessionTokenSvc := jwt.NewJWTSessionTokenIssuerService(jwtCfg.PrivateKey(), jwtCfg.PublicKey(), jwtCfg.Issuer(), jwtCfg.Audience())
 
 	// -------------------
 	// Seed default roles and admin
@@ -93,42 +93,39 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	// -------------------
 	// Domain services & factories
 	// -------------------
+	deviceFactory := factories.NewDefaultDeviceFactory(
+		idSvc,
+		clockSvc,
+	)
+	authDomainSvc := domainsvc.NewAuthDomainService(userRepo, deviceRepo, pwdHashSvc, idSvc, deviceFactory)
+	refreshTokenFactory := factories.NewDefaultRefreshTokenFactory(tokenGenerator, tokenHasher, idSvc)
+	sessionDomainSvc := domainsvc.NewSessionDomainService(refreshTokenRepo, refreshTokenFactory)
 	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
-	userFactory := factories.NewDefaultUserFactory(registrationPolicy, idSvc, clockSvc)
+	userFactory := factories.NewDefaultUserFactory(
+		registrationPolicy,
+		idSvc,
+	)
 
 	// -------------------
 	// Use cases
 	// -------------------
-	registerUC := usecases.NewRegisterUseCase(userRepo, pwdHashSvc, userFactory)
+	registerUC := usecases.NewRegisterUseCase(userRepo, pwdHashSvc, userFactory, clockSvc)
 
 	loginUC := usecases.NewLoginUseCase(
-		userRepo,
+		authDomainSvc,
 		refreshTokenRepo,
-		deviceRepo,
 		roleRepo,
-		pwdHashSvc,
-		jwtSvc,
+		sessionTokenSvc,
 		idSvc,
 		clockSvc,
-		tokenHasher,
-		tokenGenerator,
+		sessionDomainSvc,
 	)
 
-	refreshUC := usecases.NewRenewalTokenUseCase( // renamed to match your latest code
-		userRepo,
-		refreshTokenRepo,
-		deviceRepo,
-		roleRepo,
-		jwtSvc,
-		idSvc,
-		clockSvc,
-		tokenHasher,
-		tokenGenerator,
-	)
-
-	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc, tokenHasher)
+	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
+
+	refreshUC := usecases.NewRefreshTokenUseCase(sessionDomainSvc, refreshTokenRepo, userRepo, roleRepo, deviceRepo, sessionTokenSvc, clockSvc, idSvc)
 
 	// -------------------
 	// Handlers
@@ -140,7 +137,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		LogoutHandler:       auth.NewLogoutHandler(logoutUC),
 		UpdateRoleHandler:   roles.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     users.NewAuthUserHandler(authUserUC),
-		AuthMiddleware:      middlewares.JWTMiddleware(jwtSvc, deviceRepo, idSvc),
+		AuthMiddleware:      middlewares.JWTMiddleware(sessionTokenSvc, deviceRepo, idSvc),
 		Logger:              logger,
 	}, nil
 }

@@ -53,23 +53,32 @@ func required(field string) *DomainError {
 
 // --- 1. Identity & Resource Validation (Required) ---
 
-func ErrUserIDRequired() *DomainError      { return required("user_id") }
-func ErrEmailRequired() *DomainError       { return required("email") }
-func ErrPasswordRequired() *DomainError    { return required("password") }
-func ErrTokenHashRequired() *DomainError   { return required("token_hash") }
-func ErrStatusRequired() *DomainError      { return required("status") }
-func ErrCurrentTimeRequired() *DomainError { return required("current_time") }
-func ErrRoleIDRequired() *DomainError      { return required("role_id") }
-func ErrRoleNameRequired() *DomainError    { return required("role_name") }
-func ErrDeviceIDRequired() *DomainError    { return required("device_id") }
-func ErrTokenRequired() *DomainError       { return required("token") }
-func ErrTokenIDRequired() *DomainError     { return required("token_id") }
-func ErrExpiresAtRequired() *DomainError   { return required("expiration_date") }
+func ErrUserIDRequired() *DomainError            { return required("user_id") }
+func ErrEmailRequired() *DomainError             { return required("email") }
+func ErrPasswordRequired() *DomainError          { return required("password") }
+func ErrStatusRequired() *DomainError            { return required("status") }
+func ErrCurrentTimeRequired() *DomainError       { return required("current_time") }
+func ErrRoleIDRequired() *DomainError            { return required("role_id") }
+func ErrRoleNameRequired() *DomainError          { return required("role_name") }
+func ErrDeviceIDRequired() *DomainError          { return required("device_id") }
+func ErrDeviceFingerprintRequired() *DomainError { return required("device_fingerprint") }
+func ErrTokenRequired() *DomainError             { return required("token") }
+func ErrTokenIDRequired() *DomainError           { return required("token_id") }
+func ErrExpiresAtRequired() *DomainError         { return required("expiration_date") }
+func ErrTokenHashRequired() *DomainError         { return required("token_hash") }
 
 // --- 2. Business Rule Violations (Rules) ---
 
 func ErrInvalidEmail() *DomainError {
 	return validation("email format is invalid", "email", "format")
+}
+
+func ErrInvalidCredentials() *DomainError {
+	return validation("invalid credentials", "", "")
+}
+
+func ErrInactiveUser() *DomainError {
+	return validation("user is inactive", "", "")
 }
 
 func ErrExpirationInPast() *DomainError {
@@ -190,4 +199,11 @@ func ErrMissingDefaultRole(roleName string) *DomainError {
 			"reason":    "missing_default_role",
 		},
 	)
+}
+
+func ErrSessionCompromised() *DomainError {
+	return newErr(CodeForbidden, "security alert: session has been compromised", map[string]any{
+		"reason": "token_reuse_detected",
+		"action": "all_sessions_may_be_invalidated",
+	})
 }

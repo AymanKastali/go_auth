@@ -35,7 +35,7 @@ func NewJWTSessionTokenIssuerService(
 }
 
 func (s *jwtSessionTokenIssuerService) Issue(
-	ctx dto.IssueSessionToken,
+	ctx dto.SessionTokenMetadata,
 ) (dto.IssuedSessionToken, error) {
 
 	claims := sessionClaims{

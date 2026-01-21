@@ -13,12 +13,12 @@ type ISeedRolesService interface {
 }
 
 type ISessionTokenIssuerService interface {
-	Issue(ctx dto.IssueSessionToken) (dto.IssuedSessionToken, error)
+	Issue(ctx dto.SessionTokenMetadata) (dto.IssuedSessionToken, error)
 	Validate(raw string) (dto.SessionTokenMetadata, error)
 }
 
-// type ISessionRenewalTokenService interface {
-// 	Issue(ctx dto.IssueRenewalToken) (dto.IssuedRenewalToken, error)
-// 	Rotate(raw string) (dto.IssuedRenewalToken, error)
+// type ISessionRefreshTokenService interface {
+// 	Issue(ctx dto.IssueRefreshToken) (dto.IssuedRefreshToken, error)
+// 	Rotate(raw string) (dto.IssuedRefreshToken, error)
 // 	Revoke(raw string) error
 // }

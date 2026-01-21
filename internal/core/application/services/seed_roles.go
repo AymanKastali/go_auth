@@ -34,7 +34,7 @@ func NewSeedRolesSvc(
 func (s *seedRolesSvc) SeedDefaultRoles() error {
 	defaultRoles := []string{"admin", "user"}
 	l := s.l.With(slog.String("trace_id", rolesSeederTraceID))
-	now := s.clockSvc.Now().UTC()
+	now := s.clockSvc.Now()
 
 	l.Info("Starting system roles seeding process")
 

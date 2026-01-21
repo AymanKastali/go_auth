@@ -36,6 +36,7 @@ func (uc *updateRoleUseCase) Execute(
 	input dto.ManageRoleInput,
 ) error {
 	req := dto.FromContext(c)
+	now := uc.clockSvc.Now()
 
 	req.Logger.Info("Executing role management action",
 		slog.String("target_user_id", input.UserID),
@@ -65,7 +66,6 @@ func (uc *updateRoleUseCase) Execute(
 		return apperr.NotFound("Role", roleName)
 	}
 
-	now := uc.clockSvc.Now().UTC()
 	action := strings.ToLower(input.Action)
 
 	req.Logger.Debug("Applying role modification",

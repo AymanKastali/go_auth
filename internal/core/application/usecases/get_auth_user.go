@@ -84,7 +84,7 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 		Email:     user.Email().Value(),
 		Status:    string(user.Status()),
 		Roles:     roles,
-		CreatedAt: user.CreatedAt(),
-		UpdatedAt: user.UpdatedAt(),
+		CreatedAt: user.CreatedAt().Value(),
+		UpdatedAt: user.UpdatedAt().Value(),
 	}, nil
 }

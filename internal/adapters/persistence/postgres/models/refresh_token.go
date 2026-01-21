@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type RenewalToken struct {
+type RefreshToken struct {
 	ID        string    `gorm:"primaryKey;type:uuid"`
 	UserID    string    `gorm:"not null;index"`
 	User      User      `gorm:"foreignKey:UserID"`
@@ -16,6 +16,6 @@ type RenewalToken struct {
 	CreatedAt time.Time
 }
 
-func (RenewalToken) TableName() string {
-	return "renewal_tokens"
+func (RefreshToken) TableName() string {
+	return "refresh_tokens"
 }

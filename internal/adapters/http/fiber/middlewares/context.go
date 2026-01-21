@@ -13,21 +13,21 @@ func NewContextMiddleware(l *slog.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// 1. Extract Identity
 		requestID, _ := c.Locals("requestid").(string)
-		deviceID := c.Get("X-Device-ID")
+		deviceFingerprint := c.Get("X-Device-Fingerprint")
 
 		// 2. Scoped Logger (Tracing is now automatic)
 		reqLogger := l.With(
 			slog.String("trace_id", requestID),
-			slog.String("device_id", deviceID),
+			slog.String("fingerprint", deviceFingerprint),
 		)
 
 		reqCtx := &dto.RequestContext{
-			RequestID:  requestID,
-			DeviceID:   deviceID,
-			DeviceName: c.Get("X-Device-Name"),
-			UserAgent:  c.Get("User-Agent"),
-			IPAddress:  c.IP(),
-			Logger:     reqLogger,
+			RequestID:         requestID,
+			DeviceFingerprint: deviceFingerprint,
+			DeviceName:        c.Get("X-Device-Name"),
+			UserAgent:         c.Get("User-Agent"),
+			IPAddress:         c.IP(),
+			Logger:            reqLogger,
 		}
 
 		// 3. Inject into Fiber Locals

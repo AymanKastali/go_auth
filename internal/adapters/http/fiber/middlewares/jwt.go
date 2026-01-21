@@ -47,8 +47,8 @@ func JWTMiddleware(
 			return apperr.Validation("invalid device identifier", nil)
 		}
 
-		deviceID := valueobjects.ReconstituteDeviceID(claims.DeviceID)
-		device, err := deviceRepo.GetByID(deviceID)
+		deviceIDVO := valueobjects.ReconstituteDeviceID(claims.DeviceID)
+		device, err := deviceRepo.GetByID(deviceIDVO)
 		if err != nil {
 			l.Error("Database error during device lookup", slog.Any("error", err))
 			return apperr.Map(err)
@@ -72,12 +72,12 @@ func JWTMiddleware(
 
 		authCtx := &dto.AuthContext{
 			RequestContext: &dto.RequestContext{
-				RequestID:  baseReq.RequestID,
-				DeviceID:   baseReq.DeviceID,
-				DeviceName: baseReq.DeviceName,
-				UserAgent:  baseReq.UserAgent,
-				IPAddress:  baseReq.IPAddress,
-				Logger:     enrichedLogger,
+				RequestID:         baseReq.RequestID,
+				DeviceFingerprint: baseReq.DeviceFingerprint,
+				DeviceName:        baseReq.DeviceName,
+				UserAgent:         baseReq.UserAgent,
+				IPAddress:         baseReq.IPAddress,
+				Logger:            enrichedLogger,
 			},
 			UserID:  userID,
 			Roles:   claims.Roles,

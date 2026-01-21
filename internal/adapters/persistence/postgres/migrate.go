@@ -15,7 +15,7 @@ func AutoMigrate(db *gorm.DB) error {
 
 	err = db.AutoMigrate(
 		&models.User{},
-		&models.RenewalToken{},
+		&models.RefreshToken{},
 		&models.Device{},
 		&models.Role{},
 		&models.UserRole{},

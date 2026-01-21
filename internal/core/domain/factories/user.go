@@ -6,27 +6,25 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type DefaultUserFactory struct {
+type defaultUserFactory struct {
 	regPolicy ports.IUserRegistrationPolicy
 	idSvc     ports.IIDService
-	clockSvc  ports.IClockService
 }
 
 func NewDefaultUserFactory(
 	regPolicy ports.IUserRegistrationPolicy,
 	idSvc ports.IIDService,
-	clockSvc ports.IClockService,
-) *DefaultUserFactory {
-	return &DefaultUserFactory{
+) *defaultUserFactory {
+	return &defaultUserFactory{
 		regPolicy: regPolicy,
 		idSvc:     idSvc,
-		clockSvc:  clockSvc,
 	}
 }
 
-func (f *DefaultUserFactory) CreateNewUser(
+func (f *defaultUserFactory) New(
 	email valueobjects.Email,
 	hashedPassword valueobjects.HashedPassword,
+	now valueobjects.Timepoint,
 ) (*aggregates.User, error) {
 	if err := f.regPolicy.Validate(email); err != nil {
 		return nil, err
@@ -41,8 +39,6 @@ func (f *DefaultUserFactory) CreateNewUser(
 	if err != nil {
 		return nil, err
 	}
-
-	now := f.clockSvc.Now().UTC()
 
 	return aggregates.NewUser(
 		userID,

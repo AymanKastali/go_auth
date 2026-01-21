@@ -14,22 +14,26 @@ type RegisterUseCase struct {
 	userRepo       ports.IUserRepository
 	passwordHasher ports.IPasswordHasherService
 	userFactory    ports.IUserFactory
+	clockSvc       ports.IClockService
 }
 
 func NewRegisterUseCase(
 	userRepo ports.IUserRepository,
 	passwordHasher ports.IPasswordHasherService,
 	userFactory ports.IUserFactory,
+	clockSvc ports.IClockService,
 ) *RegisterUseCase {
 	return &RegisterUseCase{
 		userRepo:       userRepo,
 		passwordHasher: passwordHasher,
 		userFactory:    userFactory,
+		clockSvc:       clockSvc,
 	}
 }
 
 func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr string) (*dto.RegisteredUserDTO, error) {
-	start := time.Now().UTC()
+	now := uc.clockSvc.Now()
+
 	req := dto.FromContext(ctx)
 	l := req.Logger
 
@@ -53,7 +57,7 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr st
 		return nil, apperr.Internal("failed to secure password", err)
 	}
 
-	user, err := uc.userFactory.CreateNewUser(emailVO, hashedPwd)
+	user, err := uc.userFactory.New(emailVO, hashedPwd, now)
 	if err != nil {
 		l.Warn("User creation rejected by domain policy", slog.String("email", emailStr), slog.Any("error", err))
 		return nil, apperr.Map(err)
@@ -64,7 +68,7 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr st
 		return nil, apperr.Map(err)
 	}
 
-	duration := time.Since(start)
+	duration := time.Since(now.Value())
 	l.Info("User registration completed successfully",
 		slog.String("user_id", user.ID().Value()),
 		slog.String("email", user.Email().Value()),
