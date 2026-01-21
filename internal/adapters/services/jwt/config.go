@@ -15,7 +15,6 @@ type JWTConfig struct {
 	issuer     string
 	audience   string
 	accessTTL  time.Duration
-	refreshTTL time.Duration
 }
 
 func (c *JWTConfig) PrivateKey() *rsa.PrivateKey { return c.privateKey }
@@ -23,7 +22,6 @@ func (c *JWTConfig) PublicKey() *rsa.PublicKey   { return c.publicKey }
 func (c *JWTConfig) Issuer() string              { return c.issuer }
 func (c *JWTConfig) Audience() string            { return c.audience }
 func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
-func (c *JWTConfig) RefreshTTL() time.Duration   { return c.refreshTTL }
 
 func NewJWTCfg() (*JWTConfig, error) {
 	cfg := &JWTConfig{}
@@ -45,13 +43,6 @@ func NewJWTCfg() (*JWTConfig, error) {
 		return nil, errors.New("invalid GA_JWT_ACCESS_TTL format")
 	}
 	cfg.accessTTL = d
-
-	refreshStr := os.Getenv("GA_JWT_REFRESH_TTL")
-	d, err = time.ParseDuration(refreshStr)
-	if err != nil {
-		return nil, errors.New("invalid GA_JWT_REFRESH_TTL format")
-	}
-	cfg.refreshTTL = d
 
 	// 3. Keys
 	privPEM := os.Getenv("GA_JWT_PRIVATE_KEY")

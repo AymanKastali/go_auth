@@ -16,9 +16,9 @@ type IDeviceMapper interface {
 	ToModel(entity *entities.Device) *models.Device
 }
 
-type IRefreshTokenMapper interface {
-	ToDomain(model *models.RefreshToken) *entities.RefreshToken
-	ToModel(entity *entities.RefreshToken) *models.RefreshToken
+type IRenewalTokenMapper interface {
+	ToDomain(model *models.RenewalToken) *entities.RenewalToken
+	ToModel(entity *entities.RenewalToken) *models.RenewalToken
 }
 
 type IRoleMapper interface {

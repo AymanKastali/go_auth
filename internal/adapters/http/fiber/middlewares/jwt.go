@@ -14,7 +14,7 @@ import (
 )
 
 func JWTMiddleware(
-	tokenSvc aports.ITokenService,
+	sessionTokenSvc aports.ISessionTokenIssuerService,
 	deviceRepo dports.IDeviceRepository,
 	idSvc dports.IIDService,
 ) fiber.Handler {
@@ -36,7 +36,7 @@ func JWTMiddleware(
 			return apperr.Validation("invalid authorization format", map[string]any{"scheme": "bearer"})
 		}
 
-		claims, err := tokenSvc.ValidateAccessToken(parts[1])
+		claims, err := sessionTokenSvc.Validate(parts[1])
 		if err != nil {
 			l.Warn("Authentication failed: token validation error", slog.Any("error", err))
 			return apperr.Unauthorized("invalid or expired token", err)
@@ -63,10 +63,11 @@ func JWTMiddleware(
 			l.Warn("Authentication failed: device is restricted or inactive", slog.Any("error", err))
 			return apperr.Map(err)
 		}
-
+		userID := claims.UserID
+		tokenID := claims.TokenID
 		enrichedLogger := baseReq.Logger.With(
-			slog.String("user_id", claims.Subject),
-			slog.String("token_id", claims.JTI),
+			slog.String("user_id", userID),
+			slog.String("token_id", tokenID),
 		)
 
 		authCtx := &dto.AuthContext{
@@ -78,13 +79,13 @@ func JWTMiddleware(
 				IPAddress:  baseReq.IPAddress,
 				Logger:     enrichedLogger,
 			},
-			UserID:  claims.Subject,
+			UserID:  userID,
 			Roles:   claims.Roles,
-			TokenID: claims.JTI,
+			TokenID: tokenID,
 		}
 
 		l.Debug("Authentication successful",
-			slog.String("user_id", claims.Subject),
+			slog.String("user_id", userID),
 			slog.Any("roles", claims.Roles),
 		)
 

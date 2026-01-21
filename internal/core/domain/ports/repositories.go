@@ -27,11 +27,10 @@ type IRoleRepository interface {
 	GetAll() ([]*aggregates.Role, error)
 }
 
-type IRefreshTokenRepository interface {
-	Save(e *entities.RefreshToken) error
-	GetByID(tokenID valueobjects.TokenID) (*entities.RefreshToken, error)
-	GetActiveByUserIDAndDeviceID(
-		userID valueobjects.UserID,
-		deviceID valueobjects.DeviceID,
-	) ([]*entities.RefreshToken, error)
+type IRenewalTokenRepository interface {
+	Save(token *entities.RenewalToken) error
+	FindByHash(hash valueobjects.HashedToken) (*entities.RenewalToken, error)
+	FindByID(id valueobjects.TokenID) (*entities.RenewalToken, error)
+	FindByUser(userID valueobjects.UserID) ([]*entities.RenewalToken, error)
+	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RenewalToken, error)
 }
