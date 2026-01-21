@@ -16,16 +16,14 @@ func Map(err error) *AppError {
 		return appErr
 	}
 
-	var domainErr *derr.DomainError
-	if errors.As(err, &domainErr) {
+	var dErr derr.DomainError
+	if errors.As(err, &dErr) {
 		return &AppError{
-			Type:    mapDomainCode(domainErr.Type),
-			Message: domainErr.Message,
-			Details: domainErr.Details,
-			Cause:   domainErr,
+			Type:    mapDomainCode(dErr.Code()),
+			Message: dErr.Error(),
+			Cause:   dErr,
 		}
 	}
-
 	if pgerr.IsAlreadyExists(err) {
 		return &AppError{
 			Type:    TypeConflict,
@@ -41,16 +39,14 @@ func Map(err error) *AppError {
 	}
 }
 
-func mapDomainCode(code derr.Code) ErrorType {
+func mapDomainCode(code derr.ErrorCode) ErrorType {
 	switch code {
-	case derr.CodeNotFound:
-		return TypeNotFound
 	case derr.CodeValidation:
 		return TypeValidation
 	case derr.CodeConflict:
 		return TypeConflict
-	case derr.CodeForbidden:
-		return TypeForbidden
+	case derr.CodeBusinessRule:
+		return TypeUnprocessable
 	default:
 		return TypeInternal
 	}

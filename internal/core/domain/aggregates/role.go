@@ -26,16 +26,16 @@ func NewRole(
 	now valueobjects.Timepoint,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
-		return nil, derr.ErrRoleIDRequired()
+		return nil, derr.NewErrRoleIDRequired()
 	}
 
 	trimmedName := strings.TrimSpace(name)
 	if trimmedName == "" {
-		return nil, derr.ErrRoleNameRequired()
+		return nil, derr.NewErrRoleNameRequired()
 	}
 
 	if now.IsZero() {
-		return nil, derr.ErrCurrentTimeRequired()
+		return nil, derr.NewErrTimepointRequired()
 	}
 
 	return &Role{

@@ -34,10 +34,10 @@ func NewAuthDomainService(
 
 func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates.User, error) {
 	if emailStr == "" {
-		return nil, derr.ErrEmailRequired()
+		return nil, derr.NewErrEmailRequired()
 	}
 	if password == "" {
-		return nil, derr.ErrPasswordRequired()
+		return nil, derr.NewErrPasswordRequired()
 	}
 	email := valueobjects.ReconstituteEmail(emailStr)
 
@@ -46,16 +46,16 @@ func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates
 		return nil, err // DB errors bubble up to be mapped to Internal
 	}
 	if user == nil {
-		return nil, derr.ErrInvalidCredentials()
+		return nil, derr.NewErrInvalidCredentials()
 	}
 
 	hashedPwd := user.HashedPassword()
 	if err := s.passwordHasher.Compare(password, hashedPwd); err != nil {
-		return nil, derr.ErrPasswordMismatch()
+		return nil, derr.NewErrPasswordMismatch()
 	}
 
 	if !user.IsActive() {
-		return nil, derr.ErrInactiveUser()
+		return nil, derr.NewErrInactiveUser(user.ID().Value())
 	}
 
 	return user, nil

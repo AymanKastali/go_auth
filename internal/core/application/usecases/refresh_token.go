@@ -74,7 +74,7 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawOldToken string) (*
 		return nil, apperr.Forbidden("Device not recognized", nil)
 	}
 
-	if !oldTokenEntity.DeviceID().Equals(currentDevice.ID()) {
+	if !oldTokenEntity.DeviceID().Equal(currentDevice.ID()) {
 		return nil, apperr.Forbidden("Token does not belong to this device", nil)
 	}
 

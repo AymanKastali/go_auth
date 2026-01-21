@@ -27,18 +27,19 @@ func (p *defaultUserRegistrationPolicy) Validate(email valueobjects.Email) error
 		return err
 	}
 	if exists {
-		return derr.ErrEmailAlreadyUsed(email.Value())
+		return derr.NewErrEmailAlreadyUsed(email.Value())
 	}
 	return nil
 }
 
 func (p *defaultUserRegistrationPolicy) DefaultRoles() ([]valueobjects.RoleID, error) {
-	role, err := p.roleRepo.GetByName("user")
+	roleName := "user"
+	role, err := p.roleRepo.GetByName(roleName)
 	if err != nil {
 		return nil, err
 	}
 	if role == nil {
-		return nil, derr.ErrMissingDefaultRole("user")
+		return nil, derr.NewErrDefaultRoleMissing(roleName)
 	}
 	roleID := role.ID()
 	return []valueobjects.RoleID{roleID}, nil

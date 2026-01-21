@@ -28,7 +28,7 @@ func (h *bcryptHasher) Compare(plain string, hashed valueobjects.HashedPassword)
 	err := bcrypt.CompareHashAndPassword([]byte(hashed.Value()), []byte(plain))
 	if err != nil {
 		// Here you would return your specific Domain Error
-		return derr.ErrPasswordMismatch()
+		return derr.NewErrPasswordMismatch()
 	}
 	return nil
 }

@@ -31,16 +31,16 @@ func NewDevice(
 	now valueobjects.Timepoint,
 ) (*Device, error) {
 	if id.IsEmpty() {
-		return nil, derr.ErrDeviceIDRequired()
+		return nil, derr.NewErrDeviceIDRequired()
 	}
 	if fingerprint.IsEmpty() {
-		return nil, derr.ErrDeviceFingerprintRequired()
+		return nil, derr.NewErrDeviceFingerprintRequired()
 	}
 	if userID.IsEmpty() {
-		return nil, derr.ErrUserIDRequired()
+		return nil, derr.NewErrUserIDRequired()
 	}
 	if now.IsZero() {
-		return nil, derr.ErrCurrentTimeRequired()
+		return nil, derr.NewErrTimepointRequired()
 	}
 
 	return &Device{
@@ -102,10 +102,10 @@ func (e *Device) DeletedAt() *valueobjects.Timepoint          { return e.revoked
 
 func (e *Device) Activate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.ErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.Value())
 	}
 	if e.isActive {
-		return derr.ErrDeviceAlreadyActive(e.id.Value())
+		return derr.NewErrDeviceAlreadyActive(e.id.Value())
 	}
 
 	e.isActive = true
@@ -115,10 +115,10 @@ func (e *Device) Activate(now valueobjects.Timepoint) error {
 
 func (e *Device) Deactivate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.ErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.Value())
 	}
 	if !e.isActive {
-		return derr.ErrDeviceAlreadyInactive(e.id.Value())
+		return derr.NewErrDeviceAlreadyActive(e.id.Value())
 	}
 	e.isActive = false
 	e.touch(now)
@@ -142,7 +142,7 @@ func (e *Device) UpdateMetadata(
 	now valueobjects.Timepoint,
 ) error {
 	if e.IsRevoked() {
-		return derr.ErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.Value())
 	}
 
 	e.name = name
@@ -155,7 +155,7 @@ func (e *Device) UpdateMetadata(
 
 func (e *Device) Revoke(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.ErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.Value())
 	}
 
 	e.isActive = false
@@ -166,17 +166,17 @@ func (e *Device) Revoke(now valueobjects.Timepoint) error {
 
 func (e *Device) EnsureUsable() error {
 	if e.IsRevoked() {
-		return derr.ErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.Value())
 	}
 	if !e.isActive {
-		return derr.ErrDeviceAlreadyInactive(e.id.Value())
+		return derr.NewErrDeviceAlreadyInactive(e.id.Value())
 	}
 	return nil
 }
 
 func (e *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !e.userID.Equal(userID) {
-		return derr.ErrDeviceDoesNotBelongToUser(e.id.Value(), userID.Value())
+		return derr.NewErrDeviceDoesNotBelongToUser(e.id.Value(), userID.Value())
 	}
 	return nil
 }
