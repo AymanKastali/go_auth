@@ -5,7 +5,6 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -13,7 +12,7 @@ import (
 )
 
 type loginUseCase struct {
-	authDomainService ports.IAuthDomainService
+	authDomainService dports.IAuthDomainService
 	refreshRepo       dports.IRefreshTokenRepository
 	roleRepo          dports.IRoleRepository
 	idSvc             dports.IIDService
@@ -23,7 +22,7 @@ type loginUseCase struct {
 }
 
 func NewLoginUseCase(
-	authDomainService ports.IAuthDomainService,
+	authDomainService dports.IAuthDomainService,
 	refreshRepo dports.IRefreshTokenRepository,
 	roleRepo dports.IRoleRepository,
 	sessionTokenSvc aports.ISessionTokenIssuerService,
