@@ -7,12 +7,13 @@ import (
 type ErrorType string
 
 const (
-	TypeInternal     ErrorType = "INTERNAL"     // 500
-	TypeValidation   ErrorType = "VALIDATION"   // 400/422
-	TypeNotFound     ErrorType = "NOT_FOUND"    // 404
-	TypeConflict     ErrorType = "CONFLICT"     // 409
-	TypeForbidden    ErrorType = "FORBIDDEN"    // 403
-	TypeUnauthorized ErrorType = "UNAUTHORIZED" // 401
+	TypeInternal      ErrorType = "INTERNAL"      // 500
+	TypeValidation    ErrorType = "VALIDATION"    // 400
+	TypeUnprocessable ErrorType = "UNPROCESSABLE" // 422
+	TypeNotFound      ErrorType = "NOT_FOUND"     // 404
+	TypeConflict      ErrorType = "CONFLICT"      // 409
+	TypeForbidden     ErrorType = "FORBIDDEN"     // 403
+	TypeUnauthorized  ErrorType = "UNAUTHORIZED"  // 401
 )
 
 // AppError is the final object returned by Use Cases

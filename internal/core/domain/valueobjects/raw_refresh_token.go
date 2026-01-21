@@ -10,7 +10,7 @@ type RawRefreshToken struct{ value string }
 func NewRawRefreshToken(value string) (RawRefreshToken, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return RawRefreshToken{}, derr.ErrTokenRequired()
+		return RawRefreshToken{}, derr.NewErrTokenRequired()
 	}
 	return RawRefreshToken{value: trimmed}, nil
 }

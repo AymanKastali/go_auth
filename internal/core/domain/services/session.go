@@ -68,7 +68,7 @@ func (s *sessionDomainService) RotateSession(
 	// 1. Invariant Check: Is the token already revoked? (Reuse Detection)
 	if oldToken.IsRevoked() {
 		// Business Rule: If an old token is reused, it's a security breach.
-		return derr.ErrSessionCompromised()
+		return derr.NewErrSessionCompromised(oldToken.UserID().Value())
 	}
 
 	// 2. Business Rule: Revoke the old token

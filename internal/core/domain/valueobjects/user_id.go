@@ -12,7 +12,7 @@ type UserID struct {
 func NewUserID(value string) (UserID, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return UserID{}, derr.ErrUserIDRequired()
+		return UserID{}, derr.NewErrUserIDRequired()
 	}
 	return UserID{value: trimmed}, nil
 }
