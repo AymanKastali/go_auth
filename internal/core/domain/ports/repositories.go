@@ -15,7 +15,7 @@ type IUserRepository interface {
 }
 
 type IDeviceRepository interface {
-	GetByID(deviceID valueobjects.DeviceID) (*entities.Device, error)
+	GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error)
 	Upsert(e *entities.Device) error
 	GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error)
 }

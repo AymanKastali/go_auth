@@ -98,6 +98,10 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		idSvc,
 		clockSvc,
 	)
+	deviceFactory := factories.NewDefaultDeviceFactory(
+		idSvc,
+		clockSvc,
+	)
 
 	// -------------------
 	// Use cases
@@ -109,6 +113,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	)
 
 	loginUC := usecases.NewLoginUseCase(
+		deviceFactory,
 		userRepo, refreshTokenRepo, deviceRepo, roleRepo,
 		pwdHashSvc, jwtSvc, idSvc, clockSvc,
 	)

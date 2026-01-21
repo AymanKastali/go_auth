@@ -7,51 +7,59 @@ import (
 )
 
 type Device struct {
-	id         valueobjects.DeviceID
-	userID     valueobjects.UserID
-	name       *string
-	userAgent  *string
-	ipAddress  *string
-	isActive   bool
-	createdAt  time.Time
-	updatedAt  time.Time
-	lastSeenAt time.Time
-	revokedAt  *time.Time
+	id          valueobjects.DeviceID
+	fingerprint valueobjects.DeviceFingerprint // Client-provided unique ID
+	userID      valueobjects.UserID
+	name        *string
+	userAgent   *string
+	ipAddress   *string
+	isActive    bool
+	createdAt   time.Time
+	updatedAt   time.Time
+	lastSeenAt  time.Time
+	revokedAt   *time.Time
 }
 
 func NewDevice(
-	deviceID valueobjects.DeviceID,
+	id valueobjects.DeviceID,
+	fingerprint valueobjects.DeviceFingerprint,
 	userID valueobjects.UserID,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
-	currentTime time.Time,
+	isActive bool,
+	now time.Time,
 ) (*Device, error) {
-	if deviceID.IsEmpty() {
+	if id.IsEmpty() {
 		return nil, derr.ErrDeviceIDRequired()
+	}
+	if fingerprint.IsEmpty() {
+		return nil, derr.ErrDeviceFingerprintRequired()
 	}
 	if userID.IsEmpty() {
 		return nil, derr.ErrUserIDRequired()
 	}
-	if currentTime.IsZero() {
+	if now.IsZero() {
 		return nil, derr.ErrCurrentTimeRequired()
 	}
 
 	return &Device{
-		id:         deviceID,
-		userID:     userID,
-		name:       name,
-		userAgent:  userAgent,
-		ipAddress:  ipAddress,
-		isActive:   false,
-		createdAt:  currentTime,
-		updatedAt:  currentTime,
-		lastSeenAt: currentTime,
+		id:          id,
+		fingerprint: fingerprint,
+		userID:      userID,
+		name:        name,
+		userAgent:   userAgent,
+		ipAddress:   ipAddress,
+		isActive:    isActive,
+		createdAt:   now,
+		updatedAt:   now,
+		lastSeenAt:  now,
 	}, nil
 }
 
 func ReconstituteDevice(
-	deviceID valueobjects.DeviceID,
+	id valueobjects.DeviceID,
+	fingerprint valueobjects.DeviceFingerprint,
 	userID valueobjects.UserID,
 	name *string,
 	userAgent *string,
@@ -63,31 +71,33 @@ func ReconstituteDevice(
 	revokedAt *time.Time,
 ) *Device {
 	return &Device{
-		id:         deviceID,
-		userID:     userID,
-		name:       name,
-		userAgent:  userAgent,
-		ipAddress:  ipAddress,
-		isActive:   isActive,
-		createdAt:  createdAt,
-		updatedAt:  updatedAt,
-		lastSeenAt: lastSeenAt,
-		revokedAt:  revokedAt,
+		id:          id,
+		fingerprint: fingerprint,
+		userID:      userID,
+		name:        name,
+		userAgent:   userAgent,
+		ipAddress:   ipAddress,
+		isActive:    isActive,
+		createdAt:   createdAt,
+		updatedAt:   updatedAt,
+		lastSeenAt:  lastSeenAt,
+		revokedAt:   revokedAt,
 	}
 }
 
-func (e *Device) ID() valueobjects.DeviceID   { return e.id }
-func (e *Device) UserID() valueobjects.UserID { return e.userID }
-func (e *Device) Name() *string               { return e.name }
-func (e *Device) UserAgent() *string          { return e.userAgent }
-func (e *Device) IPAddress() *string          { return e.ipAddress }
-func (e *Device) IsActive() bool              { return e.isActive }
-func (e *Device) CreatedAt() time.Time        { return e.createdAt }
-func (e *Device) UpdatedAt() time.Time        { return e.updatedAt }
-func (e *Device) LastSeenAt() time.Time       { return e.lastSeenAt }
-func (e *Device) RevokedAt() *time.Time       { return e.revokedAt }
+func (e *Device) ID() valueobjects.DeviceID                   { return e.id }
+func (e *Device) Fingerprint() valueobjects.DeviceFingerprint { return e.fingerprint }
+func (e *Device) UserID() valueobjects.UserID                 { return e.userID }
+func (e *Device) Name() *string                               { return e.name }
+func (e *Device) UserAgent() *string                          { return e.userAgent }
+func (e *Device) IPAddress() *string                          { return e.ipAddress }
+func (e *Device) IsActive() bool                              { return e.isActive }
+func (e *Device) CreatedAt() time.Time                        { return e.createdAt }
+func (e *Device) UpdatedAt() time.Time                        { return e.updatedAt }
+func (e *Device) LastSeenAt() time.Time                       { return e.lastSeenAt }
+func (e *Device) RevokedAt() *time.Time                       { return e.revokedAt }
 
-func (e *Device) Activate(currentTime time.Time) error {
+func (e *Device) Activate(now time.Time) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
@@ -96,11 +106,11 @@ func (e *Device) Activate(currentTime time.Time) error {
 	}
 
 	e.isActive = true
-	e.touch(currentTime)
+	e.touch(now)
 	return nil
 }
 
-func (e *Device) Deactivate(currentTime time.Time) error {
+func (e *Device) Deactivate(now time.Time) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
@@ -108,25 +118,25 @@ func (e *Device) Deactivate(currentTime time.Time) error {
 		return derr.ErrDeviceAlreadyInactive(e.id.Value())
 	}
 	e.isActive = false
-	e.touch(currentTime)
+	e.touch(now)
 	return nil
 }
 
-func (e *Device) MarkSeen(currentTime time.Time) error {
+func (e *Device) MarkSeen(now time.Time) error {
 	if err := e.EnsureUsable(); err != nil {
 		return err
 	}
 
-	e.lastSeenAt = currentTime
-	e.touch(currentTime)
+	e.lastSeenAt = now
+	e.touch(now)
 	return nil
 }
 
 func (e *Device) UpdateMetadata(
-	currentTime time.Time,
 	name *string,
 	userAgent *string,
 	ipAddress *string,
+	now time.Time,
 ) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
@@ -136,18 +146,18 @@ func (e *Device) UpdateMetadata(
 	e.userAgent = userAgent
 	e.ipAddress = ipAddress
 
-	e.touch(currentTime)
+	e.touch(now)
 	return nil
 }
 
-func (e *Device) Revoke(currentTime time.Time) error {
+func (e *Device) Revoke(now time.Time) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
 
 	e.isActive = false
-	e.revokedAt = &currentTime
-	e.touch(currentTime)
+	e.revokedAt = &now
+	e.touch(now)
 	return nil
 }
 
@@ -172,6 +182,6 @@ func (e *Device) IsRevoked() bool {
 	return e.revokedAt != nil
 }
 
-func (e *Device) touch(currentTime time.Time) {
-	e.updatedAt = currentTime
+func (e *Device) touch(now time.Time) {
+	e.updatedAt = now
 }

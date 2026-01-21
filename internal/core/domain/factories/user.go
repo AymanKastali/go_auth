@@ -6,7 +6,7 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type DefaultUserFactory struct {
+type defaultUserFactory struct {
 	regPolicy ports.IUserRegistrationPolicy
 	idSvc     ports.IIDService
 	clockSvc  ports.IClockService
@@ -16,15 +16,15 @@ func NewDefaultUserFactory(
 	regPolicy ports.IUserRegistrationPolicy,
 	idSvc ports.IIDService,
 	clockSvc ports.IClockService,
-) *DefaultUserFactory {
-	return &DefaultUserFactory{
+) *defaultUserFactory {
+	return &defaultUserFactory{
 		regPolicy: regPolicy,
 		idSvc:     idSvc,
 		clockSvc:  clockSvc,
 	}
 }
 
-func (f *DefaultUserFactory) CreateNewUser(
+func (f *defaultUserFactory) New(
 	email valueobjects.Email,
 	hashedPassword valueobjects.HashedPassword,
 ) (*aggregates.User, error) {

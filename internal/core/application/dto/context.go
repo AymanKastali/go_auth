@@ -8,12 +8,12 @@ import (
 type ctxKey struct{}
 
 type RequestContext struct {
-	RequestID  string
-	DeviceID   string
-	DeviceName string
-	UserAgent  string
-	IPAddress  string
-	Logger     *slog.Logger
+	RequestID         string
+	DeviceFingerprint string
+	DeviceName        string
+	UserAgent         string
+	IPAddress         string
+	Logger            *slog.Logger
 }
 
 type AuthContext struct {

@@ -7,6 +7,7 @@ import (
 	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
+	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
@@ -14,6 +15,9 @@ import (
 )
 
 type loginUseCase struct {
+	authDomainService ports.IAuthDomainService
+	deviceFactory     ports.IDeviceFactory
+
 	userRepo       dports.IUserRepository
 	refreshRepo    dports.IRefreshTokenRepository
 	deviceRepo     dports.IDeviceRepository
@@ -25,6 +29,8 @@ type loginUseCase struct {
 }
 
 func NewLoginUseCase(
+	authDomainService ports.IAuthDomainService,
+	deviceFactory ports.IDeviceFactory,
 	userRepo dports.IUserRepository,
 	refreshRepo dports.IRefreshTokenRepository,
 	deviceRepo dports.IDeviceRepository,
@@ -35,14 +41,16 @@ func NewLoginUseCase(
 	clockSvc dports.IClockService,
 ) *loginUseCase {
 	return &loginUseCase{
-		userRepo:       userRepo,
-		refreshRepo:    refreshRepo,
-		deviceRepo:     deviceRepo,
-		roleRepo:       roleRepo,
-		passwordHasher: passwordHasher,
-		tokenSvc:       tokenSvc,
-		idSvc:          idSvc,
-		clockSvc:       clockSvc,
+		authDomainService: authDomainService,
+		deviceFactory:     deviceFactory,
+		userRepo:          userRepo,
+		refreshRepo:       refreshRepo,
+		deviceRepo:        deviceRepo,
+		roleRepo:          roleRepo,
+		passwordHasher:    passwordHasher,
+		tokenSvc:          tokenSvc,
+		idSvc:             idSvc,
+		clockSvc:          clockSvc,
 	}
 }
 
@@ -52,21 +60,25 @@ func (uc *loginUseCase) Execute(
 ) (*dto.AuthResponse, error) {
 	req := dto.FromContext(c)
 	l := req.Logger
-	currentTime := uc.clockSvc.Now().UTC()
+	now := uc.clockSvc.Now().UTC()
 
 	l.Info("Executing user login", slog.String("email", email))
 
-	user, err := uc.authenticate(req, email, password)
+	user, err := uc.authDomainService.Authenticate(email, password)
 	if err != nil {
-		return nil, err
+		l.Warn("Authentication failed", slog.String("email", email), slog.Any("error", err))
+		return nil, apperr.Map(err)
 	}
 
-	if !user.IsActive() {
-		l.Warn("Login attempt by inactive user", slog.String("email", email))
-		return nil, apperr.Forbidden("account is disabled", nil)
-	}
+	device, err := uc.authDomainService.ResolveDevice(
+		valueobjects.ReconstituteDeviceFingerprint(req.DeviceFingerprint),
+		user.ID(),
+		&req.DeviceName,
+		&req.UserAgent,
+		&req.IPAddress,
+		now,
+	)
 
-	device, err := uc.resolveDevice(req, user.ID(), currentTime)
 	if err != nil {
 		return nil, err
 	}
@@ -78,89 +90,7 @@ func (uc *loginUseCase) Execute(
 
 	tokenID := valueobjects.ReconstituteTokenID(uc.idSvc.Generate())
 
-	return uc.issueTokensAndSaveSession(req, tokenID, user, device, roleNames, currentTime)
-}
-
-func (uc *loginUseCase) authenticate(
-	req *dto.RequestContext,
-	email, password string,
-) (*aggregates.User, error) {
-	emailVO := valueobjects.ReconstituteEmail(email)
-	user, err := uc.userRepo.GetByEmail(emailVO)
-	if err != nil {
-		req.Logger.Error("Database error during email lookup", slog.Any("error", err))
-		return nil, apperr.Map(err)
-	}
-
-	if user == nil {
-		req.Logger.Warn("Authentication failed: user not found", slog.String("email", email))
-		return nil, apperr.Unauthorized("invalid credentials", nil)
-	}
-
-	if err := uc.passwordHasher.Compare(password, user.HashedPassword()); err != nil {
-		req.Logger.Warn("Authentication failed: password mismatch", slog.String("email", email))
-		return nil, apperr.Unauthorized("invalid credentials", nil)
-	}
-
-	return user, nil
-}
-
-func (uc *loginUseCase) resolveDevice(
-	req *dto.RequestContext,
-	userID valueobjects.UserID,
-	currentTime time.Time,
-) (*entities.Device, error) {
-	deviceID := req.DeviceID
-
-	if !uc.idSvc.IsValid(deviceID) {
-		req.Logger.Warn("Device resolution failed: invalid ID format", slog.String("device_id", deviceID))
-		return nil, apperr.Validation("invalid device id format", map[string]any{"device_id": deviceID})
-	}
-
-	deviceIDVO := valueobjects.ReconstituteDeviceID(deviceID)
-	device, err := uc.deviceRepo.GetByID(deviceIDVO)
-	if err != nil {
-		req.Logger.Error("Database error during device lookup", slog.Any("error", err))
-		return nil, apperr.Map(err)
-	}
-
-	if device == nil {
-		req.Logger.Info("Registering new device context", slog.String("device_id", deviceID))
-		device, err = entities.NewDevice(deviceIDVO, userID, &req.DeviceName, &req.UserAgent, &req.IPAddress, currentTime)
-		if err != nil {
-			req.Logger.Error("Failed to create new device entity", slog.Any("error", err))
-			return nil, apperr.Map(err)
-		}
-		if err := device.Activate(currentTime); err != nil {
-			req.Logger.Error("Failed to activate new device entity", slog.Any("error", err))
-			return nil, apperr.Map(err)
-		}
-	} else {
-		if err := device.BelongsTo(userID); err != nil {
-			req.Logger.Warn("Device validation failed: ownership mismatch", slog.String("device_id", deviceID))
-			return nil, apperr.Map(err)
-		}
-		if err := device.EnsureUsable(); err != nil {
-			req.Logger.Warn("Device validation failed: unusable device", slog.String("device_id", deviceID))
-			return nil, apperr.Map(err)
-		}
-
-		if err := device.MarkSeen(currentTime); err != nil {
-			req.Logger.Error("Failed to update device last seen timestamp", slog.String("device_id", deviceID), slog.Any("error", err))
-			return nil, apperr.Map(err)
-		}
-		if err := device.UpdateMetadata(currentTime, &req.DeviceName, &req.UserAgent, &req.IPAddress); err != nil {
-			req.Logger.Error("Failed to update device metadata", slog.String("device_id", deviceID), slog.Any("error", err))
-			return nil, apperr.Map(err)
-		}
-	}
-
-	if err := uc.deviceRepo.Upsert(device); err != nil {
-		req.Logger.Error("Database error during device upsert", slog.Any("error", err))
-		return nil, apperr.Map(err)
-	}
-
-	return device, nil
+	return uc.issueTokensAndSaveSession(req, tokenID, user, device, roleNames, now)
 }
 
 func (uc *loginUseCase) fetchRoleNames(req *dto.RequestContext, roleIDs []valueobjects.RoleID) ([]string, error) {
@@ -185,7 +115,7 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 	user *aggregates.User,
 	device *entities.Device,
 	roles []string,
-	currentTime time.Time,
+	now time.Time,
 ) (*dto.AuthResponse, error) {
 
 	// 1. Fetch existing active tokens for this specific User + Device
@@ -198,7 +128,7 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 	// 2. Revoke old tokens via the Domain Entity
 	for _, ot := range oldTokens {
 		// Business logic lives here (e.g., setting RevokedAt, checking if already revoked)
-		if err := ot.Revoke(currentTime); err != nil {
+		if err := ot.Revoke(now); err != nil {
 			req.Logger.Warn("Could not revoke old token", slog.String("id", ot.ID().Value()))
 			continue
 		}
@@ -211,14 +141,14 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 
 	// 3. Issue new tokens via the Token Service
 	at, _, err := uc.tokenSvc.IssueAccessToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, currentTime,
+		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, now,
 	)
 	if err != nil {
 		return nil, apperr.Internal("failed to issue access token", err)
 	}
 
 	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), currentTime,
+		tokenID.Value(), user.ID().Value(), device.ID().Value(), now,
 	)
 	if err != nil {
 		return nil, apperr.Internal("failed to issue refresh token", err)
@@ -226,7 +156,7 @@ func (uc *loginUseCase) issueTokensAndSaveSession(
 
 	// 4. Create the NEW RefreshToken Entity (IMPORTANT: Do NOT call .Revoke() on this)
 	rtEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, currentTime,
+		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, now,
 	)
 	if err != nil {
 		return nil, apperr.Map(err)

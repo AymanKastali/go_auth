@@ -31,18 +31,14 @@ func NewGormDeviceRepository(
 	}
 }
 
-func (r *GormDeviceRepository) GetByID(deviceID valueobjects.DeviceID) (*entities.Device, error) {
+func (r *GormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error) {
 	var model models.Device
-	err := r.db.Where("id = ?", deviceID.Value()).First(&model).Error
+	err := r.db.Where("fingerprint = ?", fingerprint.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch device")
-	}
-
-	if err := model.Validate(r.idSvc); err != nil {
-		return nil, err
 	}
 
 	return r.mapper.ToDomain(&model), nil
@@ -57,10 +53,6 @@ func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entit
 
 	devices := make([]*entities.Device, len(modelsList))
 	for i := range modelsList {
-		// ALL OR NOTHING: Validate every item in the list
-		if err := modelsList[i].Validate(r.idSvc); err != nil {
-			return nil, err
-		}
 		devices[i] = r.mapper.ToDomain(&modelsList[i])
 	}
 
