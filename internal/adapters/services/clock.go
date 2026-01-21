@@ -1,15 +1,15 @@
 package services
 
 import (
+	"go_auth/internal/core/domain/valueobjects"
 	"time"
 )
 
-type ClockService struct{}
+type clockService struct{}
 
-func NewClockSvc() *ClockService {
-	return &ClockService{}
-}
+func NewClockSvc() *clockService { return &clockService{} }
 
-func (ClockService) Now() time.Time {
-	return time.Now()
+func (s *clockService) Now() valueobjects.Timepoint {
+	t := time.Now()
+	return valueobjects.ReconstituteTimepoint(t)
 }

@@ -40,6 +40,7 @@ func (p *defaultUserRegistrationPolicy) DefaultRoles() ([]valueobjects.RoleID, e
 	if role == nil {
 		return nil, derr.ErrMissingDefaultRole("user")
 	}
-	return []valueobjects.RoleID{role.ID()}, nil
+	roleID := role.ID()
+	return []valueobjects.RoleID{roleID}, nil
 
 }

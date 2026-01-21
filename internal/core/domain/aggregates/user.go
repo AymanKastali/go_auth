@@ -4,7 +4,6 @@ import (
 	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"slices"
-	"time"
 )
 
 type User struct {
@@ -13,9 +12,9 @@ type User struct {
 	passwordHash valueobjects.HashedPassword
 	status       valueobjects.UserStatus
 	roleIDs      []valueobjects.RoleID
-	createdAt    time.Time
-	updatedAt    time.Time
-	deletedAt    *time.Time
+	createdAt    valueobjects.Timepoint
+	updatedAt    valueobjects.Timepoint
+	deletedAt    *valueobjects.Timepoint
 }
 
 func NewUser(
@@ -24,7 +23,7 @@ func NewUser(
 	passwordHash valueobjects.HashedPassword,
 	status valueobjects.UserStatus,
 	roleIDs []valueobjects.RoleID,
-	currentTime time.Time,
+	now valueobjects.Timepoint,
 ) (*User, error) {
 	if userID.IsEmpty() {
 		return nil, derr.ErrUserIDRequired()
@@ -38,7 +37,7 @@ func NewUser(
 	if status == "" {
 		return nil, derr.ErrStatusRequired()
 	}
-	if currentTime.IsZero() {
+	if now.IsZero() {
 		return nil, derr.ErrCurrentTimeRequired()
 	}
 
@@ -52,8 +51,8 @@ func NewUser(
 		passwordHash: passwordHash,
 		status:       status,
 		roleIDs:      slices.Clone(roleIDs),
-		createdAt:    currentTime,
-		updatedAt:    currentTime,
+		createdAt:    now,
+		updatedAt:    now,
 	}, nil
 }
 
@@ -63,8 +62,8 @@ func ReconstituteUser(
 	passwordHash valueobjects.HashedPassword,
 	status valueobjects.UserStatus,
 	roleIDs []valueobjects.RoleID,
-	createdAt, updatedAt time.Time,
-	deletedAt *time.Time,
+	createdAt, updatedAt valueobjects.Timepoint,
+	deletedAt *valueobjects.Timepoint,
 ) *User {
 	return &User{
 		id:           id,
@@ -95,7 +94,7 @@ func (a *User) ensureActive() error {
 	return nil
 }
 
-func (a *User) Activate(currentTime time.Time) error {
+func (a *User) Activate(currentTime valueobjects.Timepoint) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -108,7 +107,7 @@ func (a *User) Activate(currentTime time.Time) error {
 	return nil
 }
 
-func (a *User) Deactivate(currentTime time.Time) error {
+func (a *User) Deactivate(currentTime valueobjects.Timepoint) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -121,7 +120,7 @@ func (a *User) Deactivate(currentTime time.Time) error {
 	return nil
 }
 
-func (a *User) MarkDeleted(currentTime time.Time) error {
+func (a *User) MarkDeleted(currentTime valueobjects.Timepoint) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -132,7 +131,7 @@ func (a *User) MarkDeleted(currentTime time.Time) error {
 	return nil
 }
 
-func (a *User) ChangeEmail(email valueobjects.Email, currentTime time.Time) error {
+func (a *User) ChangeEmail(email valueobjects.Email, currentTime valueobjects.Timepoint) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -145,7 +144,7 @@ func (a *User) ChangeEmail(email valueobjects.Email, currentTime time.Time) erro
 	return nil
 }
 
-func (a *User) ChangeHashedPassword(hash valueobjects.HashedPassword, currentTime time.Time) error {
+func (a *User) ChangeHashedPassword(hash valueobjects.HashedPassword, currentTime valueobjects.Timepoint) error {
 	if err := a.ensureNotDeleted(); err != nil {
 		return err
 	}
@@ -155,7 +154,7 @@ func (a *User) ChangeHashedPassword(hash valueobjects.HashedPassword, currentTim
 	return nil
 }
 
-func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime time.Time) error {
+func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime valueobjects.Timepoint) error {
 	if err := a.ensureActive(); err != nil {
 		return err
 	}
@@ -172,7 +171,7 @@ func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime time.Time) erro
 	return nil
 }
 
-func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime time.Time) error {
+func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime valueobjects.Timepoint) error {
 	if err := a.ensureActive(); err != nil {
 		return err
 	}
@@ -194,7 +193,7 @@ func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime time.Time) e
 	return nil
 }
 
-func (a *User) touch(currentTime time.Time) {
+func (a *User) touch(currentTime valueobjects.Timepoint) {
 	a.updatedAt = currentTime
 }
 
@@ -203,8 +202,8 @@ func (a *User) Email() valueobjects.Email                   { return a.email }
 func (a *User) HashedPassword() valueobjects.HashedPassword { return a.passwordHash }
 func (a *User) Status() valueobjects.UserStatus             { return a.status }
 func (a *User) RoleIDs() []valueobjects.RoleID              { return slices.Clone(a.roleIDs) }
-func (a *User) CreatedAt() time.Time                        { return a.createdAt }
-func (a *User) UpdatedAt() time.Time                        { return a.updatedAt }
-func (a *User) DeletedAt() *time.Time                       { return a.deletedAt }
+func (a *User) CreatedAt() valueobjects.Timepoint           { return a.createdAt }
+func (a *User) UpdatedAt() valueobjects.Timepoint           { return a.updatedAt }
+func (a *User) DeletedAt() *valueobjects.Timepoint          { return a.deletedAt }
 func (a *User) IsDeleted() bool                             { return a.deletedAt != nil }
 func (a *User) IsActive() bool                              { return a.status == valueobjects.UserActive }

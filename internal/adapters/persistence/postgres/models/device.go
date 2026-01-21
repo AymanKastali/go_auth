@@ -6,7 +6,7 @@ import (
 
 type Device struct {
 	ID          string  `gorm:"primaryKey;type:uuid"`
-	Fingerprint *string `gorm:"type:varchar(255);uniqueIndex"`
+	Fingerprint string  `gorm:"type:varchar(255);uniqueIndex"`
 	UserID      string  `gorm:"not null;index"`
 	User        User    `gorm:"foreignKey:UserID"`
 	Name        *string `gorm:"type:varchar(100)"`

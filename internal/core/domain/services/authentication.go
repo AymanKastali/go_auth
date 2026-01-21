@@ -6,7 +6,6 @@ import (
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
-	"time"
 )
 
 type authDomainService struct {
@@ -50,7 +49,8 @@ func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates
 		return nil, derr.ErrInvalidCredentials()
 	}
 
-	if err := s.passwordHasher.Compare(password, user.HashedPassword()); err != nil {
+	hashedPwd := user.HashedPassword()
+	if err := s.passwordHasher.Compare(password, hashedPwd); err != nil {
 		return nil, derr.ErrPasswordMismatch()
 	}
 
@@ -67,7 +67,7 @@ func (s *authDomainService) ResolveDevice(
 	name *string,
 	userAgent *string,
 	ip *string,
-	now time.Time,
+	now valueobjects.Timepoint,
 ) (*entities.Device, error) {
 	device, err := s.deviceRepo.GetByFingerprint(deviceFingerprint)
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *authDomainService) ResolveDevice(
 	}
 
 	if device == nil {
-		device, err = s.deviceFactory.New(deviceFingerprint, userID, name, userAgent, ip)
+		device, err = s.deviceFactory.New(deviceFingerprint, userID, name, userAgent, ip, true, now)
 		if err != nil {
 			return nil, err
 		}

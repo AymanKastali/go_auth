@@ -3,21 +3,21 @@ package entities
 import (
 	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
-	"time"
 )
 
 type Device struct {
 	id          valueobjects.DeviceID
-	fingerprint valueobjects.DeviceFingerprint // Client-provided unique ID
+	fingerprint valueobjects.DeviceFingerprint
 	userID      valueobjects.UserID
 	name        *string
 	userAgent   *string
 	ipAddress   *string
 	isActive    bool
-	createdAt   time.Time
-	updatedAt   time.Time
-	lastSeenAt  time.Time
-	revokedAt   *time.Time
+	createdAt   valueobjects.Timepoint
+	updatedAt   valueobjects.Timepoint
+	lastSeenAt  valueobjects.Timepoint
+	revokedAt   *valueobjects.Timepoint
+	deletedAt   *valueobjects.Timepoint
 }
 
 func NewDevice(
@@ -28,7 +28,7 @@ func NewDevice(
 	userAgent *string,
 	ipAddress *string,
 	isActive bool,
-	now time.Time,
+	now valueobjects.Timepoint,
 ) (*Device, error) {
 	if id.IsEmpty() {
 		return nil, derr.ErrDeviceIDRequired()
@@ -65,10 +65,11 @@ func ReconstituteDevice(
 	userAgent *string,
 	ipAddress *string,
 	isActive bool,
-	createdAt time.Time,
-	updatedAt time.Time,
-	lastSeenAt time.Time,
-	revokedAt *time.Time,
+	createdAt valueobjects.Timepoint,
+	updatedAt valueobjects.Timepoint,
+	lastSeenAt valueobjects.Timepoint,
+	revokedAt *valueobjects.Timepoint,
+	deletedAt *valueobjects.Timepoint,
 ) *Device {
 	return &Device{
 		id:          id,
@@ -82,6 +83,7 @@ func ReconstituteDevice(
 		updatedAt:   updatedAt,
 		lastSeenAt:  lastSeenAt,
 		revokedAt:   revokedAt,
+		deletedAt:   deletedAt,
 	}
 }
 
@@ -92,12 +94,13 @@ func (e *Device) Name() *string                               { return e.name }
 func (e *Device) UserAgent() *string                          { return e.userAgent }
 func (e *Device) IPAddress() *string                          { return e.ipAddress }
 func (e *Device) IsActive() bool                              { return e.isActive }
-func (e *Device) CreatedAt() time.Time                        { return e.createdAt }
-func (e *Device) UpdatedAt() time.Time                        { return e.updatedAt }
-func (e *Device) LastSeenAt() time.Time                       { return e.lastSeenAt }
-func (e *Device) RevokedAt() *time.Time                       { return e.revokedAt }
+func (e *Device) CreatedAt() valueobjects.Timepoint           { return e.createdAt }
+func (e *Device) UpdatedAt() valueobjects.Timepoint           { return e.updatedAt }
+func (e *Device) LastSeenAt() valueobjects.Timepoint          { return e.lastSeenAt }
+func (e *Device) RevokedAt() *valueobjects.Timepoint          { return e.revokedAt }
+func (e *Device) DeletedAt() *valueobjects.Timepoint          { return e.revokedAt }
 
-func (e *Device) Activate(now time.Time) error {
+func (e *Device) Activate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
@@ -110,7 +113,7 @@ func (e *Device) Activate(now time.Time) error {
 	return nil
 }
 
-func (e *Device) Deactivate(now time.Time) error {
+func (e *Device) Deactivate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
@@ -122,7 +125,7 @@ func (e *Device) Deactivate(now time.Time) error {
 	return nil
 }
 
-func (e *Device) MarkSeen(now time.Time) error {
+func (e *Device) MarkSeen(now valueobjects.Timepoint) error {
 	if err := e.EnsureUsable(); err != nil {
 		return err
 	}
@@ -136,7 +139,7 @@ func (e *Device) UpdateMetadata(
 	name *string,
 	userAgent *string,
 	ipAddress *string,
-	now time.Time,
+	now valueobjects.Timepoint,
 ) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
@@ -150,7 +153,7 @@ func (e *Device) UpdateMetadata(
 	return nil
 }
 
-func (e *Device) Revoke(now time.Time) error {
+func (e *Device) Revoke(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
 		return derr.ErrDeviceRevoked(e.id.Value())
 	}
@@ -182,6 +185,6 @@ func (e *Device) IsRevoked() bool {
 	return e.revokedAt != nil
 }
 
-func (e *Device) touch(now time.Time) {
+func (e *Device) touch(now valueobjects.Timepoint) {
 	e.updatedAt = now
 }

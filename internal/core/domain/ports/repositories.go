@@ -15,6 +15,7 @@ type IUserRepository interface {
 }
 
 type IDeviceRepository interface {
+	GetByID(id valueobjects.DeviceID) (*entities.Device, error)
 	GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error)
 	Upsert(e *entities.Device) error
 	GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error)
@@ -28,10 +29,9 @@ type IRoleRepository interface {
 }
 
 type IRefreshTokenRepository interface {
-	Save(e *entities.RefreshToken) error
-	GetByID(tokenID valueobjects.TokenID) (*entities.RefreshToken, error)
-	GetActiveByUserIDAndDeviceID(
-		userID valueobjects.UserID,
-		deviceID valueobjects.DeviceID,
-	) ([]*entities.RefreshToken, error)
+	Save(token *entities.RefreshToken) error
+	FindByRawToken(raw valueobjects.RawRefreshToken) (*entities.RefreshToken, error)
+	FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error)
+	FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error)
+	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error)
 }

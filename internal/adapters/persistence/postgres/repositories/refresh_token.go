@@ -2,95 +2,116 @@ package repositories
 
 import (
 	"errors"
-
+	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/models"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
-	"go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/entities"
-	domainports "go_auth/internal/core/domain/ports"
+	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 
 	"gorm.io/gorm"
 )
 
-type GormRefreshTokenRepository struct {
+type gormRefreshTokenRepository struct {
 	db     *gorm.DB
-	mapper ports.IRefreshTokenMapper
-	idSvc  domainports.IIDService
+	mapper *mappers.RefreshTokenMapper
+	hasher ports.ITokenHasherService
 }
 
 func NewGormRefreshTokenRepository(
 	db *gorm.DB,
-	mapper ports.IRefreshTokenMapper,
-	idSvc domainports.IIDService,
-) *GormRefreshTokenRepository {
-	return &GormRefreshTokenRepository{
+	mapper *mappers.RefreshTokenMapper,
+	hasher ports.ITokenHasherService,
+) *gormRefreshTokenRepository {
+	return &gormRefreshTokenRepository{
 		db:     db,
 		mapper: mapper,
-		idSvc:  idSvc,
+		hasher: hasher,
 	}
 }
 
-func (r *GormRefreshTokenRepository) Save(token *entities.RefreshToken) error {
-	model := r.mapper.ToModel(token)
-	if err := r.db.Save(model).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return pgerr.WrapAlreadyExists(err, "refresh token already exists")
-		}
-		return pgerr.WrapUnavailable(err, "database failure during token save")
+// Save inserts or updates the entity
+func (r *gormRefreshTokenRepository) Save(e *entities.RefreshToken) error {
+	if e == nil {
+		return errors.New("cannot save nil RefreshToken")
 	}
-	return nil
+
+	model := r.mapper.ToModel(e)
+	return r.db.Save(model).Error
 }
 
-func (r *GormRefreshTokenRepository) GetByID(tokenID valueobjects.TokenID) (*entities.RefreshToken, error) {
+func (r *gormRefreshTokenRepository) FindByRawToken(raw valueobjects.RawRefreshToken) (*entities.RefreshToken, error) {
+	// 1. We MUST hash the raw token to find it in the DB
+	// because we never store tokens in plain text.
+	hashedTokenVO, err := r.hasher.Hash(raw.Value())
+	if err != nil {
+		return nil, err
+	}
+
 	var model models.RefreshToken
-	err := r.db.Where("id = ?", tokenID.Value()).First(&model).Error
+	err = r.db.Where("hash = ?", hashedTokenVO.Value()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, pgerr.WrapUnavailable(err, "failed to fetch token")
+		return nil, err
 	}
 
-	// GATEKEEPER
-	if err := model.Validate(r.idSvc); err != nil {
+	// 2. Map the DB model back to the Domain Entity
+	return r.mapper.ToDomain(&model), nil
+}
+
+// FindByID returns the entity by ID or nil if not found
+func (r *gormRefreshTokenRepository) FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error) {
+	if id.IsEmpty() {
+		return nil, errors.New("id cannot be empty")
+	}
+
+	var model models.RefreshToken
+	err := r.db.Where("id = ?", id.Value()).First(&model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
 	return r.mapper.ToDomain(&model), nil
 }
 
-func (r *GormRefreshTokenRepository) GetActiveByUserIDAndDeviceID(
-	userID valueobjects.UserID,
-	deviceID valueobjects.DeviceID,
-) ([]*entities.RefreshToken, error) {
-	var tokenModels []models.RefreshToken
-
-	// 1. Fetch from DB with explicit 'Active' criteria
-	// We use .Find() which doesn't return ErrRecordNotFound if empty,
-	// it just returns an empty slice, which is correct for this use case.
-	err := r.db.Where(
-		"user_id = ? AND device_id = ? AND revoked_at IS NULL AND expires_at > NOW()",
-		userID.Value(),
-		deviceID.Value(),
-	).Find(&tokenModels).Error
-
-	if err != nil {
-		return nil, pgerr.WrapUnavailable(err, "failed to query active tokens")
+// FindByDevice returns all tokens for a given user and device
+func (r *gormRefreshTokenRepository) FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error) {
+	if userID.IsEmpty() || deviceID.IsEmpty() {
+		return nil, errors.New("userID and deviceID cannot be empty")
 	}
 
-	// 2. Map Models to Domain Entities
-	results := make([]*entities.RefreshToken, 0, len(tokenModels))
-	for _, model := range tokenModels {
-		// Run infrastructure validation (ID format checks, etc.)
-		if err := model.Validate(r.idSvc); err != nil {
-			// If one record is corrupt, we log/skip or return error based on strictness
-			return nil, pgerr.WrapInternal(err, "database contains invalid token data")
-		}
-
-		domainEntity := r.mapper.ToDomain(&model)
-		results = append(results, domainEntity)
+	var modelsList []models.RefreshToken
+	if err := r.db.Where("user_id = ? AND device_id = ?", userID.Value(), deviceID.Value()).Find(&modelsList).Error; err != nil {
+		return nil, err
 	}
 
-	return results, nil
+	tokens := make([]*entities.RefreshToken, len(modelsList))
+	for i, m := range modelsList {
+		tokens[i] = r.mapper.ToDomain(&m)
+	}
+
+	return tokens, nil
+}
+
+// FindByUser returns all tokens for a given user
+func (r *gormRefreshTokenRepository) FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
+	if userID.IsEmpty() {
+		return nil, errors.New("userID cannot be empty")
+	}
+
+	var modelsList []models.RefreshToken
+	if err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error; err != nil {
+		return nil, err
+	}
+
+	tokens := make([]*entities.RefreshToken, len(modelsList))
+	for i, m := range modelsList {
+		tokens[i] = r.mapper.ToDomain(&m)
+	}
+
+	return tokens, nil
 }

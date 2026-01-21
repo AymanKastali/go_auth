@@ -65,6 +65,7 @@ func ErrDeviceFingerprintRequired() *DomainError { return required("device_finge
 func ErrTokenRequired() *DomainError             { return required("token") }
 func ErrTokenIDRequired() *DomainError           { return required("token_id") }
 func ErrExpiresAtRequired() *DomainError         { return required("expiration_date") }
+func ErrTokenHashRequired() *DomainError         { return required("token_hash") }
 
 // --- 2. Business Rule Violations (Rules) ---
 
@@ -198,4 +199,11 @@ func ErrMissingDefaultRole(roleName string) *DomainError {
 			"reason":    "missing_default_role",
 		},
 	)
+}
+
+func ErrSessionCompromised() *DomainError {
+	return newErr(CodeForbidden, "security alert: session has been compromised", map[string]any{
+		"reason": "token_reuse_detected",
+		"action": "all_sessions_may_be_invalidated",
+	})
 }

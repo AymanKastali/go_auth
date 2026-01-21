@@ -94,7 +94,7 @@ func (s *seedAdminSvc) SeedAdmin() error {
 	}
 
 	userID := valueobjects.ReconstituteUserID(s.idSvc.Generate())
-	now := s.clockSvc.Now().UTC()
+	now := s.clockSvc.Now()
 
 	admin, err := aggregates.NewUser(
 		userID,

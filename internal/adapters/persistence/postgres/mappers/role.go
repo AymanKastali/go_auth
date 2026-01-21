@@ -4,6 +4,7 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/models"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/valueobjects"
+	"time"
 )
 
 type RoleMapper struct{}
@@ -15,12 +16,18 @@ func (m *RoleMapper) ToDomain(model *models.Role) *aggregates.Role {
 		return nil
 	}
 
+	var deletedAt *valueobjects.Timepoint
+	if model.DeletedAt != nil {
+		tp := valueobjects.ReconstituteTimepoint(*model.DeletedAt)
+		deletedAt = &tp
+	}
+
 	return aggregates.ReconstituteRole(
 		valueobjects.ReconstituteRoleID(model.ID),
 		model.Name,
-		model.CreatedAt,
-		model.UpdatedAt,
-		model.DeletedAt,
+		valueobjects.ReconstituteTimepoint(model.CreatedAt),
+		valueobjects.ReconstituteTimepoint(model.UpdatedAt),
+		deletedAt,
 	)
 }
 
@@ -29,11 +36,17 @@ func (m *RoleMapper) ToModel(entity *aggregates.Role) *models.Role {
 		return nil
 	}
 
+	var deletedAtPtr *time.Time
+	if entity.DeletedAt() != nil {
+		t := entity.DeletedAt().Value()
+		deletedAtPtr = &t
+	}
+
 	return &models.Role{
 		ID:        entity.ID().Value(),
 		Name:      entity.Name(),
-		CreatedAt: entity.CreatedAt(),
-		UpdatedAt: entity.UpdatedAt(),
-		DeletedAt: entity.DeletedAt(),
+		CreatedAt: entity.CreatedAt().Value(),
+		UpdatedAt: entity.UpdatedAt().Value(),
+		DeletedAt: deletedAtPtr,
 	}
 }

@@ -4,41 +4,26 @@ import (
 	"go_auth/internal/core/domain/derr"
 	"go_auth/internal/core/domain/valueobjects"
 	"strings"
-	"time"
 )
 
 type Role struct {
 	id        valueobjects.RoleID
 	name      string
-	createdAt time.Time
-	updatedAt time.Time
-	deletedAt *time.Time
+	createdAt valueobjects.Timepoint
+	updatedAt valueobjects.Timepoint
+	deletedAt *valueobjects.Timepoint
 }
 
-func (e *Role) ID() valueobjects.RoleID {
-	return e.id
-}
-
-func (e *Role) Name() string {
-	return strings.ToLower(e.name)
-}
-
-func (e *Role) CreatedAt() time.Time {
-	return e.createdAt
-}
-
-func (e *Role) UpdatedAt() time.Time {
-	return e.updatedAt
-}
-
-func (e *Role) DeletedAt() *time.Time {
-	return e.deletedAt
-}
+func (e *Role) ID() valueobjects.RoleID            { return e.id }
+func (e *Role) Name() string                       { return strings.ToLower(e.name) }
+func (e *Role) CreatedAt() valueobjects.Timepoint  { return e.createdAt }
+func (e *Role) UpdatedAt() valueobjects.Timepoint  { return e.updatedAt }
+func (e *Role) DeletedAt() *valueobjects.Timepoint { return e.deletedAt }
 
 func NewRole(
 	roleID valueobjects.RoleID,
 	name string,
-	currentTime time.Time,
+	now valueobjects.Timepoint,
 ) (*Role, error) {
 	if roleID.IsEmpty() {
 		return nil, derr.ErrRoleIDRequired()
@@ -49,22 +34,22 @@ func NewRole(
 		return nil, derr.ErrRoleNameRequired()
 	}
 
-	if currentTime.IsZero() {
+	if now.IsZero() {
 		return nil, derr.ErrCurrentTimeRequired()
 	}
 
 	return &Role{
 		id:        roleID,
 		name:      strings.ToLower(trimmedName),
-		createdAt: currentTime,
-		updatedAt: currentTime,
+		createdAt: now,
+		updatedAt: now,
 	}, nil
 }
 func ReconstituteRole(
 	roleID valueobjects.RoleID,
 	name string,
-	createdAt, updatedAt time.Time,
-	deletedAt *time.Time,
+	createdAt, updatedAt valueobjects.Timepoint,
+	deletedAt *valueobjects.Timepoint,
 ) *Role {
 	return &Role{
 		id:        roleID,

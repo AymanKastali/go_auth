@@ -9,24 +9,22 @@ import (
 type defaultUserFactory struct {
 	regPolicy ports.IUserRegistrationPolicy
 	idSvc     ports.IIDService
-	clockSvc  ports.IClockService
 }
 
 func NewDefaultUserFactory(
 	regPolicy ports.IUserRegistrationPolicy,
 	idSvc ports.IIDService,
-	clockSvc ports.IClockService,
 ) *defaultUserFactory {
 	return &defaultUserFactory{
 		regPolicy: regPolicy,
 		idSvc:     idSvc,
-		clockSvc:  clockSvc,
 	}
 }
 
 func (f *defaultUserFactory) New(
 	email valueobjects.Email,
 	hashedPassword valueobjects.HashedPassword,
+	now valueobjects.Timepoint,
 ) (*aggregates.User, error) {
 	if err := f.regPolicy.Validate(email); err != nil {
 		return nil, err
@@ -41,8 +39,6 @@ func (f *defaultUserFactory) New(
 	if err != nil {
 		return nil, err
 	}
-
-	now := f.clockSvc.Now().UTC()
 
 	return aggregates.NewUser(
 		userID,

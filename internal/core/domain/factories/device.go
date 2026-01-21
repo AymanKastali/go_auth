@@ -28,13 +28,13 @@ func (f *defaultDeviceFactory) New(
 	userAgent *string,
 	ip *string,
 	isActive bool,
+	now valueobjects.Timepoint,
 ) (*entities.Device, error) {
 	deviceID := f.idSvc.Generate()
 	deviceIDVO, err := valueobjects.NewDeviceID(deviceID)
 	if err != nil {
 		return nil, err
 	}
-	now := f.clockSvc.Now().UTC()
 	return entities.NewDevice(
 		deviceIDVO,
 		fingerprint,

@@ -5,8 +5,6 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
-	"go_auth/internal/core/domain/aggregates"
-	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/ports"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
@@ -16,41 +14,31 @@ import (
 
 type loginUseCase struct {
 	authDomainService ports.IAuthDomainService
-	deviceFactory     ports.IDeviceFactory
-
-	userRepo       dports.IUserRepository
-	refreshRepo    dports.IRefreshTokenRepository
-	deviceRepo     dports.IDeviceRepository
-	roleRepo       dports.IRoleRepository
-	passwordHasher dports.IPasswordHasherService
-	tokenSvc       aports.ITokenService
-	idSvc          dports.IIDService
-	clockSvc       dports.IClockService
+	refreshRepo       dports.IRefreshTokenRepository
+	roleRepo          dports.IRoleRepository
+	idSvc             dports.IIDService
+	clockSvc          dports.IClockService
+	sessionTokenSvc   aports.ISessionTokenIssuerService
+	sessionSvc        dports.ISessionDomainService
 }
 
 func NewLoginUseCase(
 	authDomainService ports.IAuthDomainService,
-	deviceFactory ports.IDeviceFactory,
-	userRepo dports.IUserRepository,
 	refreshRepo dports.IRefreshTokenRepository,
-	deviceRepo dports.IDeviceRepository,
 	roleRepo dports.IRoleRepository,
-	passwordHasher dports.IPasswordHasherService,
-	tokenSvc aports.ITokenService,
+	sessionTokenSvc aports.ISessionTokenIssuerService,
 	idSvc dports.IIDService,
 	clockSvc dports.IClockService,
+	sessionSvc dports.ISessionDomainService,
 ) *loginUseCase {
 	return &loginUseCase{
 		authDomainService: authDomainService,
-		deviceFactory:     deviceFactory,
-		userRepo:          userRepo,
 		refreshRepo:       refreshRepo,
-		deviceRepo:        deviceRepo,
 		roleRepo:          roleRepo,
-		passwordHasher:    passwordHasher,
-		tokenSvc:          tokenSvc,
 		idSvc:             idSvc,
 		clockSvc:          clockSvc,
+		sessionTokenSvc:   sessionTokenSvc,
+		sessionSvc:        sessionSvc,
 	}
 }
 
@@ -60,7 +48,7 @@ func (uc *loginUseCase) Execute(
 ) (*dto.AuthResponse, error) {
 	req := dto.FromContext(c)
 	l := req.Logger
-	now := uc.clockSvc.Now().UTC()
+	now := uc.clockSvc.Now()
 
 	l.Info("Executing user login", slog.String("email", email))
 
@@ -83,14 +71,50 @@ func (uc *loginUseCase) Execute(
 		return nil, err
 	}
 
-	roleNames, err := uc.fetchRoleNames(req, user.RoleIDs())
+	revoked, err := uc.sessionSvc.InvalidateExistingSessions(user.ID(), device.ID(), now)
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
+
+	refreshToken, rawToken, err := uc.sessionSvc.CreateSession(
+		user.ID(),
+		device.ID(),
+		now.Add(7*24*time.Hour),
+		now,
+	)
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
+
+	roles, err := uc.fetchRoleNames(req, user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
 
-	tokenID := valueobjects.ReconstituteTokenID(uc.idSvc.Generate())
+	accessToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
+		TokenID:   uc.idSvc.Generate(),
+		SessionID: refreshToken.ID().Value(),
+		UserID:    user.ID().Value(),
+		DeviceID:  device.ID().Value(),
+		Roles:     roles,
+		IssuedAt:  now.Value(),
+		ExpiresAt: now.Add(15 * time.Minute).Value(),
+	})
+	if err != nil {
+		return nil, apperr.Internal("failed to issue access token", err)
+	}
 
-	return uc.issueTokensAndSaveSession(req, tokenID, user, device, roleNames, now)
+	for _, ot := range revoked {
+		_ = uc.refreshRepo.Save(ot)
+	}
+	if err := uc.refreshRepo.Save(refreshToken); err != nil {
+		return nil, apperr.Map(err)
+	}
+
+	return &dto.AuthResponse{
+		AccessToken:  accessToken.Raw,
+		RefreshToken: rawToken.Value(),
+	}, nil
 }
 
 func (uc *loginUseCase) fetchRoleNames(req *dto.RequestContext, roleIDs []valueobjects.RoleID) ([]string, error) {
@@ -107,70 +131,4 @@ func (uc *loginUseCase) fetchRoleNames(req *dto.RequestContext, roleIDs []valueo
 		}
 	}
 	return roleNames, nil
-}
-
-func (uc *loginUseCase) issueTokensAndSaveSession(
-	req *dto.RequestContext,
-	tokenID valueobjects.TokenID,
-	user *aggregates.User,
-	device *entities.Device,
-	roles []string,
-	now time.Time,
-) (*dto.AuthResponse, error) {
-
-	// 1. Fetch existing active tokens for this specific User + Device
-	// This allows the domain to decide what to do with them.
-	oldTokens, err := uc.refreshRepo.GetActiveByUserIDAndDeviceID(user.ID(), device.ID())
-	if err != nil {
-		return nil, apperr.Map(err)
-	}
-
-	// 2. Revoke old tokens via the Domain Entity
-	for _, ot := range oldTokens {
-		// Business logic lives here (e.g., setting RevokedAt, checking if already revoked)
-		if err := ot.Revoke(now); err != nil {
-			req.Logger.Warn("Could not revoke old token", slog.String("id", ot.ID().Value()))
-			continue
-		}
-
-		// Persist the state change back to the DB
-		if err := uc.refreshRepo.Save(ot); err != nil {
-			return nil, apperr.Map(err)
-		}
-	}
-
-	// 3. Issue new tokens via the Token Service
-	at, _, err := uc.tokenSvc.IssueAccessToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), roles, now,
-	)
-	if err != nil {
-		return nil, apperr.Internal("failed to issue access token", err)
-	}
-
-	rt, rtClaims, err := uc.tokenSvc.IssueRefreshToken(
-		tokenID.Value(), user.ID().Value(), device.ID().Value(), now,
-	)
-	if err != nil {
-		return nil, apperr.Internal("failed to issue refresh token", err)
-	}
-
-	// 4. Create the NEW RefreshToken Entity (IMPORTANT: Do NOT call .Revoke() on this)
-	rtEntity, err := entities.NewRefreshToken(
-		tokenID, user.ID(), device.ID(), rt, rtClaims.ExpiresAt, now,
-	)
-	if err != nil {
-		return nil, apperr.Map(err)
-	}
-
-	// 5. Save the new active session
-	if err := uc.refreshRepo.Save(rtEntity); err != nil {
-		return nil, apperr.Map(err)
-	}
-
-	req.Logger.Info("Login session established and old tokens cleared", slog.String("token_id", tokenID.Value()))
-
-	return &dto.AuthResponse{
-		AccessToken:  at.Value(),
-		RefreshToken: rt.Value(),
-	}, nil
 }

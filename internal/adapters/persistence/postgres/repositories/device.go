@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormDeviceRepository struct {
+type gormDeviceRepository struct {
 	db     *gorm.DB
 	mapper ports.IDeviceMapper
 	idSvc  domainports.IIDService
@@ -23,15 +23,30 @@ func NewGormDeviceRepository(
 	db *gorm.DB,
 	mapper ports.IDeviceMapper,
 	idSvc domainports.IIDService,
-) *GormDeviceRepository {
-	return &GormDeviceRepository{
+) *gormDeviceRepository {
+	return &gormDeviceRepository{
 		db:     db,
 		mapper: mapper,
 		idSvc:  idSvc,
 	}
 }
 
-func (r *GormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error) {
+func (r *gormDeviceRepository) GetByID(id valueobjects.DeviceID) (*entities.Device, error) {
+	var model models.Device
+
+	err := r.db.Where("id = ?", id.Value()).First(&model).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return r.mapper.ToDomain(&model), nil
+}
+
+func (r *gormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error) {
 	var model models.Device
 	err := r.db.Where("fingerprint = ?", fingerprint.Value()).First(&model).Error
 	if err != nil {
@@ -44,7 +59,7 @@ func (r *GormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceF
 	return r.mapper.ToDomain(&model), nil
 }
 
-func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error) {
+func (r *gormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error) {
 	var modelsList []models.Device
 	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
 	if err != nil {
@@ -59,7 +74,7 @@ func (r *GormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entit
 	return devices, nil
 }
 
-func (r *GormDeviceRepository) Upsert(e *entities.Device) error {
+func (r *gormDeviceRepository) Upsert(e *entities.Device) error {
 	model := r.mapper.ToModel(e)
 	if err := r.db.Save(model).Error; err != nil {
 		return pgerr.WrapUnavailable(err, "failed to save device")

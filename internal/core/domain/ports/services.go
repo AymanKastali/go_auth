@@ -4,7 +4,6 @@ import (
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/entities"
 	"go_auth/internal/core/domain/valueobjects"
-	"time"
 )
 
 type IIDService interface {
@@ -13,13 +12,22 @@ type IIDService interface {
 }
 
 type IClockService interface {
-	Now() time.Time
+	Now() valueobjects.Timepoint
 }
 
 type IPasswordHasherService interface {
 	Hash(raw valueobjects.RawPassword) (valueobjects.HashedPassword, error)
-	Compare(plain string, hashed valueobjects.HashedPassword) error
+	Compare(raw string, hashed valueobjects.HashedPassword) error
 	IsValidFormat(hashed string) bool
+}
+
+type IRandomTokenGenerator interface {
+	Generate(size int) (string, error)
+}
+
+type ITokenHasherService interface {
+	Hash(raw string) (valueobjects.HashedToken, error)
+	Compare(raw string, hashed valueobjects.HashedToken) bool
 }
 
 type IUserRegistrationPolicy interface {
@@ -35,16 +43,26 @@ type IAuthDomainService interface {
 		name *string,
 		userAgent *string,
 		ip *string,
-		now time.Time,
+		now valueobjects.Timepoint,
 	) (*entities.Device, error)
 }
 
 type ISessionDomainService interface {
-	// InvalidateExistingSessions ensures security by revoking previous
-	// active tokens for a specific user-device pair.
 	InvalidateExistingSessions(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
-		now time.Time,
+		now valueobjects.Timepoint,
+	) ([]*entities.RefreshToken, error)
+
+	CreateSession(
+		userID valueobjects.UserID,
+		deviceID valueobjects.DeviceID,
+		expiresAt valueobjects.Timepoint,
+		now valueobjects.Timepoint,
+	) (*entities.RefreshToken, valueobjects.RawRefreshToken, error)
+
+	RotateSession(
+		oldToken *entities.RefreshToken,
+		now valueobjects.Timepoint,
 	) error
 }
