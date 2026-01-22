@@ -124,6 +124,14 @@ func NewErrRefreshTokenRequired() *ErrRefreshTokenRequired { return &ErrRefreshT
 func (e *ErrRefreshTokenRequired) Error() string           { return "authentication token is required" }
 func (e *ErrRefreshTokenRequired) Code() ErrorCode         { return CodeValidation }
 
+type ErrRefreshTokenSecretRequired struct{}
+
+func NewErrRefreshTokenSecretRequired() *ErrRefreshTokenSecretRequired {
+	return &ErrRefreshTokenSecretRequired{}
+}
+func (e *ErrRefreshTokenSecretRequired) Error() string   { return "refresh token secret is required" }
+func (e *ErrRefreshTokenSecretRequired) Code() ErrorCode { return CodeValidation }
+
 type ErrRefreshTokenIDRequired struct{}
 
 func NewErrRefreshTokenIDRequired() *ErrRefreshTokenIDRequired { return &ErrRefreshTokenIDRequired{} }

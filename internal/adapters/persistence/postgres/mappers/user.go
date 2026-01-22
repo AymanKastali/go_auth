@@ -47,23 +47,23 @@ func (m *UserMapper) ToModel(aggregate *aggregates.User) *models.User {
 
 	roles := make([]models.Role, len(aggregate.RoleIDs()))
 	for i, rid := range aggregate.RoleIDs() {
-		roles[i] = models.Role{ID: rid.Value()}
+		roles[i] = models.Role{ID: rid.String()}
 	}
 
 	var deletedAtPtr *time.Time
 	if aggregate.DeletedAt() != nil {
-		t := aggregate.DeletedAt().Value()
+		t := aggregate.DeletedAt().Time()
 		deletedAtPtr = &t
 	}
 
 	return &models.User{
-		ID:             aggregate.ID().Value(),
-		Email:          aggregate.Email().Value(),
-		HashedPassword: aggregate.HashedPassword().Value(),
-		Status:         aggregate.Status().Value(),
+		ID:             aggregate.ID().String(),
+		Email:          aggregate.Email().String(),
+		HashedPassword: aggregate.HashedPassword().String(),
+		Status:         aggregate.Status().String(),
 		Roles:          roles,
-		CreatedAt:      aggregate.CreatedAt().Value(),
-		UpdatedAt:      aggregate.UpdatedAt().Value(),
+		CreatedAt:      aggregate.CreatedAt().Time(),
+		UpdatedAt:      aggregate.UpdatedAt().Time(),
 		DeletedAt:      deletedAtPtr,
 	}
 }

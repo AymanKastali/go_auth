@@ -5,20 +5,18 @@ import (
 	"strings"
 )
 
-type DeviceFingerprint struct {
-	value string
-}
+type DeviceFingerprint struct{ v string }
 
-func NewDeviceFingerprint(value string) (DeviceFingerprint, error) {
-	trimmed := strings.TrimSpace(value)
+func NewDeviceFingerprint(v string) (DeviceFingerprint, error) {
+	trimmed := strings.TrimSpace(v)
 	if trimmed == "" {
 		return DeviceFingerprint{}, derr.NewErrDeviceFingerprintRequired()
 	}
-	return DeviceFingerprint{value: trimmed}, nil
+	return DeviceFingerprint{v: trimmed}, nil
 }
 
-func ReconstituteDeviceFingerprint(s string) DeviceFingerprint { return DeviceFingerprint{value: s} }
+func ReconstituteDeviceFingerprint(s string) DeviceFingerprint { return DeviceFingerprint{v: s} }
 
-func (vo DeviceFingerprint) Value() string                      { return vo.value }
-func (vo DeviceFingerprint) IsEmpty() bool                      { return vo.value == "" }
-func (vo DeviceFingerprint) Equal(other DeviceFingerprint) bool { return vo.value == other.value }
+func (vo DeviceFingerprint) String() string                     { return vo.v }
+func (vo DeviceFingerprint) IsEmpty() bool                      { return vo.v == "" }
+func (vo DeviceFingerprint) Equal(other DeviceFingerprint) bool { return vo.v == other.v }

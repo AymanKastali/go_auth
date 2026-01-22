@@ -27,7 +27,7 @@ func (p *defaultUserRegistrationPolicy) Validate(email valueobjects.Email) error
 		return err
 	}
 	if exists {
-		return derr.NewErrEmailAlreadyUsed(email.Value())
+		return derr.NewErrEmailAlreadyUsed(email.String())
 	}
 	return nil
 }

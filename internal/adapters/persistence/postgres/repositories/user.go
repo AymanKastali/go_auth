@@ -52,7 +52,7 @@ func (r *GormUserRepository) Create(a *aggregates.User) error {
 
 func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.User, error) {
 	var model models.User
-	err := r.db.Preload("Roles").Where("email = ?", email.Value()).First(&model).Error
+	err := r.db.Preload("Roles").Where("email = ?", email.String()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -71,7 +71,7 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 
 func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, error) {
 	var model models.User
-	err := r.db.Preload("Roles").Where("id = ?", id.Value()).First(&model).Error
+	err := r.db.Preload("Roles").Where("id = ?", id.String()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -102,7 +102,7 @@ func (r *GormUserRepository) Update(a *aggregates.User) error {
 		}
 
 		if result.RowsAffected == 0 {
-			return pgerr.WrapNotFound(fmt.Errorf("user with id %s not found", a.ID().Value()), "update failed")
+			return pgerr.WrapNotFound(fmt.Errorf("user with id %s not found", a.ID().String()), "update failed")
 		}
 
 		// 2. Sync pivot table (Many-to-Many)
@@ -116,7 +116,7 @@ func (r *GormUserRepository) Update(a *aggregates.User) error {
 
 func (r *GormUserRepository) ExistsByEmail(email valueobjects.Email) (bool, error) {
 	var exists bool
-	err := r.db.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email.Value()).Scan(&exists).Error
+	err := r.db.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email.String()).Scan(&exists).Error
 	if err != nil {
 		return false, pgerr.WrapUnavailable(err, "failed to check email existence")
 	}

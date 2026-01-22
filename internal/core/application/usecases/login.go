@@ -102,12 +102,12 @@ func (uc *loginUseCase) Execute(
 
 	accessToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
 		TokenID:   uc.idSvc.Generate(),
-		SessionID: refreshToken.ID().Value(),
-		UserID:    user.ID().Value(),
-		DeviceID:  device.ID().Value(),
+		SessionID: refreshToken.ID().String(),
+		UserID:    user.ID().String(),
+		DeviceID:  device.ID().String(),
 		Roles:     roles,
-		IssuedAt:  now.Value(),
-		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Value(),
+		IssuedAt:  now.Time(),
+		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Time(),
 	})
 	if err != nil {
 		return nil, apperr.Internal("failed to issue access token", err)
@@ -132,7 +132,7 @@ func (uc *loginUseCase) fetchRoleNames(req *dto.RequestContext, roleIDs []valueo
 	for _, roleID := range roleIDs {
 		role, err := uc.roleRepo.GetByID(roleID)
 		if err != nil {
-			req.Logger.Error("Database error during role lookup", slog.String("role_id", roleID.Value()), slog.Any("error", err))
+			req.Logger.Error("Database error during role lookup", slog.String("role_id", roleID.String()), slog.Any("error", err))
 			return nil, apperr.Map(err)
 		}
 		if role != nil {

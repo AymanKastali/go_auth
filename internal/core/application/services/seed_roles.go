@@ -80,7 +80,7 @@ func (s *seedRolesSvc) SeedDefaultRoles() error {
 
 		l.Info("System role successfully seeded",
 			slog.String("role", name),
-			slog.String("role_id", roleID.Value()),
+			slog.String("role_id", roleID.String()),
 		)
 	}
 

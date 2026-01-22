@@ -17,15 +17,15 @@ func NewBcryptHasher(cost int) *bcryptHasher {
 }
 
 func (h *bcryptHasher) Hash(raw valueobjects.RawPassword) (valueobjects.HashedPassword, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(raw.Value()), h.cost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(raw.String()), h.cost)
 	if err != nil {
 		return valueobjects.HashedPassword{}, err
 	}
 	return valueobjects.NewHashedPassword(string(bytes))
 }
 
-func (h *bcryptHasher) Compare(plain string, hashed valueobjects.HashedPassword) error {
-	err := bcrypt.CompareHashAndPassword([]byte(hashed.Value()), []byte(plain))
+func (h *bcryptHasher) Compare(raw valueobjects.RawPassword, hashed valueobjects.HashedPassword) error {
+	err := bcrypt.CompareHashAndPassword([]byte(hashed.String()), []byte(raw.String()))
 	if err != nil {
 		// Here you would return your specific Domain Error
 		return derr.NewErrPasswordMismatch()

@@ -5,21 +5,19 @@ import (
 	"strings"
 )
 
-type HashedToken struct {
-	value string
-}
+type HashedToken struct{ v string }
 
-func NewHashedToken(value string) (HashedToken, error) {
-	trimmed := strings.TrimSpace(value)
+func NewHashedToken(v string) (HashedToken, error) {
+	trimmed := strings.TrimSpace(v)
 
 	if trimmed == "" {
 		return HashedToken{}, derr.NewErrTokenHashRequired()
 	}
-	return HashedToken{value: trimmed}, nil
+	return HashedToken{v: trimmed}, nil
 }
 
-func ReconstituteHashedToken(value string) HashedToken { return HashedToken{value: value} }
+func ReconstituteHashedToken(v string) HashedToken { return HashedToken{v: v} }
 
-func (vo HashedToken) Value() string                { return vo.value }
-func (vo HashedToken) IsEmpty() bool                { return vo.value == "" }
-func (vo HashedToken) Equal(other HashedToken) bool { return vo.value == other.value }
+func (vo HashedToken) String() string               { return vo.v }
+func (vo HashedToken) IsEmpty() bool                { return vo.v == "" }
+func (vo HashedToken) Equal(other HashedToken) bool { return vo.v == other.v }

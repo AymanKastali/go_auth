@@ -40,17 +40,17 @@ func (m *RefreshTokenMapper) ToModel(entity *entities.RefreshToken) *models.Refr
 
 	var revokedAtPtr *time.Time
 	if entity.RevokedAt() != nil {
-		t := entity.RevokedAt().Value()
+		t := entity.RevokedAt().Time()
 		revokedAtPtr = &t
 	}
 
 	return &models.RefreshToken{
-		ID:        entity.ID().Value(),
-		UserID:    entity.UserID().Value(),
-		DeviceID:  entity.DeviceID().Value(),
-		Hash:      entity.HashedToken().Value(),
-		CreatedAt: entity.CreatedAt().Value(),
-		ExpiresAt: entity.ExpiresAt().Value(),
+		ID:        entity.ID().String(),
+		UserID:    entity.UserID().String(),
+		DeviceID:  entity.DeviceID().String(),
+		Hash:      entity.HashedToken().String(),
+		CreatedAt: entity.CreatedAt().Time(),
+		ExpiresAt: entity.ExpiresAt().Time(),
 		RevokedAt: revokedAtPtr,
 	}
 }

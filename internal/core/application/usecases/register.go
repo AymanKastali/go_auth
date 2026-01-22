@@ -58,19 +58,19 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr st
 	}
 
 	if err := uc.userRepo.Create(user); err != nil {
-		l.Error("User persistence failed", slog.String("user_id", user.ID().Value()), slog.Any("error", err))
+		l.Error("User persistence failed", slog.String("user_id", user.ID().String()), slog.Any("error", err))
 		return nil, apperr.Map(err)
 	}
 
-	duration := time.Since(now.Value())
+	duration := time.Since(now.Time())
 	l.Info("User registration completed successfully",
-		slog.String("user_id", user.ID().Value()),
-		slog.String("email", user.Email().Value()),
+		slog.String("user_id", user.ID().String()),
+		slog.String("email", user.Email().String()),
 		slog.String("duration", duration.String()),
 	)
 
 	return &dto.RegisteredUserDTO{
-		UserID: user.ID().Value(),
-		Email:  user.Email().Value(),
+		UserID: user.ID().String(),
+		Email:  user.Email().String(),
 	}, nil
 }

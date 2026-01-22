@@ -124,7 +124,7 @@ func (s *seedAdminSvc) SeedAdmin() error {
 
 	l.Info("Admin user successfully seeded",
 		slog.String("email", adminEmail),
-		slog.String("user_id", userID.Value()),
+		slog.String("user_id", userID.String()),
 	)
 	return nil
 }

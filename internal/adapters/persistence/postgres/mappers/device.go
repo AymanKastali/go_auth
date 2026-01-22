@@ -51,27 +51,27 @@ func (m *DeviceMapper) ToModel(entity *entities.Device) *models.Device {
 
 	var revokedAtPtr *time.Time
 	if entity.RevokedAt() != nil {
-		t := entity.RevokedAt().Value()
+		t := entity.RevokedAt().Time()
 		revokedAtPtr = &t
 	}
 
 	var deletedAtPtr *time.Time
 	if entity.DeletedAt() != nil {
-		t := entity.DeletedAt().Value()
+		t := entity.DeletedAt().Time()
 		deletedAtPtr = &t
 	}
 
 	return &models.Device{
-		ID:          entity.ID().Value(),
-		Fingerprint: entity.Fingerprint().Value(),
-		UserID:      entity.UserID().Value(),
+		ID:          entity.ID().String(),
+		Fingerprint: entity.Fingerprint().String(),
+		UserID:      entity.UserID().String(),
 		Name:        entity.Name(),
 		UserAgent:   entity.UserAgent(),
 		IPAddress:   entity.IPAddress(),
 		IsActive:    entity.IsActive(),
-		CreatedAt:   entity.CreatedAt().Value(),
-		UpdatedAt:   entity.UpdatedAt().Value(),
-		LastSeenAt:  entity.LastSeenAt().Value(),
+		CreatedAt:   entity.CreatedAt().Time(),
+		UpdatedAt:   entity.UpdatedAt().Time(),
+		LastSeenAt:  entity.LastSeenAt().Time(),
 		RevokedAt:   revokedAtPtr,
 		DeletedAt:   deletedAtPtr,
 	}

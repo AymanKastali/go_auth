@@ -77,7 +77,7 @@ func ReconstituteRefreshToken(
 
 func (e *RefreshToken) Revoke(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.NewErrRefreshTokenRevoked(e.id.Value())
+		return derr.NewErrRefreshTokenRevoked(e.id.String())
 	}
 
 	e.revokedAt = &now
@@ -85,7 +85,7 @@ func (e *RefreshToken) Revoke(now valueobjects.Timepoint) error {
 }
 
 func (e *RefreshToken) EnsureUsable(now valueobjects.Timepoint) error {
-	tokenID := e.id.Value()
+	tokenID := e.id.String()
 	if e.IsRevoked() {
 		return derr.NewErrRefreshTokenRevoked(tokenID)
 	}
@@ -97,7 +97,7 @@ func (e *RefreshToken) EnsureUsable(now valueobjects.Timepoint) error {
 
 func (e *RefreshToken) BelongsTo(deviceID valueobjects.DeviceID) error {
 	if !e.deviceID.Equal(deviceID) {
-		return derr.NewErrTokenDoesNotBelongToDevice(e.id.Value(), deviceID.Value())
+		return derr.NewErrTokenDoesNotBelongToDevice(e.id.String(), deviceID.String())
 	}
 	return nil
 }

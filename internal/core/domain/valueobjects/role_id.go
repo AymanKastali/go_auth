@@ -5,21 +5,19 @@ import (
 	"strings"
 )
 
-type RoleID struct {
-	value string
-}
+type RoleID struct{ v string }
 
-func NewRoleID(value string) (RoleID, error) {
-	trimmed := strings.TrimSpace(value)
+func NewRoleID(v string) (RoleID, error) {
+	trimmed := strings.TrimSpace(v)
 
 	if trimmed == "" {
 		return RoleID{}, derr.NewErrRoleIDRequired()
 	}
-	return RoleID{value: trimmed}, nil
+	return RoleID{v: trimmed}, nil
 }
 
-func ReconstituteRoleID(s string) RoleID { return RoleID{value: s} }
+func ReconstituteRoleID(s string) RoleID { return RoleID{v: s} }
 
-func (vo RoleID) Value() string           { return vo.value }
-func (vo RoleID) IsEmpty() bool           { return vo.value == "" }
-func (vo RoleID) Equal(other RoleID) bool { return vo.value == other.value }
+func (vo RoleID) String() string          { return vo.v }
+func (vo RoleID) IsEmpty() bool           { return vo.v == "" }
+func (vo RoleID) Equal(other RoleID) bool { return vo.v == other.v }

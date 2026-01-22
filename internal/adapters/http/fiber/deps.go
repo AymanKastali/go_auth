@@ -113,7 +113,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	)
 
 	logoutUC := usecases.NewLogoutUseCase(refreshRepo, clockSvc, tokenHasher)
-	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
+	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 
 	// =========================

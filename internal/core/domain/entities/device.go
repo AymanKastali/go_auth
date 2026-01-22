@@ -102,10 +102,10 @@ func (e *Device) DeletedAt() *valueobjects.Timepoint          { return e.revoked
 
 func (e *Device) Activate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.NewErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.String())
 	}
 	if e.isActive {
-		return derr.NewErrDeviceAlreadyActive(e.id.Value())
+		return derr.NewErrDeviceAlreadyActive(e.id.String())
 	}
 
 	e.isActive = true
@@ -115,10 +115,10 @@ func (e *Device) Activate(now valueobjects.Timepoint) error {
 
 func (e *Device) Deactivate(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.NewErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.String())
 	}
 	if !e.isActive {
-		return derr.NewErrDeviceAlreadyActive(e.id.Value())
+		return derr.NewErrDeviceAlreadyActive(e.id.String())
 	}
 	e.isActive = false
 	e.touch(now)
@@ -142,7 +142,7 @@ func (e *Device) UpdateMetadata(
 	now valueobjects.Timepoint,
 ) error {
 	if e.IsRevoked() {
-		return derr.NewErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.String())
 	}
 
 	e.name = name
@@ -155,7 +155,7 @@ func (e *Device) UpdateMetadata(
 
 func (e *Device) Revoke(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.NewErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.String())
 	}
 
 	e.isActive = false
@@ -166,17 +166,17 @@ func (e *Device) Revoke(now valueobjects.Timepoint) error {
 
 func (e *Device) EnsureUsable() error {
 	if e.IsRevoked() {
-		return derr.NewErrDeviceRevoked(e.id.Value())
+		return derr.NewErrDeviceRevoked(e.id.String())
 	}
 	if !e.isActive {
-		return derr.NewErrDeviceAlreadyInactive(e.id.Value())
+		return derr.NewErrDeviceAlreadyInactive(e.id.String())
 	}
 	return nil
 }
 
 func (e *Device) BelongsTo(userID valueobjects.UserID) error {
 	if !e.userID.Equal(userID) {
-		return derr.NewErrDeviceDoesNotBelongToUser(e.id.Value(), userID.Value())
+		return derr.NewErrDeviceDoesNotBelongToUser(e.id.String(), userID.String())
 	}
 	return nil
 }

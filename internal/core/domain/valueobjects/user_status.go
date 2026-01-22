@@ -8,7 +8,7 @@ const (
 	UserInactive UserStatus = "inactive"
 )
 
-func (s UserStatus) Value() string { return string(s) }
+func (s UserStatus) String() string { return string(s) }
 
 func (s UserStatus) IsValid() bool {
 	switch s {

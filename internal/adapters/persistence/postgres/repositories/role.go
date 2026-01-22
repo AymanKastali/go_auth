@@ -47,7 +47,7 @@ func (r *GormRoleRepository) Save(role *aggregates.Role) error {
 
 func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, error) {
 	var model models.Role
-	err := r.db.Where("id = ?", id.Value()).First(&model).Error
+	err := r.db.Where("id = ?", id.String()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

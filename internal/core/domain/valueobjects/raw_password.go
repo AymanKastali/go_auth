@@ -5,20 +5,15 @@ import (
 	"strings"
 )
 
-const (
-	MinPasswordLength    = 10
-	PasswordRequirements = "uppercase, lowercase, numbers, and symbols"
-)
+type RawPassword struct{ v string }
 
-type RawPassword struct{ value string }
-
-func NewRawPassword(value string) (RawPassword, error) {
-	trimmed := strings.TrimSpace(value)
+func NewRawPassword(v string) (RawPassword, error) {
+	trimmed := strings.TrimSpace(v)
 
 	if trimmed == "" {
 		return RawPassword{}, derr.NewErrPasswordRequired()
 	}
-	return RawPassword{value: value}, nil
+	return RawPassword{v: v}, nil
 }
 
-func (vo RawPassword) Value() string { return vo.value }
+func (vo RawPassword) String() string { return vo.v }
