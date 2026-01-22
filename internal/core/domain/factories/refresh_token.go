@@ -47,10 +47,7 @@ func (f *defaultRefreshTokenFactory) New(
 		return nil, emptyRawRefreshToken, err
 	}
 
-	hashedToken, err := f.tokenHasher.Hash(rawToken)
-	if err != nil {
-		return nil, emptyRawRefreshToken, err
-	}
+	hashedToken := f.tokenHasher.Hash(rawToken)
 
 	refreshToken, err := entities.NewRefreshToken(
 		tokenID,

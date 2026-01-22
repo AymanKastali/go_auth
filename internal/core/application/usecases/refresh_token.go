@@ -21,6 +21,7 @@ type refreshTokenUseCase struct {
 	sessionTokenSvc aports.ISessionTokenIssuerService
 	clockSvc        dports.IClockService
 	idSvc           dports.IIDService
+	tokenHasher     dports.ITokenHasherService
 }
 
 func NewRefreshTokenUseCase(
@@ -32,6 +33,7 @@ func NewRefreshTokenUseCase(
 	sessionTokenSvc aports.ISessionTokenIssuerService,
 	clockSvc dports.IClockService,
 	idSvc dports.IIDService,
+	tokenHasher dports.ITokenHasherService,
 ) *refreshTokenUseCase {
 	return &refreshTokenUseCase{
 		sessionSvc:      sessionSvc,
@@ -42,6 +44,7 @@ func NewRefreshTokenUseCase(
 		sessionTokenSvc: sessionTokenSvc,
 		clockSvc:        clockSvc,
 		idSvc:           idSvc,
+		tokenHasher:     tokenHasher,
 	}
 }
 
@@ -55,13 +58,21 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawOldToken string) (*
 		return nil, apperr.Validation("Invalid token format", nil)
 	}
 
+	tokenID := tokenVO.TokenID()
+	secret := tokenVO.Secret()
+
 	// 2. Fetch the session from the database
-	oldTokenEntity, err := uc.refreshRepo.FindByRawToken(tokenVO)
+	oldTokenEntity, err := uc.refreshRepo.FindByID(tokenID)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
+
 	if oldTokenEntity == nil {
 		return nil, apperr.Unauthorized("Session not found", nil)
+	}
+
+	if !uc.tokenHasher.Compare(secret, oldTokenEntity.HashedToken()) {
+		return nil, apperr.Unauthorized("Invalid refresh token", nil)
 	}
 
 	// 3. Security Check: Ensure device consistency
