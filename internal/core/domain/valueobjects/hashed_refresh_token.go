@@ -1,6 +1,17 @@
 package valueobjects
 
-type HashedToken struct{ value string }
+import "go_auth/internal/core/domain/derr"
+
+type HashedToken struct {
+	value string
+}
+
+func NewHashedToken(value string) (HashedToken, error) {
+	if value == "" {
+		return HashedToken{}, derr.NewErrTokenHashRequired()
+	}
+	return HashedToken{value: value}, nil
+}
 
 func ReconstituteHashedToken(value string) HashedToken {
 	return HashedToken{value: value}

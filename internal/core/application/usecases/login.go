@@ -112,7 +112,7 @@ func (uc *loginUseCase) Execute(
 
 	return &dto.AuthResponse{
 		AccessToken:  accessToken.Raw,
-		RefreshToken: rawToken.Value(),
+		RefreshToken: rawToken.String(),
 	}, nil
 }
 

@@ -30,7 +30,6 @@ type IRoleRepository interface {
 
 type IRefreshTokenRepository interface {
 	Save(token *entities.RefreshToken) error
-	FindByRawToken(raw valueobjects.RawRefreshToken) (*entities.RefreshToken, error)
 	FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error)
 	FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error)
 	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error)

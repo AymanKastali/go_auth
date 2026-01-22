@@ -97,23 +97,33 @@ func (e *ErrPasswordTooWeak) Code() ErrorCode { return CodeValidation }
 
 // --- Security & Device Requirements ---
 
-type ErrTokenRequired struct{}
+type ErrRefreshTokenRequired struct{}
 
-func NewErrTokenRequired() *ErrTokenRequired { return &ErrTokenRequired{} }
-func (e *ErrTokenRequired) Error() string    { return "authentication token is required" }
-func (e *ErrTokenRequired) Code() ErrorCode  { return CodeValidation }
+func NewErrRefreshTokenRequired() *ErrRefreshTokenRequired { return &ErrRefreshTokenRequired{} }
+func (e *ErrRefreshTokenRequired) Error() string           { return "authentication token is required" }
+func (e *ErrRefreshTokenRequired) Code() ErrorCode         { return CodeValidation }
 
-type ErrTokenIDRequired struct{}
+type ErrRefreshTokenIDRequired struct{}
 
-func NewErrTokenIDRequired() *ErrTokenIDRequired { return &ErrTokenIDRequired{} }
-func (e *ErrTokenIDRequired) Error() string      { return "token identifier is required" }
-func (e *ErrTokenIDRequired) Code() ErrorCode    { return CodeValidation }
+func NewErrRefreshTokenIDRequired() *ErrRefreshTokenIDRequired { return &ErrRefreshTokenIDRequired{} }
+func (e *ErrRefreshTokenIDRequired) Error() string             { return "refresh token identifier is required" }
+func (e *ErrRefreshTokenIDRequired) Code() ErrorCode           { return CodeValidation }
 
 type ErrTokenHashRequired struct{}
 
-func NewErrTokenHashRequired() *ErrTokenHashRequired { return &ErrTokenHashRequired{} }
-func (e *ErrTokenHashRequired) Error() string        { return "token hash is required" }
-func (e *ErrTokenHashRequired) Code() ErrorCode      { return CodeValidation }
+func NewErrTokenHashRequired() *ErrTokenHashRequired {
+	return &ErrTokenHashRequired{}
+}
+func (e *ErrTokenHashRequired) Error() string   { return "token hash is required" }
+func (e *ErrTokenHashRequired) Code() ErrorCode { return CodeValidation }
+
+type ErrInvalidRefreshTokenFormat struct{}
+
+func NewErrInvalidRefreshTokenFormat() *ErrInvalidRefreshTokenFormat {
+	return &ErrInvalidRefreshTokenFormat{}
+}
+func (e *ErrInvalidRefreshTokenFormat) Error() string   { return "invalid refresh token format" }
+func (e *ErrInvalidRefreshTokenFormat) Code() ErrorCode { return CodeValidation }
 
 type ErrDeviceIDRequired struct{}
 

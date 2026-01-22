@@ -26,7 +26,7 @@ type IRandomTokenGenerator interface {
 }
 
 type ITokenHasherService interface {
-	Hash(raw string) (valueobjects.HashedToken, error)
+	Hash(raw string) valueobjects.HashedToken
 	Compare(raw string, hashed valueobjects.HashedToken) bool
 }
 

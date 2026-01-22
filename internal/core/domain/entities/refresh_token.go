@@ -24,7 +24,7 @@ func NewRefreshToken(
 	now valueobjects.Timepoint,
 ) (*RefreshToken, error) {
 	if id.IsEmpty() {
-		return nil, derr.NewErrTokenIDRequired()
+		return nil, derr.NewErrRefreshTokenIDRequired()
 	}
 	if userID.IsEmpty() {
 		return nil, derr.NewErrUserIDRequired()

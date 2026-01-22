@@ -63,7 +63,7 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwdHashSvc)
 	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
 	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
-	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper, tokenHasher)
+	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
 
 	// -------------------
 	// Security services (JWT)
@@ -121,11 +121,11 @@ func InitDeps(db *gorm.DB) (*Deps, error) {
 		sessionDomainSvc,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc)
+	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc, tokenHasher)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 
-	refreshUC := usecases.NewRefreshTokenUseCase(sessionDomainSvc, refreshTokenRepo, userRepo, roleRepo, deviceRepo, sessionTokenSvc, clockSvc, idSvc)
+	refreshUC := usecases.NewRefreshTokenUseCase(sessionDomainSvc, refreshTokenRepo, userRepo, roleRepo, deviceRepo, sessionTokenSvc, clockSvc, idSvc, tokenHasher)
 
 	// -------------------
 	// Handlers

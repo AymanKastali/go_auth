@@ -15,13 +15,22 @@ func NewHMACHasher(secret []byte) *hmacHasher {
 	return &hmacHasher{secret: secret}
 }
 
-func (h *hmacHasher) Hash(raw string) (valueobjects.HashedToken, error) {
+func (h *hmacHasher) Hash(raw string) valueobjects.HashedToken {
 	mac := hmac.New(sha256.New, h.secret)
 	mac.Write([]byte(raw))
-	return valueobjects.ReconstituteHashedToken(hex.EncodeToString(mac.Sum(nil))), nil
+
+	return valueobjects.ReconstituteHashedToken(
+		hex.EncodeToString(mac.Sum(nil)),
+	)
 }
 
 func (h *hmacHasher) Compare(raw string, hash valueobjects.HashedToken) bool {
-	expected, _ := h.Hash(raw)
-	return hmac.Equal([]byte(hash.Value()), []byte(expected.Value()))
+	mac := hmac.New(sha256.New, h.secret)
+	mac.Write([]byte(raw))
+	expected := mac.Sum(nil)
+	stored, err := hex.DecodeString(hash.Value())
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(stored, expected)
 }
