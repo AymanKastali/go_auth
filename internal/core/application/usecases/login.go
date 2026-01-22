@@ -5,10 +5,10 @@ import (
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/policies"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 	"log/slog"
-	"time"
 )
 
 type loginUseCase struct {
@@ -19,6 +19,7 @@ type loginUseCase struct {
 	clockSvc          dports.IClockService
 	sessionTokenSvc   aports.ISessionTokenIssuerService
 	sessionSvc        dports.ISessionDomainService
+	policy            policies.JWTPolicy
 }
 
 func NewLoginUseCase(
@@ -29,6 +30,7 @@ func NewLoginUseCase(
 	idSvc dports.IIDService,
 	clockSvc dports.IClockService,
 	sessionSvc dports.ISessionDomainService,
+	policy policies.JWTPolicy,
 ) *loginUseCase {
 	return &loginUseCase{
 		authDomainService: authDomainService,
@@ -38,6 +40,7 @@ func NewLoginUseCase(
 		clockSvc:          clockSvc,
 		sessionTokenSvc:   sessionTokenSvc,
 		sessionSvc:        sessionSvc,
+		policy:            policy,
 	}
 }
 
@@ -47,7 +50,10 @@ func (uc *loginUseCase) Execute(
 ) (*dto.AuthResponse, error) {
 	req := dto.FromContext(c)
 	l := req.Logger
-	now := uc.clockSvc.Now()
+	now, err := uc.clockSvc.Now()
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
 
 	l.Info("Executing user login", slog.String("email", email))
 
@@ -57,8 +63,13 @@ func (uc *loginUseCase) Execute(
 		return nil, apperr.Map(err)
 	}
 
+	fingerprint, err := valueobjects.NewDeviceFingerprint(req.DeviceFingerprint)
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
+
 	device, err := uc.authDomainService.ResolveDevice(
-		valueobjects.ReconstituteDeviceFingerprint(req.DeviceFingerprint),
+		fingerprint,
 		user.ID(),
 		&req.DeviceName,
 		&req.UserAgent,
@@ -78,7 +89,6 @@ func (uc *loginUseCase) Execute(
 	refreshToken, rawToken, err := uc.sessionSvc.CreateSession(
 		user.ID(),
 		device.ID(),
-		now.Add(7*24*time.Hour),
 		now,
 	)
 	if err != nil {
@@ -97,7 +107,7 @@ func (uc *loginUseCase) Execute(
 		DeviceID:  device.ID().Value(),
 		Roles:     roles,
 		IssuedAt:  now.Value(),
-		ExpiresAt: now.Add(15 * time.Minute).Value(),
+		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Value(),
 	})
 	if err != nil {
 		return nil, apperr.Internal("failed to issue access token", err)

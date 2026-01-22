@@ -3,7 +3,6 @@ package valueobjects
 import (
 	"go_auth/internal/core/domain/derr"
 	"strings"
-	"unicode"
 )
 
 const (
@@ -16,31 +15,10 @@ type RawPassword struct{ value string }
 func NewRawPassword(value string) (RawPassword, error) {
 	trimmed := strings.TrimSpace(value)
 
-	// 1. Dynamic Length Check
-	if len(trimmed) < MinPasswordLength {
-		return RawPassword{}, derr.NewErrPasswordTooShort(MinPasswordLength)
+	if trimmed == "" {
+		return RawPassword{}, derr.NewErrPasswordRequired()
 	}
-
-	var hasUpper, hasLower, hasNumber, hasSpecial bool
-	for _, char := range trimmed {
-		switch {
-		case unicode.IsUpper(char):
-			hasUpper = true
-		case unicode.IsLower(char):
-			hasLower = true
-		case unicode.IsNumber(char):
-			hasNumber = true
-		case unicode.IsPunct(char) || unicode.IsSymbol(char):
-			hasSpecial = true
-		}
-	}
-
-	// 2. Dynamic Complexity Check
-	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
-		return RawPassword{}, derr.NewErrPasswordTooWeak(PasswordRequirements)
-	}
-
-	return RawPassword{value: trimmed}, nil
+	return RawPassword{value: value}, nil
 }
 
 func (vo RawPassword) Value() string { return vo.value }

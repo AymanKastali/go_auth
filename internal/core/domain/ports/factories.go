@@ -9,7 +9,7 @@ import (
 type IUserFactory interface {
 	New(
 		email valueobjects.Email,
-		hashedPassword valueobjects.HashedPassword,
+		rawPwd valueobjects.RawPassword,
 		now valueobjects.Timepoint,
 	) (*aggregates.User, error)
 }
@@ -30,7 +30,6 @@ type IRefreshTokenFactory interface {
 	New(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
-		expiresAt valueobjects.Timepoint,
 		now valueobjects.Timepoint,
 	) (*entities.RefreshToken, valueobjects.RawRefreshToken, error)
 }

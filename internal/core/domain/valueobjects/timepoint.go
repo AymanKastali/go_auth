@@ -1,11 +1,19 @@
 package valueobjects
 
 import (
+	"go_auth/internal/core/domain/derr"
 	"time"
 )
 
 type Timepoint struct {
 	value time.Time
+}
+
+func NewTimepoint(t time.Time) (Timepoint, error) {
+	if t.IsZero() {
+		return Timepoint{}, derr.NewErrTimepointRequired()
+	}
+	return Timepoint{value: t.UTC()}, nil
 }
 
 func ReconstituteTimepoint(t time.Time) Timepoint { return Timepoint{value: t.UTC()} }

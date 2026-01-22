@@ -50,13 +50,11 @@ func (s *sessionDomainService) InvalidateExistingSessions(
 func (s *sessionDomainService) CreateSession(
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
-	expiresAt valueobjects.Timepoint,
 	now valueobjects.Timepoint,
 ) (*entities.RefreshToken, valueobjects.RawRefreshToken, error) {
 	return s.refreshTokenFactory.New(
 		userID,
 		deviceID,
-		expiresAt,
 		now,
 	)
 }

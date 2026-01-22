@@ -3,11 +3,11 @@ package usecases
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
+	"go_auth/internal/core/domain/policies"
 	dports "go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
 )
@@ -22,6 +22,7 @@ type refreshTokenUseCase struct {
 	clockSvc        dports.IClockService
 	idSvc           dports.IIDService
 	tokenHasher     dports.ITokenHasherService
+	policy          policies.JWTPolicy
 }
 
 func NewRefreshTokenUseCase(
@@ -34,6 +35,7 @@ func NewRefreshTokenUseCase(
 	clockSvc dports.IClockService,
 	idSvc dports.IIDService,
 	tokenHasher dports.ITokenHasherService,
+	policy policies.JWTPolicy,
 ) *refreshTokenUseCase {
 	return &refreshTokenUseCase{
 		sessionSvc:      sessionSvc,
@@ -45,12 +47,16 @@ func NewRefreshTokenUseCase(
 		clockSvc:        clockSvc,
 		idSvc:           idSvc,
 		tokenHasher:     tokenHasher,
+		policy:          policy,
 	}
 }
 
 func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto.AuthResponse, error) {
 	req := dto.FromContext(c)
-	now := uc.clockSvc.Now()
+	now, err := uc.clockSvc.Now()
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
 
 	// 1. Convert raw input to Value Object
 	tokenVO, err := valueobjects.ParseRawRefreshToken(rawToken)
@@ -71,12 +77,19 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto
 		return nil, apperr.Unauthorized("Session not found", nil)
 	}
 
-	if !uc.tokenHasher.Compare(secret, oldTokenEntity.HashedToken()) {
+	valid, err := uc.tokenHasher.Compare(secret, oldTokenEntity.HashedToken())
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
+	if !valid {
 		return nil, apperr.Unauthorized("Invalid refresh token", nil)
 	}
 
 	// 3. Security Check: Ensure device consistency
-	fingerprintVO := valueobjects.ReconstituteDeviceFingerprint(req.DeviceFingerprint)
+	fingerprintVO, err := valueobjects.NewDeviceFingerprint(req.DeviceFingerprint)
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
 	currentDevice, err := uc.deviceRepo.GetByFingerprint(fingerprintVO)
 	if err != nil {
 		return nil, apperr.Map(err)
@@ -100,7 +113,6 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto
 	newTokenEntity, rawSecret, err := uc.sessionSvc.CreateSession(
 		oldTokenEntity.UserID(),
 		oldTokenEntity.DeviceID(),
-		now.Add(7*24*time.Hour),
 		now,
 	)
 	if err != nil {
@@ -126,7 +138,7 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto
 		DeviceID:  oldTokenEntity.DeviceID().Value(),
 		Roles:     roleNames,
 		IssuedAt:  now.Value(),
-		ExpiresAt: now.Add(15 * time.Minute).Value(),
+		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Value(),
 	})
 	if err != nil {
 		return nil, apperr.Internal("Failed to issue access token", err)

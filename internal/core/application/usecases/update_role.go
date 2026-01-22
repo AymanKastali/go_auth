@@ -36,7 +36,10 @@ func (uc *updateRoleUseCase) Execute(
 	input dto.ManageRoleInput,
 ) error {
 	req := dto.FromContext(c)
-	now := uc.clockSvc.Now()
+	now, err := uc.clockSvc.Now()
+	if err != nil {
+		return apperr.Map(err)
+	}
 
 	req.Logger.Info("Executing role management action",
 		slog.String("target_user_id", input.UserID),
@@ -44,7 +47,10 @@ func (uc *updateRoleUseCase) Execute(
 		slog.String("action", input.Action),
 	)
 
-	userIDVO := valueobjects.ReconstituteUserID(input.UserID)
+	userIDVO, err := valueobjects.NewUserID(input.UserID)
+	if err != nil {
+		return apperr.Map(err)
+	}
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {
 		req.Logger.Error("Database error during user lookup", slog.Any("error", err))

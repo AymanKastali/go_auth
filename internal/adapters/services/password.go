@@ -21,7 +21,7 @@ func (h *bcryptHasher) Hash(raw valueobjects.RawPassword) (valueobjects.HashedPa
 	if err != nil {
 		return valueobjects.HashedPassword{}, err
 	}
-	return valueobjects.ReconstituteHashedPassword(string(bytes)), nil
+	return valueobjects.NewHashedPassword(string(bytes))
 }
 
 func (h *bcryptHasher) Compare(plain string, hashed valueobjects.HashedPassword) error {

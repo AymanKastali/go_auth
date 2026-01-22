@@ -10,6 +10,7 @@ services:
       POSTGRES_USER: ${GA_POSTGRES_USER}
       POSTGRES_DB: ${GA_POSTGRES_DB}
       POSTGRES_PORT: ${GA_POSTGRES_PORT}
+      GA_POSTGRES_DSN: ${GA_POSTGRES_DSN}
     ports: 
       - "5433:5432"
     healthcheck:

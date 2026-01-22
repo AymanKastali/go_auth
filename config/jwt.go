@@ -1,4 +1,4 @@
-package jwt
+package config
 
 import (
 	"crypto/rsa"
@@ -6,67 +6,53 @@ import (
 	"encoding/pem"
 	"errors"
 	"os"
-	"time"
 )
 
 type JWTConfig struct {
-	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey
-	issuer     string
-	audience   string
-	accessTTL  time.Duration
+	PrivateKey *rsa.PrivateKey
+	PublicKey  *rsa.PublicKey
+	Issuer     string
+	Audience   string
 }
 
-func (c *JWTConfig) PrivateKey() *rsa.PrivateKey { return c.privateKey }
-func (c *JWTConfig) PublicKey() *rsa.PublicKey   { return c.publicKey }
-func (c *JWTConfig) Issuer() string              { return c.issuer }
-func (c *JWTConfig) Audience() string            { return c.audience }
-func (c *JWTConfig) AccessTTL() time.Duration    { return c.accessTTL }
+func loadJWTConfig() (*JWTConfig, error) {
+	privatePEM := os.Getenv("GA_JWT_PRIVATE_KEY")
+	if privatePEM == "" {
+		return nil, errors.New("GA_JWT_PRIVATE_KEY is required")
+	}
 
-func NewJWTCfg() (*JWTConfig, error) {
-	cfg := &JWTConfig{}
+	privateKey, err := parseRSAPrivateKey(privatePEM)
+	if err != nil {
+		return nil, err
+	}
 
-	// 1. Strings
-	cfg.issuer = os.Getenv("GA_JWT_ISSUER")
-	if cfg.issuer == "" {
+	publicPEM := os.Getenv("GA_JWT_PUBLIC_KEY")
+	if publicPEM == "" {
+		return nil, errors.New("GA_JWT_PUBLIC_KEY is required")
+	}
+
+	publicKey, err := parseRSAPublicKey(publicPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	issuer := os.Getenv("GA_JWT_ISSUER")
+	if issuer == "" {
 		return nil, errors.New("GA_JWT_ISSUER is required")
 	}
-	cfg.audience = os.Getenv("GA_JWT_AUDIENCE")
-	if cfg.audience == "" {
+
+	audience := os.Getenv("GA_JWT_AUDIENCE")
+	if audience == "" {
 		return nil, errors.New("GA_JWT_AUDIENCE is required")
 	}
 
-	// 2. Durations
-	accessStr := os.Getenv("GA_JWT_ACCESS_TTL")
-	d, err := time.ParseDuration(accessStr)
-	if err != nil {
-		return nil, errors.New("invalid GA_JWT_ACCESS_TTL format")
-	}
-	cfg.accessTTL = d
-
-	// 3. Keys
-	privPEM := os.Getenv("GA_JWT_PRIVATE_KEY")
-	if privPEM == "" {
-		return nil, errors.New("GA_JWT_PRIVATE_KEY is required")
-	}
-	cfg.privateKey, err = parseRSAPrivateKey(privPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	pubPEM := os.Getenv("GA_JWT_PUBLIC_KEY")
-	if pubPEM == "" {
-		return nil, errors.New("GA_JWT_PUBLIC_KEY is required")
-	}
-	cfg.publicKey, err = parseRSAPublicKey(pubPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
+	return &JWTConfig{
+		PrivateKey: privateKey,
+		PublicKey:  publicKey,
+		Issuer:     issuer,
+		Audience:   audience,
+	}, nil
 }
-
-// --- Internal Helper Logic ---
 
 func parseRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(pemStr))

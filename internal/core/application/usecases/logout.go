@@ -26,7 +26,10 @@ func NewLogoutUseCase(
 }
 
 func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
-	now := uc.clockSvc.Now()
+	now, err := uc.clockSvc.Now()
+	if err != nil {
+		return apperr.Map(err)
+	}
 	tokenVO, err := valueobjects.ParseRawRefreshToken(rawToken)
 	if err != nil {
 		return apperr.Validation("Invalid refresh token", nil)
@@ -41,8 +44,12 @@ func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
 		return nil
 	}
 
-	if !uc.tokenHasher.Compare(tokenVO.Secret(), tokenEntity.HashedToken()) {
-		return nil
+	valid, err := uc.tokenHasher.Compare(tokenVO.Secret(), tokenEntity.HashedToken())
+	if err != nil {
+		return apperr.Map(err)
+	}
+	if !valid {
+		return apperr.Unauthorized("Invalid refresh token", nil)
 	}
 
 	if err := tokenEntity.Revoke(now); err != nil {

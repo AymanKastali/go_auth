@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewPostgresConnection(cfg *PostgresConfig) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
+func NewPostgresConnection(dsn string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		TranslateError: true,
 	})
 

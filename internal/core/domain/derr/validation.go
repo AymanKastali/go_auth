@@ -76,24 +76,45 @@ func NewErrPasswordTooShort(min uint8) *ErrPasswordTooShort {
 	return &ErrPasswordTooShort{MinLength: min}
 }
 func (e *ErrPasswordTooShort) Error() string {
-	return fmt.Sprintf("password too short: minimum length %d", e.MinLength)
+	return fmt.Sprintf("password too short, minimum length %d", e.MinLength)
 }
 func (e *ErrPasswordTooShort) Code() ErrorCode { return CodeValidation }
 
-type ErrPasswordTooWeak struct {
-	Requirement string
+type ErrPasswordMissingUppercase struct{}
+
+func NewErrPasswordMissingUppercase() *ErrPasswordMissingUppercase {
+	return &ErrPasswordMissingUppercase{}
+}
+func (e *ErrPasswordMissingUppercase) Error() string {
+	return "password must contain at least one uppercase letter"
+}
+func (e *ErrPasswordMissingUppercase) Code() ErrorCode { return CodeValidation }
+
+type ErrPasswordMissingNumber struct{}
+
+func NewErrPasswordMissingNumber() *ErrPasswordMissingNumber { return &ErrPasswordMissingNumber{} }
+func (e *ErrPasswordMissingNumber) Error() string            { return "password must contain at least one number" }
+func (e *ErrPasswordMissingNumber) Code() ErrorCode          { return CodeValidation }
+
+type ErrPasswordMissingSpecialChar struct{}
+
+func NewErrPasswordMissingSpecialChar() *ErrPasswordMissingSpecialChar {
+	return &ErrPasswordMissingSpecialChar{}
+}
+func (e *ErrPasswordMissingSpecialChar) Error() string {
+	return "password must contain at least one special character (!@#$%^&*)"
+}
+func (e *ErrPasswordMissingSpecialChar) Code() ErrorCode { return CodeValidation }
+
+type ErrPasswordTooLong struct {
+	MaxLength uint8
 }
 
-func NewErrPasswordTooWeak(req string) *ErrPasswordTooWeak {
-	return &ErrPasswordTooWeak{Requirement: req}
+func NewErrPasswordTooLong(max uint8) *ErrPasswordTooLong { return &ErrPasswordTooLong{MaxLength: max} }
+func (e *ErrPasswordTooLong) Error() string {
+	return fmt.Sprintf("password too long, maximum length %d", e.MaxLength)
 }
-func (e *ErrPasswordTooWeak) Error() string {
-	if e.Requirement != "" {
-		return fmt.Sprintf("password too weak: missing %s", e.Requirement)
-	}
-	return "password too weak"
-}
-func (e *ErrPasswordTooWeak) Code() ErrorCode { return CodeValidation }
+func (e *ErrPasswordTooLong) Code() ErrorCode { return CodeValidation }
 
 // --- Security & Device Requirements ---
 

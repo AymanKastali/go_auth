@@ -11,28 +11,28 @@ import (
 )
 
 type RegisterUseCase struct {
-	userRepo       ports.IUserRepository
-	passwordHasher ports.IPasswordHasherService
-	userFactory    ports.IUserFactory
-	clockSvc       ports.IClockService
+	userRepo    ports.IUserRepository
+	userFactory ports.IUserFactory
+	clockSvc    ports.IClockService
 }
 
 func NewRegisterUseCase(
 	userRepo ports.IUserRepository,
-	passwordHasher ports.IPasswordHasherService,
 	userFactory ports.IUserFactory,
 	clockSvc ports.IClockService,
 ) *RegisterUseCase {
 	return &RegisterUseCase{
-		userRepo:       userRepo,
-		passwordHasher: passwordHasher,
-		userFactory:    userFactory,
-		clockSvc:       clockSvc,
+		userRepo:    userRepo,
+		userFactory: userFactory,
+		clockSvc:    clockSvc,
 	}
 }
 
 func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr string) (*dto.RegisteredUserDTO, error) {
-	now := uc.clockSvc.Now()
+	now, err := uc.clockSvc.Now()
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
 
 	req := dto.FromContext(ctx)
 	l := req.Logger
@@ -51,13 +51,7 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, emailStr, passwordStr st
 		return nil, apperr.Map(err)
 	}
 
-	hashedPwd, err := uc.passwordHasher.Hash(rawPwd)
-	if err != nil {
-		l.Error("Password hashing failed", slog.String("email", emailStr), slog.Any("error", err))
-		return nil, apperr.Internal("failed to secure password", err)
-	}
-
-	user, err := uc.userFactory.New(emailVO, hashedPwd, now)
+	user, err := uc.userFactory.New(emailVO, rawPwd, now)
 	if err != nil {
 		l.Warn("User creation rejected by domain policy", slog.String("email", emailStr), slog.Any("error", err))
 		return nil, apperr.Map(err)

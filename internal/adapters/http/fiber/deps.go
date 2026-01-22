@@ -1,22 +1,20 @@
 package fiber
 
 import (
+	"go_auth/config"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/auth"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/roles"
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/users"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
-	"go_auth/internal/adapters/seeder"
 	adaptersvc "go_auth/internal/adapters/services"
-	"go_auth/internal/adapters/services/jwt"
 	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
 	"go_auth/internal/core/domain/factories"
+	"go_auth/internal/core/domain/policies"
 	domainsvc "go_auth/internal/core/domain/services"
-	"log"
 	"log/slog"
-	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -33,111 +31,125 @@ type Deps struct {
 	Logger              *slog.Logger
 }
 
-func InitDeps(db *gorm.DB) (*Deps, error) {
-	// -------------------
-	// Logger
-	// -------------------
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
-	// -------------------
-	// Domain / infra services
-	// -------------------
+func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, error) {
+	// =========================
+	// Infrastructure Services
+	// =========================
 	clockSvc := adaptersvc.NewClockSvc()
 	idSvc := adaptersvc.NewUUIDSvc()
-	pwdHashSvc := adaptersvc.NewBcryptHasher(12)
 
-	tokenHasher := adaptersvc.NewHMACHasher([]byte("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY=="))
-	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator() // implements IRandomTokenGenerator
+	pwdHasher := adaptersvc.NewBcryptHasher(cfg.Security.BcryptCost)
+	tokenHasher := adaptersvc.NewHMACHasher(cfg.Security.HMACSecret)
+	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.RefreshTokenSecretBytes)
 
-	// -------------------
-	// Mappers
-	// -------------------
-	userMapper := mappers.NewUserMapper()
-	roleMapper := mappers.NewRoleMapper()
-	deviceMapper := mappers.NewDeviceMapper()
-	refreshTokenMapper := mappers.NewRefreshTokenMapper()
+	jwtIssuer := adaptersvc.NewJWTSessionTokenIssuerService(
+		cfg.JWT.PrivateKey,
+		cfg.JWT.PublicKey,
+		cfg.JWT.Issuer,
+		cfg.JWT.Audience,
+	)
 
-	// -------------------
+	// =========================
 	// Repositories
-	// -------------------
-	userRepo := repositories.NewGormUserRepository(db, userMapper, idSvc, pwdHashSvc)
-	roleRepo := repositories.NewGormRoleRepository(db, roleMapper, idSvc)
-	deviceRepo := repositories.NewGormDeviceRepository(db, deviceMapper, idSvc)
-	refreshTokenRepo := repositories.NewGormRefreshTokenRepository(db, refreshTokenMapper)
+	// =========================
+	userRepo := repositories.NewGormUserRepository(db, mappers.NewUserMapper(), idSvc, pwdHasher)
+	roleRepo := repositories.NewGormRoleRepository(db, mappers.NewRoleMapper(), idSvc)
+	deviceRepo := repositories.NewGormDeviceRepository(db, mappers.NewDeviceMapper(), idSvc)
+	refreshRepo := repositories.NewGormRefreshTokenRepository(db, mappers.NewRefreshTokenMapper())
 
-	// -------------------
-	// Security services (JWT)
-	// -------------------
-	jwtCfg, err := jwt.NewJWTCfg()
-	if err != nil {
-		return nil, err
-	}
-	sessionTokenSvc := jwt.NewJWTSessionTokenIssuerService(jwtCfg.PrivateKey(), jwtCfg.PublicKey(), jwtCfg.Issuer(), jwtCfg.Audience())
+	// =========================
+	// Policies
+	// =========================
+	jwtPolicy := policies.NewDefaultJWTPolicy()
+	refreshTokenPolicy := policies.NewDefaultRefreshTokenPolicy()
+	passwordPolicy := policies.NewDefaultPasswordPolicy()
 
-	// -------------------
-	// Seed default roles and admin
-	// -------------------
-	seederCfg, err := seeder.NewSeederConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger).SeedDefaultRoles(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := services.NewSeedAdminSvc(userRepo, roleRepo, pwdHashSvc, idSvc, clockSvc, seederCfg, logger).SeedAdmin(); err != nil {
-		log.Fatal(err)
-	}
-
-	// -------------------
-	// Domain services & factories
-	// -------------------
-	deviceFactory := factories.NewDefaultDeviceFactory(
+	// =========================
+	// Domain Factories
+	// =========================
+	deviceFactory := factories.NewDefaultDeviceFactory(idSvc, clockSvc)
+	refreshTokenFactory := factories.NewDefaultRefreshTokenFactory(
+		tokenGenerator,
+		tokenHasher,
 		idSvc,
-		clockSvc,
+		refreshTokenPolicy,
 	)
-	authDomainSvc := domainsvc.NewAuthDomainService(userRepo, deviceRepo, pwdHashSvc, idSvc, deviceFactory)
-	refreshTokenFactory := factories.NewDefaultRefreshTokenFactory(tokenGenerator, tokenHasher, idSvc)
-	sessionDomainSvc := domainsvc.NewSessionDomainService(refreshTokenRepo, refreshTokenFactory)
 	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
-	userFactory := factories.NewDefaultUserFactory(
-		registrationPolicy,
-		idSvc,
-	)
+	userFactory := factories.NewDefaultUserFactory(registrationPolicy, passwordPolicy, idSvc, pwdHasher)
 
-	// -------------------
-	// Use cases
-	// -------------------
-	registerUC := usecases.NewRegisterUseCase(userRepo, pwdHashSvc, userFactory, clockSvc)
+	// =========================
+	// Domain Services
+	// =========================
+	authDomainSvc := domainsvc.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory)
+	sessionDomainSvc := domainsvc.NewSessionDomainService(refreshRepo, refreshTokenFactory)
+
+	// =========================
+	// Application Use Cases
+	// =========================
+	registerUC := usecases.NewRegisterUseCase(userRepo, userFactory, clockSvc)
 
 	loginUC := usecases.NewLoginUseCase(
 		authDomainSvc,
-		refreshTokenRepo,
+		refreshRepo,
 		roleRepo,
-		sessionTokenSvc,
+		jwtIssuer,
 		idSvc,
 		clockSvc,
 		sessionDomainSvc,
+		jwtPolicy,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(refreshTokenRepo, clockSvc, tokenHasher)
+	refreshUC := usecases.NewRefreshTokenUseCase(
+		sessionDomainSvc,
+		refreshRepo,
+		userRepo,
+		roleRepo,
+		deviceRepo,
+		jwtIssuer,
+		clockSvc,
+		idSvc,
+		tokenHasher,
+		jwtPolicy,
+	)
+
+	logoutUC := usecases.NewLogoutUseCase(refreshRepo, clockSvc, tokenHasher)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo, idSvc)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 
-	refreshUC := usecases.NewRefreshTokenUseCase(sessionDomainSvc, refreshTokenRepo, userRepo, roleRepo, deviceRepo, sessionTokenSvc, clockSvc, idSvc, tokenHasher)
+	// =========================
+	// Seeders
+	// =========================
+	if err := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger).SeedDefaultRoles(); err != nil {
+		return nil, err
+	}
 
-	// -------------------
-	// Handlers
-	// -------------------
-	return &Deps{
+	if err := services.NewSeedAdminSvc(
+		userRepo,
+		roleRepo,
+		pwdHasher,
+		idSvc,
+		clockSvc,
+		cfg.AdminSeeder.AdminEmail,
+		cfg.AdminSeeder.AdminPassword,
+		logger,
+	).SeedAdmin(); err != nil {
+		return nil, err
+	}
+
+	// =========================
+	// HTTP Handlers & Middleware
+	// =========================
+	deps := &Deps{
 		RegisterHandler:     auth.NewRegisterHandler(registerUC),
 		LoginHandler:        auth.NewLoginHandler(loginUC),
 		RefreshTokenHandler: auth.NewRefreshTokenHandler(refreshUC),
 		LogoutHandler:       auth.NewLogoutHandler(logoutUC),
 		UpdateRoleHandler:   roles.NewUpdateRoleHandler(roleUC),
 		AuthUserHandler:     users.NewAuthUserHandler(authUserUC),
-		AuthMiddleware:      middlewares.JWTMiddleware(sessionTokenSvc, deviceRepo, idSvc),
-		Logger:              logger,
-	}, nil
+
+		AuthMiddleware: middlewares.JWTMiddleware(jwtIssuer, deviceRepo, idSvc),
+		Logger:         logger,
+	}
+
+	return deps, nil
 }

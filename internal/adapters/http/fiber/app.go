@@ -10,9 +10,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
-func NewFiberApp(d *Deps, cfg *FiberConfig, l *slog.Logger) *fiber.App {
+func NewFiberApp(d *Deps, name string, l *slog.Logger) *fiber.App {
 	app := fiber.New(fiber.Config{
-		AppName:      cfg.AppName(),
+		AppName:      name,
 		ErrorHandler: middlewares.NewGlobalErrorHandler(l),
 	})
 

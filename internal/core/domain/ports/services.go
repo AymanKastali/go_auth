@@ -12,7 +12,7 @@ type IIDService interface {
 }
 
 type IClockService interface {
-	Now() valueobjects.Timepoint
+	Now() (valueobjects.Timepoint, error)
 }
 
 type IPasswordHasherService interface {
@@ -22,12 +22,12 @@ type IPasswordHasherService interface {
 }
 
 type IRandomTokenGenerator interface {
-	Generate(size int) (string, error)
+	Generate() (string, error)
 }
 
 type ITokenHasherService interface {
-	Hash(raw string) valueobjects.HashedToken
-	Compare(raw string, hashed valueobjects.HashedToken) bool
+	Hash(raw string) (valueobjects.HashedToken, error)
+	Compare(raw string, hash valueobjects.HashedToken) (bool, error)
 }
 
 type IUserRegistrationPolicy interface {
@@ -57,7 +57,6 @@ type ISessionDomainService interface {
 	CreateSession(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
-		expiresAt valueobjects.Timepoint,
 		now valueobjects.Timepoint,
 	) (*entities.RefreshToken, valueobjects.RawRefreshToken, error)
 
@@ -65,4 +64,8 @@ type ISessionDomainService interface {
 		oldToken *entities.RefreshToken,
 		now valueobjects.Timepoint,
 	) error
+}
+
+type IPasswordPolicyService interface {
+	Validate(password valueobjects.RawPassword) error
 }
