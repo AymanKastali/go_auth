@@ -133,12 +133,12 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto
 	// 7. Issue the new Access Token (JWT)
 	accessToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
 		TokenID:   uc.idSvc.Generate(),
-		SessionID: newTokenEntity.ID().Value(),
-		UserID:    user.ID().Value(),
-		DeviceID:  oldTokenEntity.DeviceID().Value(),
+		SessionID: newTokenEntity.ID().String(),
+		UserID:    user.ID().String(),
+		DeviceID:  oldTokenEntity.DeviceID().String(),
 		Roles:     roleNames,
-		IssuedAt:  now.Value(),
-		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Value(),
+		IssuedAt:  now.Time(),
+		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Time(),
 	})
 	if err != nil {
 		return nil, apperr.Internal("Failed to issue access token", err)
@@ -154,8 +154,8 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto
 	}
 
 	req.Logger.Info("Token rotation complete",
-		slog.String("user_id", user.ID().Value()),
-		slog.String("new_token_id", newTokenEntity.ID().Value()))
+		slog.String("user_id", user.ID().String()),
+		slog.String("new_token_id", newTokenEntity.ID().String()))
 
 	return &dto.AuthResponse{
 		AccessToken:  accessToken.Raw,

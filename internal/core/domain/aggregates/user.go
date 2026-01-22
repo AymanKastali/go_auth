@@ -79,7 +79,7 @@ func ReconstituteUser(
 
 func (a *User) ensureNotDeleted() error {
 	if a.IsDeleted() {
-		return derr.NewErrUserDeleted(a.ID().Value())
+		return derr.NewErrUserDeleted(a.ID().String())
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (a *User) ensureActive() error {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.NewErrUserAlreadyInactive(a.ID().Value())
+		return derr.NewErrUserAlreadyInactive(a.ID().String())
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (a *User) Activate(currentTime valueobjects.Timepoint) error {
 		return err
 	}
 	if a.IsActive() {
-		return derr.NewErrUserAlreadyActive(a.ID().Value())
+		return derr.NewErrUserAlreadyActive(a.ID().String())
 	}
 
 	a.status = valueobjects.UserActive
@@ -112,7 +112,7 @@ func (a *User) Deactivate(currentTime valueobjects.Timepoint) error {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.NewErrUserAlreadyInactive(a.ID().Value())
+		return derr.NewErrUserAlreadyInactive(a.ID().String())
 	}
 
 	a.status = valueobjects.UserInactive
@@ -163,7 +163,7 @@ func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime valueobjects.Ti
 		return r.Equal(roleID)
 	})
 	if exists {
-		return derr.NewErrRoleAlreadyAssignedToUser(a.ID().Value(), roleID.Value())
+		return derr.NewErrRoleAlreadyAssignedToUser(a.ID().String(), roleID.String())
 	}
 
 	a.roleIDs = append(a.roleIDs, roleID)
@@ -177,7 +177,7 @@ func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime valueobjects
 	}
 
 	if len(a.roleIDs) <= 1 {
-		return derr.NewErrMinimumRolesRequired(a.ID().Value())
+		return derr.NewErrMinimumRolesRequired(a.ID().String())
 	}
 
 	idx := slices.IndexFunc(a.roleIDs, func(r valueobjects.RoleID) bool {

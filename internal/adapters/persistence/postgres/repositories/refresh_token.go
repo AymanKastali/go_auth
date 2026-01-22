@@ -38,7 +38,7 @@ func (r *gormRefreshTokenRepository) Save(e *entities.RefreshToken) error {
 // FindByID returns the entity by ID or nil if not found
 func (r *gormRefreshTokenRepository) FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error) {
 	var model models.RefreshToken
-	err := r.db.Where("id = ?", id.Value()).First(&model).Error
+	err := r.db.Where("id = ?", id.String()).First(&model).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -53,7 +53,7 @@ func (r *gormRefreshTokenRepository) FindByID(id valueobjects.TokenID) (*entitie
 // FindByDevice returns all tokens for a given user and device
 func (r *gormRefreshTokenRepository) FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error) {
 	var modelsList []models.RefreshToken
-	if err := r.db.Where("user_id = ? AND device_id = ?", userID.Value(), deviceID.Value()).Find(&modelsList).Error; err != nil {
+	if err := r.db.Where("user_id = ? AND device_id = ?", userID.String(), deviceID.String()).Find(&modelsList).Error; err != nil {
 		return nil, err
 	}
 
@@ -68,7 +68,7 @@ func (r *gormRefreshTokenRepository) FindByUserAndDevice(userID valueobjects.Use
 // FindByUser returns all tokens for a given user
 func (r *gormRefreshTokenRepository) FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
 	var modelsList []models.RefreshToken
-	if err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error; err != nil {
+	if err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error; err != nil {
 		return nil, err
 	}
 

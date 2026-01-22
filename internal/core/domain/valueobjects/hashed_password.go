@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-type HashedPassword struct{ value string }
+type HashedPassword struct{ v string }
 
-func NewHashedPassword(value string) (HashedPassword, error) {
-	trimmed := strings.TrimSpace(value)
+func NewHashedPassword(v string) (HashedPassword, error) {
+	trimmed := strings.TrimSpace(v)
 
 	if trimmed == "" {
 		return HashedPassword{}, derr.NewErrTokenHashRequired()
 	}
-	return HashedPassword{value: trimmed}, nil
+	return HashedPassword{v: trimmed}, nil
 }
 
-func ReconstituteHashedPassword(value string) HashedPassword { return HashedPassword{value: value} }
+func ReconstituteHashedPassword(v string) HashedPassword { return HashedPassword{v: v} }
 
-func (vo HashedPassword) Value() string                   { return vo.value }
-func (vo HashedPassword) IsEmpty() bool                   { return vo.value == "" }
-func (vo HashedPassword) Equal(other HashedPassword) bool { return vo.value == other.value }
+func (vo HashedPassword) String() string                  { return vo.v }
+func (vo HashedPassword) IsEmpty() bool                   { return vo.v == "" }
+func (vo HashedPassword) Equal(other HashedPassword) bool { return vo.v == other.v }

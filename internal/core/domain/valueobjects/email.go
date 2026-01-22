@@ -8,9 +8,7 @@ import (
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-type Email struct {
-	value string
-}
+type Email struct{ v string }
 
 func NewEmail(email string) (Email, error) {
 	trimmed := strings.TrimSpace(email)
@@ -23,13 +21,13 @@ func NewEmail(email string) (Email, error) {
 		return Email{}, derr.NewErrInvalidEmailFormat()
 	}
 
-	return Email{value: trimmed}, nil
+	return Email{v: trimmed}, nil
 }
 
 func ReconstituteEmail(email string) Email {
-	return Email{value: email}
+	return Email{v: email}
 }
 
-func (vo Email) Value() string          { return vo.value }
-func (vo Email) IsEmpty() bool          { return vo.value == "" }
-func (vo Email) Equal(other Email) bool { return vo.value == other.value }
+func (vo Email) String() string         { return vo.v }
+func (vo Email) IsEmpty() bool          { return vo.v == "" }
+func (vo Email) Equal(other Email) bool { return vo.v == other.v }

@@ -5,20 +5,18 @@ import (
 	"strings"
 )
 
-type UserID struct {
-	value string
-}
+type UserID struct{ v string }
 
-func NewUserID(value string) (UserID, error) {
-	trimmed := strings.TrimSpace(value)
+func NewUserID(v string) (UserID, error) {
+	trimmed := strings.TrimSpace(v)
 	if trimmed == "" {
 		return UserID{}, derr.NewErrUserIDRequired()
 	}
-	return UserID{value: trimmed}, nil
+	return UserID{v: trimmed}, nil
 }
 
-func ReconstituteUserID(s string) UserID { return UserID{value: s} }
+func ReconstituteUserID(s string) UserID { return UserID{v: s} }
 
-func (vo UserID) Value() string           { return vo.value }
-func (vo UserID) IsEmpty() bool           { return vo.value == "" }
-func (vo UserID) Equal(other UserID) bool { return vo.value == other.value }
+func (vo UserID) String() string          { return vo.v }
+func (vo UserID) IsEmpty() bool           { return vo.v == "" }
+func (vo UserID) Equal(other UserID) bool { return vo.v == other.v }

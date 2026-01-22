@@ -25,7 +25,7 @@ func NewDefaultPasswordPolicy() *PasswordPolicy {
 }
 
 func (p *PasswordPolicy) Validate(password valueobjects.RawPassword) error {
-	pwdStr := password.Value()
+	pwdStr := password.String()
 
 	if len(pwdStr) < int(p.MinLength) {
 		return derr.NewErrPasswordTooShort(p.MinLength)

@@ -38,15 +38,15 @@ func (m *RoleMapper) ToModel(entity *aggregates.Role) *models.Role {
 
 	var deletedAtPtr *time.Time
 	if entity.DeletedAt() != nil {
-		t := entity.DeletedAt().Value()
+		t := entity.DeletedAt().Time()
 		deletedAtPtr = &t
 	}
 
 	return &models.Role{
-		ID:        entity.ID().Value(),
+		ID:        entity.ID().String(),
 		Name:      entity.Name(),
-		CreatedAt: entity.CreatedAt().Value(),
-		UpdatedAt: entity.UpdatedAt().Value(),
+		CreatedAt: entity.CreatedAt().Time(),
+		UpdatedAt: entity.UpdatedAt().Time(),
 		DeletedAt: deletedAtPtr,
 	}
 }

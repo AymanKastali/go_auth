@@ -5,24 +5,22 @@ import (
 	"time"
 )
 
-type Timepoint struct {
-	value time.Time
-}
+type Timepoint struct{ t time.Time }
 
 func NewTimepoint(t time.Time) (Timepoint, error) {
 	if t.IsZero() {
 		return Timepoint{}, derr.NewErrTimepointRequired()
 	}
-	return Timepoint{value: t.UTC()}, nil
+	return Timepoint{t: t.UTC()}, nil
 }
 
-func ReconstituteTimepoint(t time.Time) Timepoint { return Timepoint{value: t.UTC()} }
+func ReconstituteTimepoint(t time.Time) Timepoint { return Timepoint{t: t.UTC()} }
 
-func (t Timepoint) Value() time.Time              { return t.value }
-func (t Timepoint) IsBefore(other Timepoint) bool { return t.value.Before(other.value) }
-func (t Timepoint) IsAfter(other Timepoint) bool  { return t.value.After(other.value) }
-func (t Timepoint) IsFuture(other Timepoint) bool { return t.value.After(other.value) }
-func (t Timepoint) Add(d time.Duration) Timepoint { return Timepoint{value: t.value.Add(d)} }
-func (t Timepoint) Equal(other Timepoint) bool    { return t.value.Equal(other.value) }
-func (t Timepoint) String() string                { return t.value.Format(time.RFC3339) }
-func (t Timepoint) IsZero() bool                  { return t.value.IsZero() }
+func (vo Timepoint) Time() time.Time               { return vo.t }
+func (vo Timepoint) IsBefore(other Timepoint) bool { return vo.t.Before(other.t) }
+func (vo Timepoint) IsAfter(other Timepoint) bool  { return vo.t.After(other.t) }
+func (vo Timepoint) IsFuture(other Timepoint) bool { return vo.t.After(other.t) }
+func (vo Timepoint) Add(d time.Duration) Timepoint { return Timepoint{t: vo.t.Add(d)} }
+func (vo Timepoint) Equal(other Timepoint) bool    { return vo.t.Equal(other.t) }
+func (vo Timepoint) String() string                { return vo.t.Format(time.RFC3339) }
+func (vo Timepoint) IsZero() bool                  { return vo.t.IsZero() }

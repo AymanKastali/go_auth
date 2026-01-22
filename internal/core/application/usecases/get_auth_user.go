@@ -12,18 +12,15 @@ import (
 type authUserUseCase struct {
 	userRepo ports.IUserRepository
 	roleRepo ports.IRoleRepository
-	idSvc    ports.IIDService
 }
 
 func NewAuthUserUseCase(
 	userRepo ports.IUserRepository,
 	roleRepo ports.IRoleRepository,
-	idSvc ports.IIDService,
 ) *authUserUseCase {
 	return &authUserUseCase{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
-		idSvc:    idSvc,
 	}
 }
 
@@ -32,11 +29,6 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 	l := req.Logger
 
 	l.Info("Executing auth user profile retrieval", slog.String("target_user_id", userID))
-
-	if !uc.idSvc.IsValid(userID) {
-		l.Warn("Invalid user ID format provided", slog.String("user_id", userID))
-		return nil, apperr.Validation("invalid user id format", map[string]any{"user_id": userID})
-	}
 
 	userIDVO, err := valueobjects.NewUserID(userID)
 	if err != nil {
@@ -64,7 +56,7 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 		if err != nil {
 			l.Error("Database error during role lookup",
 				slog.String("user_id", userID),
-				slog.String("role_id", roleID.Value()),
+				slog.String("role_id", roleID.String()),
 				slog.Any("error", err),
 			)
 			return nil, apperr.Map(err)
@@ -73,7 +65,7 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 		if role == nil {
 			l.Error("CRITICAL: Data integrity violation - role not found",
 				slog.String("user_id", userID),
-				slog.String("missing_role_id", roleID.Value()),
+				slog.String("missing_role_id", roleID.String()),
 			)
 			return nil, apperr.Internal("system data integrity violation: role not found", nil)
 		}
@@ -83,11 +75,11 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 	l.Info("Successfully compiled user authentication data", slog.String("user_id", userID))
 
 	return &dto.AuthUser{
-		ID:        user.ID().Value(),
-		Email:     user.Email().Value(),
+		ID:        user.ID().String(),
+		Email:     user.Email().String(),
 		Status:    string(user.Status()),
 		Roles:     roles,
-		CreatedAt: user.CreatedAt().Value(),
-		UpdatedAt: user.UpdatedAt().Value(),
+		CreatedAt: user.CreatedAt().Time(),
+		UpdatedAt: user.UpdatedAt().Time(),
 	}, nil
 }

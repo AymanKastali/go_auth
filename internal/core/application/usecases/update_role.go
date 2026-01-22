@@ -76,7 +76,7 @@ func (uc *updateRoleUseCase) Execute(
 
 	req.Logger.Debug("Applying role modification",
 		slog.String("action", action),
-		slog.String("role_id", roleEntity.ID().Value()),
+		slog.String("role_id", roleEntity.ID().String()),
 	)
 
 	switch action {

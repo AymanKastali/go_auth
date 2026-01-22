@@ -34,7 +34,7 @@ func NewGormDeviceRepository(
 func (r *gormDeviceRepository) GetByID(id valueobjects.DeviceID) (*entities.Device, error) {
 	var model models.Device
 
-	err := r.db.Where("id = ?", id.Value()).First(&model).Error
+	err := r.db.Where("id = ?", id.String()).First(&model).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -48,7 +48,7 @@ func (r *gormDeviceRepository) GetByID(id valueobjects.DeviceID) (*entities.Devi
 
 func (r *gormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceFingerprint) (*entities.Device, error) {
 	var model models.Device
-	err := r.db.Where("fingerprint = ?", fingerprint.Value()).First(&model).Error
+	err := r.db.Where("fingerprint = ?", fingerprint.String()).First(&model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -61,7 +61,7 @@ func (r *gormDeviceRepository) GetByFingerprint(fingerprint valueobjects.DeviceF
 
 func (r *gormDeviceRepository) GetByUserID(userID valueobjects.UserID) ([]*entities.Device, error) {
 	var modelsList []models.Device
-	err := r.db.Where("user_id = ?", userID.Value()).Find(&modelsList).Error
+	err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error
 	if err != nil {
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch user devices")
 	}
