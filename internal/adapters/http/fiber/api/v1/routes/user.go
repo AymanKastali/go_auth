@@ -3,7 +3,7 @@ package routes
 import (
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/users"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func RegisterUserRoutes(

@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type LogoutHandler struct {
@@ -18,7 +18,12 @@ func NewLogoutHandler(uc ports.ILogoutUseCase) *LogoutHandler {
 	return &LogoutHandler{uc: uc}
 }
 
-func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
+// @Summary  Logout
+// @Tags     auth
+// @Produce  json
+// @Success  200      {string}  string "OK"
+// @Router   /auth/logout [post]
+func (h *LogoutHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -26,7 +31,7 @@ func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
 
 	l.Info("Handling logout request")
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		l.Warn("Failed to parse logout request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
@@ -37,7 +42,7 @@ func (h *LogoutHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	if err := h.uc.Execute(
-		c.UserContext(),
+		c.Context(),
 		req.RefreshToken,
 	); err != nil {
 		l.Warn("Logout execution failed", slog.Any("error", err))

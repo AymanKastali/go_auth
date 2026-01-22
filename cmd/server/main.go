@@ -25,6 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := postgres.AutoMigrate(db); err != nil {
+		logger.Error("Database migration failed", "error", err)
+		os.Exit(1)
+	}
+
 	deps, err := fiber.InitDeps(db, cfg, logger)
 	if err != nil {
 		logger.Error("Dependency initialization failed", "error", err)

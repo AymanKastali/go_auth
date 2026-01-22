@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type RegisterHandler struct {
@@ -20,7 +20,15 @@ func NewRegisterHandler(
 	return &RegisterHandler{uc: uc}
 }
 
-func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
+// @Summary  Register User
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    request  body      object  true  "Registration Info"
+// @Success  201      {object}  object
+// @Failure  400      {string}  string "Bad Request"
+// @Router   /auth/register [post]
+func (h *RegisterHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -28,7 +36,7 @@ func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 
 	l.Info("Handling registration request")
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		l.Warn("Failed to parse registration request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
@@ -43,7 +51,7 @@ func (h *RegisterHandler) Execute(c *fiber.Ctx) error {
 		return http.NewBadRequest(err)
 	}
 
-	domainResp, err := h.uc.Execute(c.UserContext(), req.Email, req.Password)
+	domainResp, err := h.uc.Execute(c.Context(), req.Email, req.Password)
 	if err != nil {
 		l.Warn("Registration execution failed",
 			slog.String("email", req.Email),

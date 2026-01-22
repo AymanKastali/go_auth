@@ -5,9 +5,12 @@ import (
 	"go_auth/internal/adapters/http/fiber/middlewares"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
+	_ "go_auth/docs"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
+	"github.com/gofiber/swagger/v2"
 )
 
 func NewFiberApp(d *Deps, name string, l *slog.Logger) *fiber.App {
@@ -16,16 +19,17 @@ func NewFiberApp(d *Deps, name string, l *slog.Logger) *fiber.App {
 		ErrorHandler: middlewares.NewGlobalErrorHandler(l),
 	})
 
+	app.Get("/swagger/*", swagger.HandlerDefault)
+
 	// Middlewares
 	app.Use(requestid.New())
 	app.Use(middlewares.NewContextMiddleware(l))
-
 	app.Use(recover.New())
 
 	// Routes
 	registerRoutes(app, d)
 
-	app.Get("/health", func(c *fiber.Ctx) error {
+	app.Get("/health", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 

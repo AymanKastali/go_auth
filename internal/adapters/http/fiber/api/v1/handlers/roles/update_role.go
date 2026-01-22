@@ -8,7 +8,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type UpdateRoleHandler struct {
@@ -19,7 +19,7 @@ func NewUpdateRoleHandler(uc ports.IUpdateRoleUseCase) *UpdateRoleHandler {
 	return &UpdateRoleHandler{uc: uc}
 }
 
-func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
+func (h *UpdateRoleHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -27,7 +27,7 @@ func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
 
 	l.Info("Handling role update request")
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		l.Warn("Failed to parse role update request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
@@ -53,7 +53,7 @@ func (h *UpdateRoleHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	if err := h.uc.Execute(
-		c.UserContext(),
+		c.Context(),
 		input,
 	); err != nil {
 		l.Warn("Role update execution failed",

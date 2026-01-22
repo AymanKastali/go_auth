@@ -9,11 +9,11 @@ import (
 	"log/slog"
 	netHTTP "net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
-	return func(c *fiber.Ctx, err error) error {
+	return func(c fiber.Ctx, err error) error {
 		if err == nil {
 			return nil
 		}

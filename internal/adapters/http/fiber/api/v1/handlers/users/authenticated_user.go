@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type AuthUserHandler struct {
@@ -18,7 +18,13 @@ func NewAuthUserHandler(uc ports.IAuthUserUseCase) *AuthUserHandler {
 	return &AuthUserHandler{uc: uc}
 }
 
-func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
+// @Summary  Get Current User
+// @Tags     user
+// @Produce  json
+// @Success  200      {object}  interface{}
+// @Failure  401      {string}  string "Unauthorized"
+// @Router   /user/me [get]
+func (h *AuthUserHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -31,7 +37,7 @@ func (h *AuthUserHandler) Execute(c *fiber.Ctx) error {
 	l.Info("Retrieving authenticated user profile", slog.String("user_id", auth.UserID))
 
 	profile, err := h.uc.Execute(
-		c.UserContext(),
+		c.Context(),
 		auth.UserID,
 	)
 	if err != nil {
