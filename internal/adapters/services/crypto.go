@@ -5,14 +5,16 @@ import (
 	"encoding/base64"
 )
 
-type cryptoRandomTokenGeneratorService struct{}
-
-func NewCryptoRandomTokenGenerator() *cryptoRandomTokenGeneratorService {
-	return &cryptoRandomTokenGeneratorService{}
+type cryptoRandomTokenGeneratorService struct {
+	size int
 }
 
-func (g *cryptoRandomTokenGeneratorService) Generate(size int) (string, error) {
-	b := make([]byte, size)
+func NewCryptoRandomTokenGenerator(size int) *cryptoRandomTokenGeneratorService {
+	return &cryptoRandomTokenGeneratorService{size: size}
+}
+
+func (g *cryptoRandomTokenGeneratorService) Generate() (string, error) {
+	b := make([]byte, g.size)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}

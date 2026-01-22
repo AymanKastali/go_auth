@@ -2,7 +2,6 @@ package services
 
 import (
 	"go_auth/internal/core/application/apperr"
-	aports "go_auth/internal/core/application/ports"
 	"go_auth/internal/core/domain/aggregates"
 	"go_auth/internal/core/domain/ports"
 	"go_auth/internal/core/domain/valueobjects"
@@ -17,7 +16,8 @@ type seedAdminSvc struct {
 	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
 	clockSvc       ports.IClockService
-	cfg            aports.ISeederConfig
+	adminEmail     string
+	adminPassword  string
 	l              *slog.Logger
 }
 
@@ -27,7 +27,8 @@ func NewSeedAdminSvc(
 	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
 	clockSvc ports.IClockService,
-	seederCfg aports.ISeederConfig,
+	adminEmail string,
+	adminPassword string,
 	l *slog.Logger,
 ) *seedAdminSvc {
 	return &seedAdminSvc{
@@ -36,14 +37,16 @@ func NewSeedAdminSvc(
 		passwordHasher: passwordHasher,
 		idSvc:          idSvc,
 		clockSvc:       clockSvc,
-		cfg:            seederCfg,
+		adminEmail:     adminEmail,
+		adminPassword:  adminPassword,
 		l:              l,
 	}
 }
 
 func (s *seedAdminSvc) SeedAdmin() error {
-	adminEmail := s.cfg.AdminEmail()
-	adminPass := s.cfg.AdminPassword()
+	adminEmail := s.adminEmail
+	adminPass := s.adminPassword
+
 	l := s.l.With(slog.String("trace_id", seederTraceID))
 
 	l.Info("Starting admin user seeding process")
@@ -93,8 +96,14 @@ func (s *seedAdminSvc) SeedAdmin() error {
 		return apperr.Internal("cryptography failure during seeding", err)
 	}
 
-	userID := valueobjects.ReconstituteUserID(s.idSvc.Generate())
-	now := s.clockSvc.Now()
+	userID, err := valueobjects.NewUserID(s.idSvc.Generate())
+	if err != nil {
+		return apperr.Map(err)
+	}
+	now, err := s.clockSvc.Now()
+	if err != nil {
+		return apperr.Map(err)
+	}
 
 	admin, err := aggregates.NewUser(
 		userID,

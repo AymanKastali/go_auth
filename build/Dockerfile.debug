@@ -10,6 +10,7 @@ RUN go mod download
 
 # 2. Copy everything (needed for live debugging)
 COPY ./build ./build
+COPY ./config ./config
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 

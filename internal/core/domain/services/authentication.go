@@ -39,7 +39,10 @@ func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates
 	if password == "" {
 		return nil, derr.NewErrPasswordRequired()
 	}
-	email := valueobjects.ReconstituteEmail(emailStr)
+	email, err := valueobjects.NewEmail(emailStr)
+	if err != nil {
+		return nil, err
+	}
 
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {

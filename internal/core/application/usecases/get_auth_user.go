@@ -38,7 +38,10 @@ func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthU
 		return nil, apperr.Validation("invalid user id format", map[string]any{"user_id": userID})
 	}
 
-	userIDVO := valueobjects.ReconstituteUserID(userID)
+	userIDVO, err := valueobjects.NewUserID(userID)
+	if err != nil {
+		return nil, apperr.Map(err)
+	}
 
 	user, err := uc.userRepo.GetByID(userIDVO)
 	if err != nil {

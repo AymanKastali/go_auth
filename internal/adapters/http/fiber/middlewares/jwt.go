@@ -47,7 +47,10 @@ func JWTMiddleware(
 			return apperr.Validation("invalid device identifier", nil)
 		}
 
-		deviceIDVO := valueobjects.ReconstituteDeviceID(claims.DeviceID)
+		deviceIDVO, err := valueobjects.NewDeviceID(claims.DeviceID)
+		if err != nil {
+			return apperr.Map(err)
+		}
 		device, err := deviceRepo.GetByID(deviceIDVO)
 		if err != nil {
 			l.Error("Database error during device lookup", slog.Any("error", err))
