@@ -63,6 +63,9 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			case apperr.TypeForbidden:
 				statusCode = netHTTP.StatusForbidden
 				l.Warn("Forbidden access attempt", slog.String("message", aErr.Message))
+			case apperr.TypeUnprocessable:
+				statusCode = netHTTP.StatusUnprocessableEntity
+				l.Warn("Application validation failed", slog.Any("details", aErr.Details))
 			case apperr.TypeInternal:
 				l.Error("Application internal failure",
 					slog.Any("error", aErr.Cause),

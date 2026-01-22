@@ -26,19 +26,19 @@ func NewUser(
 	now valueobjects.Timepoint,
 ) (*User, error) {
 	if userID.IsEmpty() {
-		return nil, derr.ErrUserIDRequired()
+		return nil, derr.NewErrUserIDRequired()
 	}
 	if email.IsEmpty() {
-		return nil, derr.ErrEmailRequired()
+		return nil, derr.NewErrEmailRequired()
 	}
 	if passwordHash.IsEmpty() {
-		return nil, derr.ErrPasswordRequired()
+		return nil, derr.NewErrUserPasswordRequired()
 	}
 	if status == "" {
-		return nil, derr.ErrStatusRequired()
+		return nil, derr.NewErrUserStatusRequired()
 	}
 	if now.IsZero() {
-		return nil, derr.ErrCurrentTimeRequired()
+		return nil, derr.NewErrTimepointRequired()
 	}
 
 	if roleIDs == nil {
@@ -79,7 +79,7 @@ func ReconstituteUser(
 
 func (a *User) ensureNotDeleted() error {
 	if a.IsDeleted() {
-		return derr.ErrUserDeleted(a.id.Value())
+		return derr.NewErrUserDeleted(a.ID().Value())
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (a *User) ensureActive() error {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.ErrUserAlreadyInactive(a.id.Value())
+		return derr.NewErrUserAlreadyInactive(a.ID().Value())
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (a *User) Activate(currentTime valueobjects.Timepoint) error {
 		return err
 	}
 	if a.IsActive() {
-		return derr.ErrUserAlreadyActive(a.id.Value())
+		return derr.NewErrUserAlreadyActive(a.ID().Value())
 	}
 
 	a.status = valueobjects.UserActive
@@ -112,7 +112,7 @@ func (a *User) Deactivate(currentTime valueobjects.Timepoint) error {
 		return err
 	}
 	if !a.IsActive() {
-		return derr.ErrUserAlreadyInactive(a.id.Value())
+		return derr.NewErrUserAlreadyInactive(a.ID().Value())
 	}
 
 	a.status = valueobjects.UserInactive
@@ -163,7 +163,7 @@ func (a *User) AddRoleID(roleID valueobjects.RoleID, currentTime valueobjects.Ti
 		return r.Equal(roleID)
 	})
 	if exists {
-		return derr.ErrRoleAlreadyAssigned(roleID.Value())
+		return derr.NewErrRoleAlreadyAssignedToUser(a.ID().Value(), roleID.Value())
 	}
 
 	a.roleIDs = append(a.roleIDs, roleID)
@@ -177,16 +177,12 @@ func (a *User) RemoveRoleID(roleID valueobjects.RoleID, currentTime valueobjects
 	}
 
 	if len(a.roleIDs) <= 1 {
-		return derr.ErrMinimumRolesRequirement(1)
+		return derr.NewErrMinimumRolesRequired(a.ID().Value())
 	}
 
 	idx := slices.IndexFunc(a.roleIDs, func(r valueobjects.RoleID) bool {
 		return r.Equal(roleID)
 	})
-
-	if idx == -1 {
-		return derr.ErrRoleNotAssigned(roleID.Value())
-	}
 
 	a.roleIDs = slices.Delete(a.roleIDs, idx, idx+1)
 	a.touch(currentTime)

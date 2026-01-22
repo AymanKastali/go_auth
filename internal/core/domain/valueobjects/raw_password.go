@@ -18,7 +18,7 @@ func NewRawPassword(value string) (RawPassword, error) {
 
 	// 1. Dynamic Length Check
 	if len(trimmed) < MinPasswordLength {
-		return RawPassword{}, derr.ErrPasswordTooShort(MinPasswordLength)
+		return RawPassword{}, derr.NewErrPasswordTooShort(MinPasswordLength)
 	}
 
 	var hasUpper, hasLower, hasNumber, hasSpecial bool
@@ -37,7 +37,7 @@ func NewRawPassword(value string) (RawPassword, error) {
 
 	// 2. Dynamic Complexity Check
 	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
-		return RawPassword{}, derr.ErrPasswordTooWeak(PasswordRequirements)
+		return RawPassword{}, derr.NewErrPasswordTooWeak(PasswordRequirements)
 	}
 
 	return RawPassword{value: trimmed}, nil

@@ -30,32 +30,35 @@ func (f *defaultRefreshTokenFactory) New(
 	expiresAt valueobjects.Timepoint,
 	now valueobjects.Timepoint,
 ) (*entities.RefreshToken, valueobjects.RawRefreshToken, error) {
-	emptyRawRefreshToken := valueobjects.RawRefreshToken{}
 
 	tokenID, err := valueobjects.NewTokenID(f.idSvc.Generate())
 	if err != nil {
-		return nil, emptyRawRefreshToken, err
+		return nil, valueobjects.RawRefreshToken{}, err
 	}
 
-	rawToken, err := f.tokenGenerator.Generate(32)
+	rawSecret, err := f.tokenGenerator.Generate(32)
 	if err != nil {
-		return nil, emptyRawRefreshToken, err
+		return nil, valueobjects.RawRefreshToken{}, err
 	}
 
-	rawRefreshToken, err := valueobjects.NewRawRefreshToken(rawToken)
+	rawRefreshToken, err := valueobjects.NewRawRefreshToken(tokenID, rawSecret)
 	if err != nil {
-		return nil, emptyRawRefreshToken, err
+		return nil, valueobjects.RawRefreshToken{}, err
 	}
 
-	hashedToken := f.tokenHasher.Hash(rawToken)
+	hashed := f.tokenHasher.Hash(rawSecret)
 
 	refreshToken, err := entities.NewRefreshToken(
 		tokenID,
 		userID,
 		deviceID,
-		hashedToken,
+		hashed,
 		expiresAt,
 		now,
 	)
-	return refreshToken, rawRefreshToken, err
+	if err != nil {
+		return nil, valueobjects.RawRefreshToken{}, err
+	}
+
+	return refreshToken, rawRefreshToken, nil
 }

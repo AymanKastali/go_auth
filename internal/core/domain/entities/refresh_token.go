@@ -24,26 +24,25 @@ func NewRefreshToken(
 	now valueobjects.Timepoint,
 ) (*RefreshToken, error) {
 	if id.IsEmpty() {
-		return nil, derr.ErrTokenIDRequired()
+		return nil, derr.NewErrRefreshTokenIDRequired()
 	}
 	if userID.IsEmpty() {
-		return nil, derr.ErrUserIDRequired()
+		return nil, derr.NewErrUserIDRequired()
 	}
 	if deviceID.IsEmpty() {
-		return nil, derr.ErrDeviceIDRequired()
-	}
-	if expiresAt.IsZero() {
-		return nil, derr.ErrExpiresAtRequired()
-	}
-	if now.IsZero() {
-		return nil, derr.ErrCurrentTimeRequired()
+		return nil, derr.NewErrDeviceIDRequired()
 	}
 	if hash.IsEmpty() {
-		return nil, derr.ErrTokenHashRequired()
+		return nil, derr.NewErrTokenHashRequired()
 	}
-
+	if expiresAt.IsZero() {
+		return nil, derr.NewErrExpirationRequired()
+	}
+	if now.IsZero() {
+		return nil, derr.NewErrTimepointRequired()
+	}
 	if expiresAt.IsBefore(now) {
-		return nil, derr.ErrExpirationInPast()
+		return nil, derr.NewErrExpirationInPast()
 	}
 
 	return &RefreshToken{
@@ -78,7 +77,7 @@ func ReconstituteRefreshToken(
 
 func (e *RefreshToken) Revoke(now valueobjects.Timepoint) error {
 	if e.IsRevoked() {
-		return derr.ErrTokenRevoked(e.id.Value())
+		return derr.NewErrRefreshTokenRevoked(e.id.Value())
 	}
 
 	e.revokedAt = &now
@@ -88,17 +87,17 @@ func (e *RefreshToken) Revoke(now valueobjects.Timepoint) error {
 func (e *RefreshToken) EnsureUsable(now valueobjects.Timepoint) error {
 	tokenID := e.id.Value()
 	if e.IsRevoked() {
-		return derr.ErrTokenRevoked(tokenID)
+		return derr.NewErrRefreshTokenRevoked(tokenID)
 	}
 	if e.IsExpired(now) {
-		return derr.ErrTokenExpired(tokenID)
+		return derr.NewErrRefreshTokenExpired(tokenID)
 	}
 	return nil
 }
 
 func (e *RefreshToken) BelongsTo(deviceID valueobjects.DeviceID) error {
-	if !e.deviceID.Equals(deviceID) {
-		return derr.ErrTokenDoesNotBelongToDevice(e.id.Value(), deviceID.Value())
+	if !e.deviceID.Equal(deviceID) {
+		return derr.NewErrTokenDoesNotBelongToDevice(e.id.Value(), deviceID.Value())
 	}
 	return nil
 }

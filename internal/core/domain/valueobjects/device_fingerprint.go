@@ -12,7 +12,7 @@ type DeviceFingerprint struct {
 func NewDeviceFingerprint(value string) (DeviceFingerprint, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return DeviceFingerprint{}, derr.ErrDeviceFingerprintRequired()
+		return DeviceFingerprint{}, derr.NewErrDeviceFingerprintRequired()
 	}
 	return DeviceFingerprint{value: trimmed}, nil
 }

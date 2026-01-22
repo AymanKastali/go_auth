@@ -48,14 +48,14 @@ func NewRefreshTokenUseCase(
 	}
 }
 
-func (uc *refreshTokenUseCase) Execute(c context.Context, rawOldToken string) (*dto.AuthResponse, error) {
+func (uc *refreshTokenUseCase) Execute(c context.Context, rawToken string) (*dto.AuthResponse, error) {
 	req := dto.FromContext(c)
 	now := uc.clockSvc.Now()
 
 	// 1. Convert raw input to Value Object
-	tokenVO, err := valueobjects.NewRawRefreshToken(rawOldToken)
+	tokenVO, err := valueobjects.ParseRawRefreshToken(rawToken)
 	if err != nil {
-		return nil, apperr.Validation("Invalid token format", nil)
+		return nil, apperr.Validation("Invalid refresh token", nil)
 	}
 
 	tokenID := tokenVO.TokenID()
@@ -85,7 +85,7 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawOldToken string) (*
 		return nil, apperr.Forbidden("Device not recognized", nil)
 	}
 
-	if !oldTokenEntity.DeviceID().Equals(currentDevice.ID()) {
+	if !oldTokenEntity.DeviceID().Equal(currentDevice.ID()) {
 		return nil, apperr.Forbidden("Token does not belong to this device", nil)
 	}
 
@@ -147,7 +147,7 @@ func (uc *refreshTokenUseCase) Execute(c context.Context, rawOldToken string) (*
 
 	return &dto.AuthResponse{
 		AccessToken:  accessToken.Raw,
-		RefreshToken: rawSecret.Value(),
+		RefreshToken: rawSecret.String(),
 	}, nil
 }
 
