@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type RefreshTokenHandler struct {
@@ -18,7 +18,15 @@ func NewRefreshTokenHandler(uc ports.IRefreshTokenUseCase) *RefreshTokenHandler 
 	return &RefreshTokenHandler{uc: uc}
 }
 
-func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
+// @Summary  Refresh Token
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    request  body      object  true  "Refresh Token"
+// @Success  200      {object}  object
+// @Failure  401      {string}  string "Invalid Token"
+// @Router   /auth/refresh [post]
+func (h *RefreshTokenHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -26,7 +34,7 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 
 	l.Info("Handling token refresh request")
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		l.Warn("Failed to parse refresh token request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
@@ -37,7 +45,7 @@ func (h *RefreshTokenHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	authResp, err := h.uc.Execute(
-		c.UserContext(),
+		c.Context(),
 		req.RefreshToken,
 	)
 	if err != nil {

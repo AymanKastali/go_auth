@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func JWTMiddleware(
@@ -18,7 +18,7 @@ func JWTMiddleware(
 	deviceRepo dports.IDeviceRepository,
 	idSvc dports.IIDService,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		baseReq := utils.ReqCtx(c)
 		l := baseReq.Logger
 
@@ -92,7 +92,7 @@ func JWTMiddleware(
 			slog.Any("roles", claims.Roles),
 		)
 
-		c.SetUserContext(dto.Inject(c.UserContext(), authCtx))
+		c.SetContext(dto.Inject(c.Context(), authCtx))
 		return c.Next()
 	}
 }

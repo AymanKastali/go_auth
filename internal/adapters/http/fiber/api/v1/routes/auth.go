@@ -5,7 +5,7 @@ import (
 	"go_auth/internal/adapters/http/fiber/api/v1/handlers/roles"
 	"go_auth/internal/adapters/http/fiber/middlewares"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func RegisterAuthRoutes(

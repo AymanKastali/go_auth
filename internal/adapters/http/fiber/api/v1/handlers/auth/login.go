@@ -7,7 +7,7 @@ import (
 	"go_auth/internal/core/application/ports"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type LoginHandler struct {
@@ -18,7 +18,17 @@ func NewLoginHandler(uc ports.ILoginUseCase) *LoginHandler {
 	return &LoginHandler{uc: uc}
 }
 
-func (h *LoginHandler) Execute(c *fiber.Ctx) error {
+// @Summary      User Login
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      dto.LoginRequest  true  "Credentials"
+// @Success      200      {object}  dto.LoginResponse
+// @Failure      400      {string}  string "Bad Request"
+// @Failure      401      {string}  string "Unauthorized"
+// @Failure      500      {string}  string "Internal Server Error"
+// @Router       /auth/login [post]
+func (h *LoginHandler) Execute(c fiber.Ctx) error {
 	reqCtx := utils.ReqCtx(c)
 	l := reqCtx.Logger
 
@@ -26,7 +36,7 @@ func (h *LoginHandler) Execute(c *fiber.Ctx) error {
 
 	l.Info("Handling login request")
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		l.Warn("Failed to parse login request body", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
@@ -42,7 +52,7 @@ func (h *LoginHandler) Execute(c *fiber.Ctx) error {
 	}
 
 	authResp, err := h.uc.Execute(
-		c.UserContext(),
+		c.Context(),
 		req.Email,
 		req.Password,
 	)

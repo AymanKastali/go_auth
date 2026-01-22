@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func RequireRole(requiredRoleName string) fiber.Handler {
 	required := strings.ToUpper(requiredRoleName)
 
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		reqCtx := utils.ReqCtx(c)
 		l := reqCtx.Logger
 

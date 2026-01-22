@@ -4,13 +4,13 @@ import (
 	"go_auth/internal/core/application/dto"
 	"log/slog"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 const FiberCtxKey = "app_context"
 
 func NewContextMiddleware(l *slog.Logger) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		// 1. Extract Identity
 		requestID, _ := c.Locals("requestid").(string)
 		deviceFingerprint := c.Get("X-Device-Fingerprint")
@@ -34,7 +34,7 @@ func NewContextMiddleware(l *slog.Logger) fiber.Handler {
 		c.Locals(FiberCtxKey, reqCtx)
 
 		// 4. Inject into Standard Context (Crucial for Services)
-		c.SetUserContext(dto.Inject(c.UserContext(), reqCtx))
+		c.SetContext(dto.Inject(c.Context(), reqCtx))
 
 		return c.Next()
 	}

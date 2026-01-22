@@ -1,23 +1,26 @@
 FROM golang:1.25 AS dev
 
-# 1. Install Delve
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+# 1. Install Delve and Swag
+RUN go install github.com/go-delve/delve/cmd/dlv@latest \
+    && go install github.com/swaggo/swag/cmd/swag@latest
 
 WORKDIR /workspace
 
+# 2. Download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 2. Copy everything (needed for live debugging)
+# 3. Copy all source code (needed for debugging)
 COPY ./build ./build
 COPY ./config ./config
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 
-# 3. Expose only your 2 fucking ports
+# 4. Generate Swagger docs
+RUN swag init -g cmd/server/main.go --parseDependency --parseInternal -o ./docs
+
+# 5. Expose ports
 EXPOSE 8080 2345
 
-# 4. Run Delve
-# This compiles and runs main.go, then listens on 2345 for VS Code to connect.
-# The "--" separates Delve flags from your own app flags.
+# 6. Run Delve (exact same command you had)
 ENTRYPOINT ["dlv", "debug", "./cmd/server/main.go", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--", "--port=8080"]
