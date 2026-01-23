@@ -22,12 +22,12 @@ type IPasswordHasherService interface {
 }
 
 type IRandomTokenGenerator interface {
-	Generate() (valueobjects.SessionRenewalTokenSecret, error)
+	Generate() (valueobjects.SessionRenewalRawTokenSecret, error)
 }
 
 type ITokenHasherService interface {
-	Hash(raw valueobjects.SessionRenewalTokenSecret) (valueobjects.SessionRenewalHashedToken, error)
-	Compare(raw valueobjects.SessionRenewalTokenSecret, hash valueobjects.SessionRenewalHashedToken) (bool, error)
+	Hash(raw valueobjects.SessionRenewalRawTokenSecret) (valueobjects.SessionRenewalHashedToken, error)
+	Compare(raw valueobjects.SessionRenewalRawTokenSecret, hash valueobjects.SessionRenewalHashedToken) (bool, error)
 }
 
 type IUserRegistrationPolicy interface {
@@ -38,7 +38,7 @@ type IUserRegistrationPolicy interface {
 type IAuthDomainService interface {
 	Authenticate(emailStr, password string) (*aggregates.User, error)
 	ResolveDevice(
-		deviceFingerprint valueobjects.DeviceFingerprint,
+		fingerprint valueobjects.DeviceFingerprint,
 		userID valueobjects.UserID,
 		name *string,
 		userAgent *string,
@@ -64,8 +64,32 @@ type ISessionDomainService interface {
 		oldToken *entities.SessionRenewalToken,
 		now valueobjects.Timepoint,
 	) error
+
+	RevokeSession(
+		token *entities.SessionRenewalToken,
+		rawSecret valueobjects.SessionRenewalRawTokenSecret,
+		now valueobjects.Timepoint,
+	) error
+
+	RefreshSession(
+		oldToken *entities.SessionRenewalToken,
+		rawSecret valueobjects.SessionRenewalRawTokenSecret,
+		currentDevice *entities.Device,
+		now valueobjects.Timepoint,
+	) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error)
 }
 
 type IPasswordPolicyService interface {
 	Validate(password valueobjects.RawPassword) error
+}
+
+type IUserService interface {
+	RegisterUser(email valueobjects.Email, rawPwd valueobjects.RawPassword, now valueobjects.Timepoint) (*aggregates.User, error)
+	AssignRole(user *aggregates.User, roleName string, now valueobjects.Timepoint) error
+	RemoveRole(user *aggregates.User, roleName string, now valueobjects.Timepoint) error
+}
+
+type IRoleService interface {
+	EnsureRoleExists(name string, now valueobjects.Timepoint) (*aggregates.Role, error)
+	CreateNewRole(name string, now valueobjects.Timepoint) (*aggregates.Role, error)
 }

@@ -63,20 +63,20 @@ func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates
 }
 
 func (s *authDomainService) ResolveDevice(
-	deviceFingerprint valueobjects.DeviceFingerprint,
+	fingerprint valueobjects.DeviceFingerprint,
 	userID valueobjects.UserID,
 	name *string,
 	userAgent *string,
 	ip *string,
 	now valueobjects.Timepoint,
 ) (*entities.Device, error) {
-	device, err := s.deviceRepo.GetByFingerprint(deviceFingerprint)
+	device, err := s.deviceRepo.GetByFingerprint(fingerprint)
 	if err != nil {
 		return nil, err
 	}
 
 	if device == nil {
-		device, err = s.deviceFactory.New(deviceFingerprint, userID, name, userAgent, ip, true, now)
+		device, err = s.deviceFactory.New(fingerprint, userID, name, userAgent, ip, true, now)
 		if err != nil {
 			return nil, err
 		}

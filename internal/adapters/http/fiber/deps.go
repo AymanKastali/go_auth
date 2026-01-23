@@ -9,11 +9,10 @@ import (
 	"go_auth/internal/adapters/persistence/postgres/mappers"
 	"go_auth/internal/adapters/persistence/postgres/repositories"
 	adaptersvc "go_auth/internal/adapters/services"
-	"go_auth/internal/core/application/services"
 	"go_auth/internal/core/application/usecases"
 	"go_auth/internal/core/domain/factories"
 	"go_auth/internal/core/domain/policies"
-	domainsvc "go_auth/internal/core/domain/services"
+	"go_auth/internal/core/domain/services"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -40,7 +39,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 
 	pwdHasher := adaptersvc.NewBcryptHasher(cfg.Security.BcryptCost)
 	tokenHasher := adaptersvc.NewHMACHasher(cfg.Security.HMACSecret)
-	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.SessionRenewalTokenSecretBytes)
+	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.SessionRenewalRawTokenSecretBytes)
 
 	jwtIssuer := adaptersvc.NewJWTSessionTokenIssuerService(
 		cfg.JWT.PrivateKey,
@@ -60,33 +59,32 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	// =========================
 	// Policies
 	// =========================
-	SessionTokenPolicy := policies.NewDefaultSessionTokenPolicy()
-	sessionRenewalTokenPolicy := policies.NewDefaultSessionRenewalTokenPolicy()
-	passwordPolicy := policies.NewDefaultPasswordPolicy()
+	SessionTokenPolicy := policies.NewSessionTokenPolicy()
+	sessionRenewalTokenPolicy := policies.NewSessionRenewalTokenPolicy()
+	passwordPolicy := policies.NewPasswordPolicy()
 
 	// =========================
 	// Domain Factories
 	// =========================
-	deviceFactory := factories.NewDefaultDeviceFactory(idSvc, clockSvc)
-	sessionRenewalTokenFactory := factories.NewDefaultSessionRenewalTokenFactory(
-		tokenGenerator,
-		tokenHasher,
+	deviceFactory := factories.NewDeviceFactory(idSvc)
+	sessionRenewalTokenFactory := factories.NewSessionRenewalTokenFactory(
 		idSvc,
 		sessionRenewalTokenPolicy,
 	)
-	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
-	userFactory := factories.NewDefaultUserFactory(registrationPolicy, passwordPolicy, idSvc, pwdHasher)
+	userFactory := factories.NewDefaultUserFactory(idSvc)
 
 	// =========================
 	// Domain Services
 	// =========================
-	authDomainSvc := domainsvc.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory)
-	sessionDomainSvc := domainsvc.NewSessionDomainService(sessionRenewalRepo, sessionRenewalTokenFactory)
+	roleSvc := services.NewRoleService(roleRepo, idSvc)
+	userSvc := services.NewUserService(userRepo, roleRepo, pwdHasher, userFactory, passwordPolicy)
+	authDomainSvc := services.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory)
+	sessionDomainSvc := services.NewSessionDomainSvc(sessionRenewalRepo, sessionRenewalTokenFactory, tokenHasher, tokenGenerator)
 
 	// =========================
 	// Application Use Cases
 	// =========================
-	registerUC := usecases.NewRegisterUseCase(userRepo, userFactory, clockSvc)
+	registerUC := usecases.NewRegisterUseCase(userRepo, userSvc, clockSvc)
 
 	loginUC := usecases.NewLoginUseCase(
 		authDomainSvc,
@@ -108,31 +106,29 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 		jwtIssuer,
 		clockSvc,
 		idSvc,
-		tokenHasher,
 		SessionTokenPolicy,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(sessionRenewalRepo, clockSvc, tokenHasher)
+	logoutUC := usecases.NewLogoutUseCase(sessionRenewalRepo, sessionDomainSvc, clockSvc)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo)
-	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
+	roleUC := usecases.NewUpdateRoleUseCase(userSvc, userRepo, clockSvc)
+
+	adminUserSeederUC := usecases.NewSeedAdminUseCase(
+		userRepo,
+		userSvc,
+		clockSvc,
+	)
+
+	rolesSeederUC := usecases.NewSeedRolesUseCase(roleSvc, roleRepo, clockSvc)
 
 	// =========================
 	// Seeders
 	// =========================
-	if err := services.NewSeedRolesSvc(roleRepo, idSvc, clockSvc, logger).SeedDefaultRoles(); err != nil {
+	if err := rolesSeederUC.Execute(logger); err != nil {
 		return nil, err
 	}
 
-	if err := services.NewSeedAdminSvc(
-		userRepo,
-		roleRepo,
-		pwdHasher,
-		idSvc,
-		clockSvc,
-		cfg.AdminSeeder.AdminEmail,
-		cfg.AdminSeeder.AdminPassword,
-		logger,
-	).SeedAdmin(); err != nil {
+	if err := adminUserSeederUC.Execute(logger, cfg.AdminSeeder.AdminEmail, cfg.AdminSeeder.AdminPassword); err != nil {
 		return nil, err
 	}
 

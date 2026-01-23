@@ -6,50 +6,24 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type defaultUserFactory struct {
-	regPolicy    ports.IUserRegistrationPolicy
-	pwdPolicy    ports.IPasswordPolicyService
-	idSvc        ports.IIDService
-	pwdHasherSvc ports.IPasswordHasherService
+type UserFactory struct {
+	idSvc ports.IIDService
 }
 
 func NewDefaultUserFactory(
-	regPolicy ports.IUserRegistrationPolicy,
-	pwdPolicy ports.IPasswordPolicyService,
 	idSvc ports.IIDService,
-	pwdHasherSvc ports.IPasswordHasherService,
-) *defaultUserFactory {
-	return &defaultUserFactory{
-		regPolicy:    regPolicy,
-		pwdPolicy:    pwdPolicy,
-		idSvc:        idSvc,
-		pwdHasherSvc: pwdHasherSvc,
+) *UserFactory {
+	return &UserFactory{
+		idSvc: idSvc,
 	}
 }
 
-func (f *defaultUserFactory) New(
+func (f *UserFactory) New(
 	email valueobjects.Email,
-	rawPwd valueobjects.RawPassword,
+	hashed valueobjects.HashedPassword,
+	roles []valueobjects.RoleID,
 	now valueobjects.Timepoint,
 ) (*aggregates.User, error) {
-	if err := f.pwdPolicy.Validate(rawPwd); err != nil {
-		return nil, err
-	}
-
-	if err := f.regPolicy.Validate(email); err != nil {
-		return nil, err
-	}
-
-	hashedPwd, err := f.pwdHasherSvc.Hash(rawPwd)
-	if err != nil {
-		return nil, err
-	}
-
-	roles, err := f.regPolicy.DefaultRoles()
-	if err != nil {
-		return nil, err
-	}
-
 	userID, err := valueobjects.NewUserID(f.idSvc.Generate())
 	if err != nil {
 		return nil, err
@@ -58,7 +32,7 @@ func (f *defaultUserFactory) New(
 	return aggregates.NewUser(
 		userID,
 		email,
-		hashedPwd,
+		hashed,
 		valueobjects.UserActive,
 		roles,
 		now,

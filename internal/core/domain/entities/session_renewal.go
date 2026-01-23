@@ -6,7 +6,7 @@ import (
 )
 
 type SessionRenewalToken struct {
-	id          valueobjects.SessionRenewalTokenID
+	id          valueobjects.SessionRenewalRawTokenID
 	userID      valueobjects.UserID
 	deviceID    valueobjects.DeviceID
 	hashedToken valueobjects.SessionRenewalHashedToken
@@ -16,7 +16,7 @@ type SessionRenewalToken struct {
 }
 
 func NewSessionRenewalToken(
-	id valueobjects.SessionRenewalTokenID,
+	id valueobjects.SessionRenewalRawTokenID,
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
 	hash valueobjects.SessionRenewalHashedToken,
@@ -24,7 +24,7 @@ func NewSessionRenewalToken(
 	now valueobjects.Timepoint,
 ) (*SessionRenewalToken, error) {
 	if id.IsEmpty() {
-		return nil, derr.NewErrSessionRenewalTokenIDRequired()
+		return nil, derr.NewErrSessionRenewalRawTokenIDRequired()
 	}
 	if userID.IsEmpty() {
 		return nil, derr.NewErrUserIDRequired()
@@ -56,7 +56,7 @@ func NewSessionRenewalToken(
 }
 
 func ReconstituteSessionRenewalToken(
-	id valueobjects.SessionRenewalTokenID,
+	id valueobjects.SessionRenewalRawTokenID,
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
 	hashedToken valueobjects.SessionRenewalHashedToken,
@@ -95,10 +95,27 @@ func (e *SessionRenewalToken) EnsureUsable(now valueobjects.Timepoint) error {
 	return nil
 }
 
-func (e *SessionRenewalToken) BelongsTo(deviceID valueobjects.DeviceID) error {
+func (e *SessionRenewalToken) BelongsToDevice(deviceID valueobjects.DeviceID) error {
 	if !e.deviceID.Equal(deviceID) {
 		return derr.NewErrTokenDoesNotBelongToDevice(e.id.String(), deviceID.String())
 	}
+	return nil
+}
+
+// Rotate handles the transition of an existing token during a refresh flow.
+func (e *SessionRenewalToken) Rotate(now valueobjects.Timepoint) error {
+	// 1. If it's already revoked, this is a reuse attempt (Compromise Detection)
+	if e.IsRevoked() {
+		return derr.NewErrSessionCompromised(e.userID.String())
+	}
+
+	// 2. Check if it's expired
+	if e.IsExpired(now) {
+		return derr.NewErrSessionRenewalTokenExpired(e.id.String())
+	}
+
+	// 3. Mark as revoked because it is being replaced by a new one
+	e.revokedAt = &now
 	return nil
 }
 
@@ -111,9 +128,9 @@ func (e *SessionRenewalToken) IsActive(now valueobjects.Timepoint) bool {
 	return !e.IsRevoked() && !e.IsExpired(now)
 }
 
-func (e *SessionRenewalToken) ID() valueobjects.SessionRenewalTokenID { return e.id }
-func (e *SessionRenewalToken) UserID() valueobjects.UserID            { return e.userID }
-func (e *SessionRenewalToken) DeviceID() valueobjects.DeviceID        { return e.deviceID }
+func (e *SessionRenewalToken) ID() valueobjects.SessionRenewalRawTokenID { return e.id }
+func (e *SessionRenewalToken) UserID() valueobjects.UserID               { return e.userID }
+func (e *SessionRenewalToken) DeviceID() valueobjects.DeviceID           { return e.deviceID }
 func (e *SessionRenewalToken) SessionRenewalHashedToken() valueobjects.SessionRenewalHashedToken {
 	return e.hashedToken
 }

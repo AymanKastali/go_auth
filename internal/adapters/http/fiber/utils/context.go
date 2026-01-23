@@ -23,9 +23,9 @@ type RequestContext struct {
 
 type AuthContext struct {
 	RequestContext
-	UserID                string
-	Roles                 []string
-	SessionRenewalTokenID string
+	UserID                   string
+	Roles                    []string
+	SessionRenewalRawTokenID string
 }
 
 // FromContext handles the "No Redundancy" logic.

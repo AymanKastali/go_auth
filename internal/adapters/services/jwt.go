@@ -47,7 +47,7 @@ func (s *jwtSessionTokenIssuerService) Issue(
 			Issuer:    s.issuer,
 			Subject:   ctx.UserID,
 			Audience:  []string{s.audience},
-			ID:        ctx.SessionRenewalTokenID,
+			ID:        ctx.SessionRenewalRawTokenID,
 			IssuedAt:  jwt.NewNumericDate(ctx.IssuedAt),
 			ExpiresAt: jwt.NewNumericDate(ctx.ExpiresAt),
 		},
@@ -77,11 +77,11 @@ func (s *jwtSessionTokenIssuerService) Validate(
 	}
 
 	return dto.SessionTokenMetadata{
-		SessionRenewalTokenID: claims.ID,
-		UserID:                claims.Subject,
-		DeviceID:              claims.DeviceID,
-		Roles:                 claims.Roles,
-		IssuedAt:              claims.IssuedAt.Time,
-		ExpiresAt:             claims.ExpiresAt.Time,
+		SessionRenewalRawTokenID: claims.ID,
+		UserID:                   claims.Subject,
+		DeviceID:                 claims.DeviceID,
+		Roles:                    claims.Roles,
+		IssuedAt:                 claims.IssuedAt.Time,
+		ExpiresAt:                claims.ExpiresAt.Time,
 	}, nil
 }

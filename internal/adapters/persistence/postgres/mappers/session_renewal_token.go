@@ -23,7 +23,7 @@ func (m *SessionRenewalTokenMapper) ToDomain(model *models.SessionRenewalToken) 
 	}
 
 	return entities.ReconstituteSessionRenewalToken(
-		valueobjects.ReconstituteSessionRenewalTokenID(model.ID),
+		valueobjects.ReconstituteSessionRenewalRawTokenID(model.ID),
 		valueobjects.ReconstituteUserID(model.UserID),
 		valueobjects.ReconstituteDeviceID(model.DeviceID),
 		valueobjects.ReconstituteSessionRenewalHashedToken(model.Hash),

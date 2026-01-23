@@ -59,16 +59,16 @@ func JWTMiddleware(
 		// 5. Create AuthContext WITHOUT redundancy
 		// Struct embedding allows us to just pass the whole RequestContext struct
 		authCtx := &utils.AuthContext{
-			RequestContext:        *baseReq,
-			UserID:                claims.UserID,
-			Roles:                 claims.Roles,
-			SessionRenewalTokenID: claims.SessionRenewalTokenID,
+			RequestContext:           *baseReq,
+			UserID:                   claims.UserID,
+			Roles:                    claims.Roles,
+			SessionRenewalRawTokenID: claims.SessionRenewalRawTokenID,
 		}
 
 		// 6. Enrich the Logger specifically for AuthContext
 		authCtx.Logger = baseReq.Logger.With(
 			slog.String("user_id", authCtx.UserID),
-			slog.String("token_id", authCtx.SessionRenewalTokenID),
+			slog.String("token_id", authCtx.SessionRenewalRawTokenID),
 		)
 
 		l.Debug("Authentication successful", slog.String("user_id", authCtx.UserID))
@@ -149,7 +149,7 @@ func JWTMiddleware(
 // 			return apperr.Map(err)
 // 		}
 // 		userID := claims.UserID
-// 		tokenID := claims.SessionRenewalTokenID
+// 		tokenID := claims.SessionRenewalRawTokenID
 // 		enrichedLogger := baseReq.Logger.With(
 // 			slog.String("user_id", userID),
 // 			slog.String("token_id", tokenID),
@@ -166,7 +166,7 @@ func JWTMiddleware(
 // 			},
 // 			UserID:                userID,
 // 			Roles:                 claims.Roles,
-// 			SessionRenewalTokenID: tokenID,
+// 			SessionRenewalRawTokenID: tokenID,
 // 		}
 
 // 		l.Debug("Authentication successful",

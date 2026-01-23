@@ -56,11 +56,6 @@ func (r *GormRoleRepository) GetByID(id valueobjects.RoleID) (*aggregates.Role, 
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch role by id")
 	}
 
-	// GATEKEEPER
-	if err := model.Validate(r.idSvc); err != nil {
-		return nil, err
-	}
-
 	return r.mapper.ToDomain(&model), nil
 }
 
@@ -78,10 +73,6 @@ func (r *GormRoleRepository) GetByName(name string) (*aggregates.Role, error) {
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch role by name")
 	}
 
-	if err := model.Validate(r.idSvc); err != nil {
-		return nil, err
-	}
-
 	return r.mapper.ToDomain(&model), nil
 }
 
@@ -93,11 +84,35 @@ func (r *GormRoleRepository) GetAll() ([]*aggregates.Role, error) {
 
 	roles := make([]*aggregates.Role, len(modelsList))
 	for i := range modelsList {
-		// ALL OR NOTHING
-		if err := modelsList[i].Validate(r.idSvc); err != nil {
-			return nil, err
-		}
 		roles[i] = r.mapper.ToDomain(&modelsList[i])
+	}
+
+	return roles, nil
+}
+
+func (r *GormRoleRepository) GetByIDs(ids []valueobjects.RoleID) ([]*aggregates.Role, error) {
+	if len(ids) == 0 {
+		return []*aggregates.Role{}, nil
+	}
+
+	// Convert Value Objects to strings for the SQL query
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = id.String()
+	}
+
+	var roleModels []models.Role
+	// Using GORM's IN clause support
+	err := r.db.Where("id IN ?", strIDs).Find(&roleModels).Error
+
+	if err != nil {
+		return nil, pgerr.WrapUnavailable(err, "failed to fetch roles by ids")
+	}
+
+	// Map and Validate
+	roles := make([]*aggregates.Role, len(roleModels))
+	for i := range roleModels {
+		roles[i] = r.mapper.ToDomain(&roleModels[i])
 	}
 
 	return roles, nil

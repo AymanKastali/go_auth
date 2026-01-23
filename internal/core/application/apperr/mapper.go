@@ -45,6 +45,8 @@ func mapDomainCode(code derr.ErrorCode) ErrorType {
 		return TypeValidation
 	case derr.CodeConflict:
 		return TypeConflict
+	case derr.CodeForbidden:
+		return TypeForbidden
 	case derr.CodeBusinessRule:
 		return TypeUnprocessable
 	default:
