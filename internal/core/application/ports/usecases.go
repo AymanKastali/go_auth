@@ -28,3 +28,11 @@ type IRegisterUseCase interface {
 type IUpdateRoleUseCase interface {
 	Execute(l *slog.Logger, input dto.ManageRoleInput) error
 }
+
+type ISeedAdminUseCase interface {
+	Execute(l *slog.Logger, adminEmail, adminPassword string)
+}
+
+type ISeedRolesUseCase interface {
+	Execute(l *slog.Logger) error
+}

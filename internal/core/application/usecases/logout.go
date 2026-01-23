@@ -8,24 +8,23 @@ import (
 )
 
 type LogoutUseCase struct {
-	sessionRenewalRepo ports.ISessionRenewalTokenRepository
-	clockSvc           ports.IClockService
-	tokenHasher        ports.ITokenHasherService
+	repo             ports.ISessionRenewalTokenRepository
+	sessionDomainSvc ports.ISessionDomainService
+	clockSvc         ports.IClockService
 }
 
 func NewLogoutUseCase(
 	repo ports.ISessionRenewalTokenRepository,
+	sessionDomainSvc ports.ISessionDomainService,
 	clockSvc ports.IClockService,
-	tokenHasher ports.ITokenHasherService,
 ) *LogoutUseCase {
 	return &LogoutUseCase{
-		sessionRenewalRepo: repo,
-		clockSvc:           clockSvc,
-		tokenHasher:        tokenHasher,
+		repo:             repo,
+		sessionDomainSvc: sessionDomainSvc,
+		clockSvc:         clockSvc,
 	}
 }
 
-// Execute performs the logout logic by revoking the session renewal token.
 func (uc *LogoutUseCase) Execute(l *slog.Logger, rawToken string) error {
 	l.Info("Executing user logout")
 
@@ -40,7 +39,8 @@ func (uc *LogoutUseCase) Execute(l *slog.Logger, rawToken string) error {
 		return apperr.Validation("Invalid session renewal token", nil)
 	}
 
-	tokenEntity, err := uc.sessionRenewalRepo.FindByID(tokenVO.ID())
+	renewalTokenID := tokenVO.ID()
+	tokenEntity, err := uc.repo.FindByID(renewalTokenID)
 	if err != nil {
 		l.Error("Database error during token lookup", slog.Any("error", err))
 		return apperr.Map(err)
@@ -48,27 +48,16 @@ func (uc *LogoutUseCase) Execute(l *slog.Logger, rawToken string) error {
 
 	// If the token doesn't exist, we consider it "logged out" (idempotency)
 	if tokenEntity == nil {
-		l.Debug("Logout idempotency: token not found in repository")
-		return nil
+		l.Debug("token not found in repository")
+		return apperr.NotFound("RenewalToken", renewalTokenID.String())
 	}
 
-	// Verify token integrity
-	valid, err := uc.tokenHasher.Compare(tokenVO.Secret(), tokenEntity.SessionRenewalHashedToken())
-	if err != nil {
-		return apperr.Map(err)
-	}
-	if !valid {
-		l.Warn("Logout failed: token secret mismatch")
-		return apperr.Unauthorized("Invalid session renewal token", nil)
-	}
-
-	// Revoke the token
-	if err := tokenEntity.Revoke(now); err != nil {
-		l.Warn("Logout failed: token already revoked or expired", slog.Any("error", err))
+	if err := uc.sessionDomainSvc.RevokeSession(tokenEntity, tokenVO.Secret(), now); err != nil {
+		l.Warn("Logout business rule violation", slog.Any("error", err))
 		return apperr.Map(err)
 	}
 
-	if err := uc.sessionRenewalRepo.Save(tokenEntity); err != nil {
+	if err := uc.repo.Save(tokenEntity); err != nil {
 		l.Error("Failed to save revoked token status", slog.Any("error", err))
 		return apperr.Map(err)
 	}

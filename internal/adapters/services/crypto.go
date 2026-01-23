@@ -14,15 +14,15 @@ func NewCryptoRandomTokenGenerator(size int) *cryptoRandomTokenGeneratorService 
 	return &cryptoRandomTokenGeneratorService{size: size}
 }
 
-func (g *cryptoRandomTokenGeneratorService) Generate() (valueobjects.SessionRenewalTokenSecret, error) {
+func (g *cryptoRandomTokenGeneratorService) Generate() (valueobjects.SessionRenewalRawTokenSecret, error) {
 	b := make([]byte, g.size)
 	if _, err := rand.Read(b); err != nil {
-		return valueobjects.SessionRenewalTokenSecret{}, err
+		return valueobjects.SessionRenewalRawTokenSecret{}, err
 	}
 	encodedStr := base64.RawURLEncoding.EncodeToString(b)
-	secretVO, err := valueobjects.NewSessionRenewalTokenSecret(encodedStr)
+	secretVO, err := valueobjects.NewSessionRenewalRawTokenSecret(encodedStr)
 	if err != nil {
-		return valueobjects.SessionRenewalTokenSecret{}, err
+		return valueobjects.SessionRenewalRawTokenSecret{}, err
 	}
 	return secretVO, nil
 }

@@ -35,8 +35,32 @@ func (r *gormSessionRenewalTokenRepository) Save(e *entities.SessionRenewalToken
 	return r.db.Save(model).Error
 }
 
+func (r *gormSessionRenewalTokenRepository) SaveMany(tokens []*entities.SessionRenewalToken) error {
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	dbModels := make([]*models.SessionRenewalToken, len(tokens))
+	for i, e := range tokens {
+		if e == nil {
+			continue
+		}
+		dbModels[i] = r.mapper.ToModel(e)
+	}
+
+	// Using a transaction ensures that if one token fails to save,
+	// the state doesn't end up partially updated.
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// tx.Save handles upserts automatically
+		if err := tx.Save(&dbModels).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 // FindByID returns the entity by ID or nil if not found
-func (r *gormSessionRenewalTokenRepository) FindByID(id valueobjects.SessionRenewalTokenID) (*entities.SessionRenewalToken, error) {
+func (r *gormSessionRenewalTokenRepository) FindByID(id valueobjects.SessionRenewalRawTokenID) (*entities.SessionRenewalToken, error) {
 	var model models.SessionRenewalToken
 	err := r.db.Where("id = ?", id.String()).First(&model).Error
 

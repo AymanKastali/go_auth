@@ -14,7 +14,7 @@ type PasswordPolicy struct {
 	RequireSpecial bool
 }
 
-func NewDefaultPasswordPolicy() *PasswordPolicy {
+func NewPasswordPolicy() *PasswordPolicy {
 	return &PasswordPolicy{
 		MinLength:      8,
 		MaxLength:      64,

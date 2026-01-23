@@ -7,56 +7,36 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type defaultSessionRenewalTokenFactory struct {
-	tokenGenerator ports.IRandomTokenGenerator
-	tokenHasher    ports.ITokenHasherService
-	idSvc          ports.IIDService
-	policy         policies.SessionRenewalTokenPolicy
+type sessionRenewalTokenFactory struct {
+	idSvc  ports.IIDService
+	policy policies.SessionRenewalTokenPolicy
 }
 
-func NewDefaultSessionRenewalTokenFactory(
-	tokenGenerator ports.IRandomTokenGenerator,
-	tokenHasher ports.ITokenHasherService,
+func NewSessionRenewalTokenFactory(
 	idSvc ports.IIDService,
 	policy policies.SessionRenewalTokenPolicy,
-) *defaultSessionRenewalTokenFactory {
-	return &defaultSessionRenewalTokenFactory{
-		tokenGenerator: tokenGenerator,
-		tokenHasher:    tokenHasher,
-		idSvc:          idSvc,
-		policy:         policy,
+) *sessionRenewalTokenFactory {
+	return &sessionRenewalTokenFactory{
+		idSvc:  idSvc,
+		policy: policy,
 	}
 }
 
-func (f *defaultSessionRenewalTokenFactory) New(
+func (f *sessionRenewalTokenFactory) New(
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
+	hashed valueobjects.SessionRenewalHashedToken,
 	now valueobjects.Timepoint,
-) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error) {
-	emptySessionRenewalToken := valueobjects.SessionRenewalRawToken{}
-	tokenID, err := valueobjects.NewSessionRenewalTokenID(f.idSvc.Generate())
-	if err != nil {
-		return nil, emptySessionRenewalToken, err
-	}
+) (*entities.SessionRenewalToken, error) {
 
-	rawSecret, err := f.tokenGenerator.Generate()
+	tokenID, err := valueobjects.NewSessionRenewalRawTokenID(f.idSvc.Generate())
 	if err != nil {
-		return nil, emptySessionRenewalToken, err
-	}
-
-	rawToken, err := valueobjects.NewSessionRenewalRawToken(tokenID, rawSecret)
-	if err != nil {
-		return nil, emptySessionRenewalToken, err
-	}
-
-	hashed, err := f.tokenHasher.Hash(rawSecret)
-	if err != nil {
-		return nil, emptySessionRenewalToken, err
+		return nil, err
 	}
 
 	expiresAt := now.Add(f.policy.Lifetime)
 
-	sessionRenewalToken, err := entities.NewSessionRenewalToken(
+	return entities.NewSessionRenewalToken(
 		tokenID,
 		userID,
 		deviceID,
@@ -64,9 +44,4 @@ func (f *defaultSessionRenewalTokenFactory) New(
 		expiresAt,
 		now,
 	)
-	if err != nil {
-		return nil, emptySessionRenewalToken, err
-	}
-
-	return sessionRenewalToken, rawToken, nil
 }

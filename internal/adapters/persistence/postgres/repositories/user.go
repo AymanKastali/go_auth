@@ -35,7 +35,7 @@ func NewGormUserRepository(
 	}
 }
 
-func (r *GormUserRepository) Create(a *aggregates.User) error {
+func (r *GormUserRepository) Save(a *aggregates.User) error {
 	model := r.mapper.ToModel(a)
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -61,11 +61,6 @@ func (r *GormUserRepository) GetByEmail(email valueobjects.Email) (*aggregates.U
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch user by email")
 	}
 
-	// GATEKEEPER: Validate all integrity rules (ID, Password Hash, Email, Status)
-	if err := model.Validate(r.idSvc, r.pwdSvc); err != nil {
-		return nil, err // Returns pgerr.isIntegrity
-	}
-
 	return r.mapper.ToDomain(&model), nil
 }
 
@@ -78,11 +73,6 @@ func (r *GormUserRepository) GetByID(id valueobjects.UserID) (*aggregates.User, 
 			return nil, nil
 		}
 		return nil, pgerr.WrapUnavailable(err, "failed to fetch user by id")
-	}
-
-	// GATEKEEPER: Validate all integrity rules
-	if err := model.Validate(r.idSvc, r.pwdSvc); err != nil {
-		return nil, err
 	}
 
 	return r.mapper.ToDomain(&model), nil

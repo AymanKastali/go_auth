@@ -68,9 +68,7 @@ func (e *ErrPasswordMismatch) Code() ErrorCode     { return CodeValidation }
 
 // --- Password Policy ---
 
-type ErrPasswordTooShort struct {
-	MinLength uint8
-}
+type ErrPasswordTooShort struct{ MinLength uint8 }
 
 func NewErrPasswordTooShort(min uint8) *ErrPasswordTooShort {
 	return &ErrPasswordTooShort{MinLength: min}
@@ -106,9 +104,7 @@ func (e *ErrPasswordMissingSpecialChar) Error() string {
 }
 func (e *ErrPasswordMissingSpecialChar) Code() ErrorCode { return CodeValidation }
 
-type ErrPasswordTooLong struct {
-	MaxLength uint8
-}
+type ErrPasswordTooLong struct{ MaxLength uint8 }
 
 func NewErrPasswordTooLong(max uint8) *ErrPasswordTooLong { return &ErrPasswordTooLong{MaxLength: max} }
 func (e *ErrPasswordTooLong) Error() string {
@@ -126,25 +122,25 @@ func NewErrSessionRenewalTokenRequired() *ErrSessionRenewalTokenRequired {
 func (e *ErrSessionRenewalTokenRequired) Error() string   { return "authentication token is required" }
 func (e *ErrSessionRenewalTokenRequired) Code() ErrorCode { return CodeValidation }
 
-type ErrSessionRenewalTokenSecretRequired struct{}
+type ErrSessionRenewalRawTokenSecretRequired struct{}
 
-func NewErrSessionRenewalTokenSecretRequired() *ErrSessionRenewalTokenSecretRequired {
-	return &ErrSessionRenewalTokenSecretRequired{}
+func NewErrSessionRenewalRawTokenSecretRequired() *ErrSessionRenewalRawTokenSecretRequired {
+	return &ErrSessionRenewalRawTokenSecretRequired{}
 }
-func (e *ErrSessionRenewalTokenSecretRequired) Error() string {
-	return "session renewal token secret is required"
+func (e *ErrSessionRenewalRawTokenSecretRequired) Error() string {
+	return "session renewal raw token secret is required"
 }
-func (e *ErrSessionRenewalTokenSecretRequired) Code() ErrorCode { return CodeValidation }
+func (e *ErrSessionRenewalRawTokenSecretRequired) Code() ErrorCode { return CodeValidation }
 
-type ErrSessionRenewalTokenIDRequired struct{}
+type ErrSessionRenewalRawTokenIDRequired struct{}
 
-func NewErrSessionRenewalTokenIDRequired() *ErrSessionRenewalTokenIDRequired {
-	return &ErrSessionRenewalTokenIDRequired{}
+func NewErrSessionRenewalRawTokenIDRequired() *ErrSessionRenewalRawTokenIDRequired {
+	return &ErrSessionRenewalRawTokenIDRequired{}
 }
-func (e *ErrSessionRenewalTokenIDRequired) Error() string {
-	return "session renewal token identifier is required"
+func (e *ErrSessionRenewalRawTokenIDRequired) Error() string {
+	return "session renewal raw token identifier is required"
 }
-func (e *ErrSessionRenewalTokenIDRequired) Code() ErrorCode { return CodeValidation }
+func (e *ErrSessionRenewalRawTokenIDRequired) Code() ErrorCode { return CodeValidation }
 
 type ErrTokenHashRequired struct{}
 

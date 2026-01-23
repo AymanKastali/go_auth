@@ -19,11 +19,11 @@ const (
 
 	// CodeNotFound: The requested entity does not exist.
 	// Maps to 404 Not Found.
-	// CodeNotFound ErrorCode = "NOT_FOUND"
+	CodeNotFound ErrorCode = "NOT_FOUND"
 
 	// CodeForbidden: Security policy violation (e.g., device doesn't belong to user).
 	// Maps to 403 Forbidden.
-	// CodeForbidden ErrorCode = "FORBIDDEN"
+	CodeForbidden ErrorCode = "FORBIDDEN"
 )
 
 // DomainError is the interface all custom error structs in this package implement.

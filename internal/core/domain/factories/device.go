@@ -6,22 +6,19 @@ import (
 	"go_auth/internal/core/domain/valueobjects"
 )
 
-type defaultDeviceFactory struct {
-	idSvc    ports.IIDService
-	clockSvc ports.IClockService
+type deviceFactory struct {
+	idSvc ports.IIDService
 }
 
-func NewDefaultDeviceFactory(
+func NewDeviceFactory(
 	idSvc ports.IIDService,
-	clockSvc ports.IClockService,
-) *defaultDeviceFactory {
-	return &defaultDeviceFactory{
-		idSvc:    idSvc,
-		clockSvc: clockSvc,
+) *deviceFactory {
+	return &deviceFactory{
+		idSvc: idSvc,
 	}
 }
 
-func (f *defaultDeviceFactory) New(
+func (f *deviceFactory) New(
 	fingerprint valueobjects.DeviceFingerprint,
 	userID valueobjects.UserID,
 	name *string,

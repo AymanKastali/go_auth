@@ -4,9 +4,7 @@ import "fmt"
 
 // --- Uniqueness & Registration ---
 
-type ErrEmailAlreadyUsed struct {
-	Email string
-}
+type ErrEmailAlreadyUsed struct{ Email string }
 
 func NewErrEmailAlreadyUsed(email string) *ErrEmailAlreadyUsed {
 	return &ErrEmailAlreadyUsed{Email: email}
@@ -20,9 +18,7 @@ func (e *ErrEmailAlreadyUsed) Code() ErrorCode { return CodeConflict }
 
 // --- User State Conflicts ---
 
-type ErrUserAlreadyActive struct {
-	UserID string
-}
+type ErrUserAlreadyActive struct{ UserID string }
 
 func NewErrUserAlreadyActive(userID string) *ErrUserAlreadyActive {
 	return &ErrUserAlreadyActive{UserID: userID}
@@ -34,9 +30,7 @@ func (e *ErrUserAlreadyActive) Error() string {
 
 func (e *ErrUserAlreadyActive) Code() ErrorCode { return CodeConflict }
 
-type ErrUserAlreadyInactive struct {
-	UserID string
-}
+type ErrUserAlreadyInactive struct{ UserID string }
 
 func NewErrUserAlreadyInactive(userID string) *ErrUserAlreadyInactive {
 	return &ErrUserAlreadyInactive{UserID: userID}
@@ -50,9 +44,7 @@ func (e *ErrUserAlreadyInactive) Code() ErrorCode { return CodeConflict }
 
 // --- Device State Conflicts ---
 
-type ErrDeviceAlreadyActive struct {
-	DeviceID string
-}
+type ErrDeviceAlreadyActive struct{ DeviceID string }
 
 func NewErrDeviceAlreadyActive(deviceID string) *ErrDeviceAlreadyActive {
 	return &ErrDeviceAlreadyActive{DeviceID: deviceID}
@@ -64,9 +56,7 @@ func (e *ErrDeviceAlreadyActive) Error() string {
 
 func (e *ErrDeviceAlreadyActive) Code() ErrorCode { return CodeConflict }
 
-type ErrDeviceAlreadyInactive struct {
-	DeviceID string
-}
+type ErrDeviceAlreadyInactive struct{ DeviceID string }
 
 func NewErrDeviceAlreadyInactive(deviceID string) *ErrDeviceAlreadyInactive {
 	return &ErrDeviceAlreadyInactive{DeviceID: deviceID}
@@ -94,3 +84,13 @@ func (e *ErrRoleAlreadyAssignedToUser) Error() string {
 }
 
 func (e *ErrRoleAlreadyAssignedToUser) Code() ErrorCode { return CodeConflict }
+
+type ErrRoleAlreadyExists struct{ RoleName string }
+
+func NewErrRoleAlreadyExists(roleName string) *ErrRoleAlreadyExists {
+	return &ErrRoleAlreadyExists{RoleName: roleName}
+}
+func (e *ErrRoleAlreadyExists) Error() string {
+	return fmt.Sprintf("role with name '%s' already exists in the system", e.RoleName)
+}
+func (e *ErrRoleAlreadyExists) Code() ErrorCode { return CodeConflict }

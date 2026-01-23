@@ -53,6 +53,7 @@ func NewUser(
 		roleIDs:      slices.Clone(roleIDs),
 		createdAt:    now,
 		updatedAt:    now,
+		deletedAt:    nil,
 	}, nil
 }
 

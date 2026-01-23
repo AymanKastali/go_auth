@@ -9,7 +9,8 @@ import (
 type IUserFactory interface {
 	New(
 		email valueobjects.Email,
-		rawPwd valueobjects.RawPassword,
+		hashed valueobjects.HashedPassword,
+		roles []valueobjects.RoleID,
 		now valueobjects.Timepoint,
 	) (*aggregates.User, error)
 }
@@ -30,6 +31,7 @@ type ISessionRenewalTokenFactory interface {
 	New(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
+		hashed valueobjects.SessionRenewalHashedToken,
 		now valueobjects.Timepoint,
-	) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error)
+	) (*entities.SessionRenewalToken, error)
 }

@@ -6,7 +6,7 @@ type SessionTokenPolicy struct {
 	SessionTokenTTL time.Duration
 }
 
-func NewDefaultSessionTokenPolicy() SessionTokenPolicy {
+func NewSessionTokenPolicy() SessionTokenPolicy {
 	return SessionTokenPolicy{
 		SessionTokenTTL: 5 * time.Minute,
 	}

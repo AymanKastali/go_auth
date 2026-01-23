@@ -7,9 +7,9 @@ import (
 )
 
 type SecurityConfig struct {
-	HMACSecret                     []byte
-	BcryptCost                     int
-	SessionRenewalTokenSecretBytes int
+	HMACSecret                        []byte
+	BcryptCost                        int
+	SessionRenewalRawTokenSecretBytes int
 }
 
 func loadSecurityConfig() (*SecurityConfig, error) {
@@ -38,8 +38,8 @@ func loadSecurityConfig() (*SecurityConfig, error) {
 	}
 
 	return &SecurityConfig{
-		HMACSecret:                     []byte(secret),
-		BcryptCost:                     cost,
-		SessionRenewalTokenSecretBytes: bytes,
+		HMACSecret:                        []byte(secret),
+		BcryptCost:                        cost,
+		SessionRenewalRawTokenSecretBytes: bytes,
 	}, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type IUserRepository interface {
-	Create(a *aggregates.User) error
+	Save(a *aggregates.User) error
 	Update(a *aggregates.User) error
 	GetByID(id valueobjects.UserID) (*aggregates.User, error)
 	GetByEmail(email valueobjects.Email) (*aggregates.User, error)
@@ -26,11 +26,13 @@ type IRoleRepository interface {
 	GetByID(id valueobjects.RoleID) (*aggregates.Role, error)
 	GetByName(name string) (*aggregates.Role, error)
 	GetAll() ([]*aggregates.Role, error)
+	GetByIDs(ids []valueobjects.RoleID) ([]*aggregates.Role, error)
 }
 
 type ISessionRenewalTokenRepository interface {
 	Save(token *entities.SessionRenewalToken) error
-	FindByID(id valueobjects.SessionRenewalTokenID) (*entities.SessionRenewalToken, error)
+	SaveMany(tokens []*entities.SessionRenewalToken) error
+	FindByID(id valueobjects.SessionRenewalRawTokenID) (*entities.SessionRenewalToken, error)
 	FindByUser(userID valueobjects.UserID) ([]*entities.SessionRenewalToken, error)
 	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.SessionRenewalToken, error)
 }

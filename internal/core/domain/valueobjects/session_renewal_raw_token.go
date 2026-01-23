@@ -5,19 +5,21 @@ import (
 	"strings"
 )
 
+var ZeroSessionRenewalRawToken SessionRenewalRawToken = SessionRenewalRawToken{}
+
 type SessionRenewalRawToken struct {
-	id     SessionRenewalTokenID
-	secret SessionRenewalTokenSecret
+	id     SessionRenewalRawTokenID
+	secret SessionRenewalRawTokenSecret
 }
 
-func NewSessionRenewalRawToken(tokenID SessionRenewalTokenID, secret SessionRenewalTokenSecret) (SessionRenewalRawToken, error) {
-	if tokenID.IsEmpty() {
+func NewSessionRenewalRawToken(id SessionRenewalRawTokenID, secret SessionRenewalRawTokenSecret) (SessionRenewalRawToken, error) {
+	if id.IsEmpty() {
 		return SessionRenewalRawToken{}, derr.NewErrInvalidSessionRenewalTokenFormat()
 	}
 	if secret.IsEmpty() {
 		return SessionRenewalRawToken{}, derr.NewErrInvalidSessionRenewalTokenFormat()
 	}
-	return SessionRenewalRawToken{id: tokenID, secret: secret}, nil
+	return SessionRenewalRawToken{id: id, secret: secret}, nil
 }
 
 func ParseSessionRenewalRawToken(raw string) (SessionRenewalRawToken, error) {
@@ -26,21 +28,21 @@ func ParseSessionRenewalRawToken(raw string) (SessionRenewalRawToken, error) {
 		return SessionRenewalRawToken{}, derr.NewErrInvalidSessionRenewalTokenFormat()
 	}
 
-	tokenID, err := NewSessionRenewalTokenID(parts[0])
+	id, err := NewSessionRenewalRawTokenID(parts[0])
 	if err != nil {
 		return SessionRenewalRawToken{}, err
 	}
 
-	secret, err := NewSessionRenewalTokenSecret(parts[1])
+	secret, err := NewSessionRenewalRawTokenSecret(parts[1])
 	if err != nil {
 		return SessionRenewalRawToken{}, err
 	}
 
-	return NewSessionRenewalRawToken(tokenID, secret)
+	return NewSessionRenewalRawToken(id, secret)
 }
 
-func (vo SessionRenewalRawToken) ID() SessionRenewalTokenID         { return vo.id }
-func (vo SessionRenewalRawToken) Secret() SessionRenewalTokenSecret { return vo.secret }
+func (vo SessionRenewalRawToken) ID() SessionRenewalRawTokenID         { return vo.id }
+func (vo SessionRenewalRawToken) Secret() SessionRenewalRawTokenSecret { return vo.secret }
 func (vo SessionRenewalRawToken) String() string {
 	return vo.id.String() + "." + vo.secret.String()
 }
