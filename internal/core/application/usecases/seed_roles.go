@@ -12,7 +12,6 @@ type seedRolesUseCase struct {
 	roleSvc  ports.IRoleService
 	roleRepo ports.IRoleRepository
 	clockSvc ports.IClockService
-	l        *slog.Logger
 }
 
 func NewSeedRolesUseCase(
