@@ -5,7 +5,6 @@ import (
 	"go_auth/internal/adapters/http/fiber/utils"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/ports"
-	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -18,36 +17,38 @@ func NewAuthUserHandler(uc ports.IAuthUserUseCase) *AuthUserHandler {
 	return &AuthUserHandler{uc: uc}
 }
 
-// @Summary  Get Current User
-// @Tags     user
-// @Produce  json
-// @Success  200      {object}  interface{}
-// @Failure  401      {string}  string "Unauthorized"
-// @Router   /user/me [get]
+// Execute handles the retrieval of the current authenticated user's profile.
+// @Summary      Get Current User
+// @Description  Retrieves detailed profile information for the user currently logged in.
+// @Tags         user
+// @Produce      json
+// @Success      200      {object}  dto.SuccessResponse{data=dto.UserResponse} "Profile retrieved successfully"
+// @Failure      401      {object}  dto.ErrorResponse "Unauthorized - Session missing or invalid"
+// @Failure      404      {object}  dto.ErrorResponse "User not found"
+// @Failure      500      {object}  dto.ErrorResponse "Internal server error"
+// @Router       /user/me [get]
 func (h *AuthUserHandler) Execute(c fiber.Ctx) error {
-	reqCtx := utils.ReqCtx(c)
-	l := reqCtx.Logger
-
-	auth, ok := utils.AuthCtx(c)
+	// 1. Extract the AuthContext (Injected by JWTMiddleware)
+	auth, ok := utils.AuthFromContext(c.Context())
 	if !ok {
-		l.Error("identity missing from context in protected route")
+		// Use the base request context logger if auth is unexpectedly missing
+		utils.FromContext(c.Context()).Logger.Error("identity missing from context in protected route")
 		return apperr.Unauthorized("identity not found in context", nil)
 	}
 
-	l.Info("Retrieving authenticated user profile", slog.String("user_id", auth.UserID))
+	// This logger is already enriched with trace_id, user_id, fingerprint, and ip
+	l := auth.Logger
 
-	profile, err := h.uc.Execute(
-		c.Context(),
-		auth.UserID,
-	)
+	l.Info("Retrieving authenticated user profile")
+
+	// 2. Execute Use Case with explicit Logger and UserID (No Context)
+	profile, err := h.uc.Execute(l, auth.UserID)
 	if err != nil {
-		l.Warn("Failed to retrieve user profile",
-			slog.String("user_id", auth.UserID),
-			slog.Any("error", err),
-		)
+		// Specific warning logging is handled inside the Use Case or Global Error Handler
 		return err
 	}
 
+	// 3. Map Domain Profile to HTTP Response DTO
 	userResponse := dto.UserResponse{
 		ID:        profile.ID,
 		Email:     profile.Email,
@@ -57,7 +58,8 @@ func (h *AuthUserHandler) Execute(c fiber.Ctx) error {
 		UpdatedAt: profile.UpdatedAt,
 	}
 
-	l.Debug("User profile retrieved successfully", slog.String("user_id", auth.UserID))
+	l.Debug("User profile retrieved successfully")
 
+	// 4. Return standardized success envelope
 	return utils.OK(c, userResponse, "User profile retrieved successfully")
 }

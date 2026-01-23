@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"go_auth/internal/core/application/dto"
+	"go_auth/internal/adapters/http/fiber/utils"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -14,28 +14,27 @@ func NewContextMiddleware(l *slog.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// 1. Extract Identity
 		requestID := requestid.FromContext(c)
-		deviceFingerprint := c.Get("X-Device-Fingerprint")
 
-		// 2. Scoped Logger (Tracing is now automatic)
-		reqLogger := l.With(
-			slog.String("trace_id", requestID),
-			slog.String("fingerprint", deviceFingerprint),
-		)
-
-		reqCtx := &dto.RequestContext{
+		reqCtx := &utils.RequestContext{
 			RequestID:         requestID,
-			DeviceFingerprint: deviceFingerprint,
+			DeviceFingerprint: c.Get("X-Device-Fingerprint"),
 			DeviceName:        c.Get("X-Device-Name"),
 			UserAgent:         c.Get("User-Agent"),
 			IPAddress:         c.IP(),
-			Logger:            reqLogger,
 		}
+
+		reqCtx.Logger = l.With(
+			slog.String("trace_id", reqCtx.RequestID),
+			slog.String("fingerprint", reqCtx.DeviceFingerprint),
+			slog.String("ip", reqCtx.IPAddress),
+		)
 
 		// 3. Inject into Fiber Locals
 		c.Locals(FiberCtxKey, reqCtx)
 
 		// 4. Inject into Standard Context (Crucial for Services)
-		c.SetContext(dto.Inject(c.Context(), reqCtx))
+		newStdCtx := utils.WithRequest(c.Context(), reqCtx)
+		c.SetContext(newStdCtx)
 
 		return c.Next()
 	}
