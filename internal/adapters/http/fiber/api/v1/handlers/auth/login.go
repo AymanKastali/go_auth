@@ -75,8 +75,11 @@ func (h *LoginHandler) Execute(c fiber.Ctx) error {
 	l.Info("User authenticated successfully", slog.String("email", req.Email))
 
 	// 6. Return Success Envelope
-	return utils.OK(c, dto.LoginResponse{
+	data := dto.LoginResponse{
 		AccessToken:  authResp.SessionToken,
 		RefreshToken: authResp.SessionRenewalToken,
-	}, "authenticated")
+	}
+	resp := dto.SuccessResponse{Message: "authenticated", Data: data}
+
+	return c.Status(fiber.StatusOK).JSON(resp)
 }

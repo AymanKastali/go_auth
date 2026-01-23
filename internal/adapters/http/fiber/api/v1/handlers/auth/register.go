@@ -69,13 +69,11 @@ func (h *RegisterHandler) Execute(c fiber.Ctx) error {
 
 	l.Info("User registered successfully", slog.String("user_id", domainResp.UserID))
 
-	// 5. Return Standardized Success Response
-	return utils.Created(
-		c,
-		dto.RegisteredUserResponse{
-			UserID: domainResp.UserID,
-			Email:  domainResp.Email,
-		},
-		"user successfully registered",
-	)
+	data := dto.RegisteredUserResponse{
+		UserID: domainResp.UserID,
+		Email:  domainResp.Email,
+	}
+	resp := dto.SuccessResponse{Message: "user successfully registered", Data: data}
+
+	return c.Status(fiber.StatusCreated).JSON(resp)
 }

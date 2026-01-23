@@ -17,6 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/login": {
             "post": {
+                "description": "Authenticates a user and returns access/refresh tokens. Uses device metadata for session management.",
                 "consumes": [
                     "application/json"
                 ],
@@ -29,7 +30,7 @@ const docTemplate = `{
                 "summary": "User Login",
                 "parameters": [
                     {
-                        "description": "Credentials",
+                        "description": "Login Credentials",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -40,27 +41,45 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Successfully authenticated",
                         "schema": {
-                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid syntax",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Invalid credentials",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     }
                 }
@@ -68,25 +87,7 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Logout",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/refresh": {
-            "post": {
+                "description": "Invalidates the provided session renewal token (refresh token).",
                 "consumes": [
                     "application/json"
                 ],
@@ -96,29 +97,108 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "session renewal token",
+                "summary": "User Logout",
                 "parameters": [
                     {
-                        "description": "session renewal token",
+                        "description": "Logout Details",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.LogoutRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successfully logged out"
+                    },
+                    "400": {
+                        "description": "Invalid request body or validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or expired token",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Rotates the session renewal token (refresh token) and issues a new access token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh Tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh Token Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.RefreshTokenRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Tokens rotated successfully",
                         "schema": {
-                            "type": "object"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid syntax or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Invalid Token",
+                        "description": "Unauthorized - Invalid or expired refresh token",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Device mismatch or security violation",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     }
                 }
@@ -126,6 +206,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
+                "description": "Creates a new user account with email and password.",
                 "consumes": [
                     "application/json"
                 ],
@@ -143,21 +224,87 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "User successfully registered",
                         "schema": {
-                            "type": "object"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.RegisteredUserResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid syntax or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - Email already exists",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/manage": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Manage User Roles",
+                "parameters": [
+                    {
+                        "description": "Role management details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ManageRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     }
                 }
@@ -165,6 +312,7 @@ const docTemplate = `{
         },
         "/user/me": {
             "get": {
+                "description": "Retrieves detailed profile information for the user currently logged in.",
                 "produces": [
                     "application/json"
                 ],
@@ -174,13 +322,39 @@ const docTemplate = `{
                 "summary": "Get Current User",
                 "responses": {
                     "200": {
-                        "description": "OK",
-                        "schema": {}
+                        "description": "Profile retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Session missing or invalid",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse"
                         }
                     }
                 }
@@ -188,6 +362,27 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "go_auth_internal_adapters_http_fiber_dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "message": {
+                    "type": "string",
+                    "example": "humanized error message"
+                },
+                "trace_id": {
+                    "type": "string",
+                    "example": "req-12345"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "VALIDATION"
+                }
+            }
+        },
         "go_auth_internal_adapters_http_fiber_dto.LoginRequest": {
             "type": "object",
             "required": [
@@ -211,6 +406,114 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.LogoutRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.ManageRoleRequest": {
+            "type": "object",
+            "required": [
+                "action",
+                "role",
+                "user_id"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "grant",
+                        "revoke"
+                    ]
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.RefreshTokenRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.RegisteredUserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "message": {
+                    "type": "string",
+                    "example": "humanized success message"
+                }
+            }
+        },
+        "go_auth_internal_adapters_http_fiber_dto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
