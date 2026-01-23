@@ -13,15 +13,19 @@ func RequireRole(requiredRoleName string) fiber.Handler {
 	required := strings.ToUpper(requiredRoleName)
 
 	return func(c fiber.Ctx) error {
-		reqCtx := utils.ReqCtx(c)
-		l := reqCtx.Logger
-
-		auth, ok := utils.AuthCtx(c)
+		// 1. Extract AuthContext directly from the standard context
+		auth, ok := utils.AuthFromContext(c.Context())
 		if !ok {
-			l.Warn("Role check failed: no authenticated session found")
+			// We use the universal getter to at least get a Logger/TraceID
+			// for the warning log even if auth failed
+			utils.FromContext(c.Context()).Logger.Warn("Role check failed: no authenticated session found")
 			return apperr.Unauthorized("authentication session not found", nil)
 		}
 
+		// Use the enriched logger (which already has user_id/trace_id)
+		l := auth.Logger
+
+		// 2. Perform Role Check
 		hasRole := false
 		for _, r := range auth.Roles {
 			if strings.ToUpper(r) == required {

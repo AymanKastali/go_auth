@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"context"
 	"log/slog"
 
 	"go_auth/internal/core/application/apperr"
@@ -51,42 +50,42 @@ func NewSessionRenewalTokenUseCase(
 	}
 }
 
-func (uc *sessionRenewalTokenUseCase) Execute(c context.Context, rawToken string) (*dto.SessionTokens, error) {
-	req := dto.FromContext(c)
+// Execute handles the rotation of session renewal tokens (Refresh Tokens).
+func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionRenewalInput) (*dto.SessionTokens, error) {
 	now, err := uc.clockSvc.Now()
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 
 	// 1. Convert raw input to Value Object
-	tokenVO, err := valueobjects.ParseSessionRenewalRawToken(rawToken)
+	tokenVO, err := valueobjects.ParseSessionRenewalRawToken(input.RefreshToken)
 	if err != nil {
+		l.Warn("Invalid refresh token format provided")
 		return nil, apperr.Validation("Invalid session renewal token", nil)
 	}
 
-	tokenID := tokenVO.ID()
-	secret := tokenVO.Secret()
-
-	// 2. Fetch the session from the database
-	oldTokenEntity, err := uc.sessionRenewalRepo.FindByID(tokenID)
+	// 2. Fetch and Verify existing session
+	oldTokenEntity, err := uc.sessionRenewalRepo.FindByID(tokenVO.ID())
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 
 	if oldTokenEntity == nil {
+		l.Warn("Session token not found", slog.String("token_id", tokenVO.ID().String()))
 		return nil, apperr.Unauthorized("Session not found", nil)
 	}
 
-	valid, err := uc.tokenHasher.Compare(secret, oldTokenEntity.SessionRenewalHashedToken())
+	valid, err := uc.tokenHasher.Compare(tokenVO.Secret(), oldTokenEntity.SessionRenewalHashedToken())
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 	if !valid {
+		l.Warn("Refresh token secret mismatch")
 		return nil, apperr.Unauthorized("Invalid session renewal token", nil)
 	}
 
 	// 3. Security Check: Ensure device consistency
-	fingerprintVO, err := valueobjects.NewDeviceFingerprint(req.DeviceFingerprint)
+	fingerprintVO, err := valueobjects.NewDeviceFingerprint(input.DeviceFingerprint)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
@@ -95,21 +94,24 @@ func (uc *sessionRenewalTokenUseCase) Execute(c context.Context, rawToken string
 		return nil, apperr.Map(err)
 	}
 	if currentDevice == nil {
+		l.Warn("Device fingerprint not recognized", slog.String("fingerprint", input.DeviceFingerprint))
 		return nil, apperr.Forbidden("Device not recognized", nil)
 	}
 
 	if !oldTokenEntity.DeviceID().Equal(currentDevice.ID()) {
+		l.Warn("Security alert: token reuse attempted from different device",
+			slog.String("original_device", oldTokenEntity.DeviceID().String()),
+			slog.String("current_device", currentDevice.ID().String()))
 		return nil, apperr.Forbidden("Token does not belong to this device", nil)
 	}
 
 	// 4. Perform Rotation (Revocation & Reuse Detection)
-	// Now returns only an error as per your new Domain Service logic
 	if err := uc.sessionSvc.RotateSession(oldTokenEntity, now); err != nil {
+		l.Error("Session rotation failed", slog.Any("error", err))
 		return nil, apperr.Map(err)
 	}
 
 	// 5. Create the New Session
-	// We delegate the creation to the session service using the existing data
 	newTokenEntity, rawSecret, err := uc.sessionSvc.CreateSession(
 		oldTokenEntity.UserID(),
 		oldTokenEntity.DeviceID(),
@@ -119,7 +121,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(c context.Context, rawToken string
 		return nil, apperr.Map(err)
 	}
 
-	// 6. Fetch User to get current roles for the new Session Token
+	// 6. Fetch User to get current roles
 	user, err := uc.userRepo.GetByID(oldTokenEntity.UserID())
 	if err != nil || user == nil {
 		return nil, apperr.Unauthorized("User context no longer valid", nil)
@@ -144,8 +146,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(c context.Context, rawToken string
 		return nil, apperr.Internal("Failed to issue session token", err)
 	}
 
-	// 8. Persistence: Atomic update
-	// Ideally, these should be wrapped in a single database transaction
+	// 8. Persistence
 	if err := uc.sessionRenewalRepo.Save(oldTokenEntity); err != nil {
 		return nil, apperr.Map(err)
 	}
@@ -153,7 +154,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(c context.Context, rawToken string
 		return nil, apperr.Map(err)
 	}
 
-	req.Logger.Info("Token rotation complete",
+	l.Info("Token rotation complete",
 		slog.String("user_id", user.ID().String()),
 		slog.String("new_token_id", newTokenEntity.ID().String()))
 

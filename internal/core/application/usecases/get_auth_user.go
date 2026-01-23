@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"context"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	"go_auth/internal/core/domain/ports"
@@ -24,10 +23,9 @@ func NewAuthUserUseCase(
 	}
 }
 
-func (uc *authUserUseCase) Execute(c context.Context, userID string) (*dto.AuthUser, error) {
-	req := dto.FromContext(c)
-	l := req.Logger
-
+// Execute retrieves the profile for an authenticated user.
+// It no longer depends on context.Context or any HTTP-specific DTOs.
+func (uc *authUserUseCase) Execute(l *slog.Logger, userID string) (*dto.AuthUser, error) {
 	l.Info("Executing auth user profile retrieval", slog.String("target_user_id", userID))
 
 	userIDVO, err := valueobjects.NewUserID(userID)

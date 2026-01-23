@@ -1,41 +1,30 @@
 package ports
 
 import (
-	"context"
 	"go_auth/internal/core/application/dto"
+	"log/slog"
 )
 
 type IAuthUserUseCase interface {
-	Execute(
-		c context.Context, userID string,
-	) (*dto.AuthUser, error)
+	Execute(l *slog.Logger, userID string) (*dto.AuthUser, error)
 }
 
 type ILoginUseCase interface {
-	Execute(
-		c context.Context, email, password string,
-	) (*dto.SessionTokens, error)
+	Execute(l *slog.Logger, input dto.LoginInput) (*dto.SessionTokens, error)
 }
+
 type ILogoutUseCase interface {
-	Execute(
-		c context.Context, sessionRenewalToken string,
-	) error
+	Execute(l *slog.Logger, rawToken string) error
 }
 
 type ISessionRenewalUseCase interface {
-	Execute(
-		c context.Context, oldSessionRenewalToken string,
-	) (*dto.SessionTokens, error)
+	Execute(l *slog.Logger, input dto.SessionRenewalInput) (*dto.SessionTokens, error)
 }
 
 type IRegisterUseCase interface {
-	Execute(
-		c context.Context, email, password string,
-	) (*dto.RegisteredUserDTO, error)
+	Execute(l *slog.Logger, emailStr, passwordStr string) (*dto.RegisteredUserDTO, error)
 }
 
 type IUpdateRoleUseCase interface {
-	Execute(
-		c context.Context, req dto.ManageRoleInput,
-	) error
+	Execute(l *slog.Logger, input dto.ManageRoleInput) error
 }

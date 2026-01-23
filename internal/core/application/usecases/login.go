@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"context"
 	"go_auth/internal/core/application/apperr"
 	"go_auth/internal/core/application/dto"
 	aports "go_auth/internal/core/application/ports"
@@ -44,26 +43,23 @@ func NewLoginUseCase(
 	}
 }
 
-func (uc *loginUseCase) Execute(
-	c context.Context,
-	email, password string,
-) (*dto.SessionTokens, error) {
-	req := dto.FromContext(c)
-	l := req.Logger
+func (uc *loginUseCase) Execute(l *slog.Logger, input dto.LoginInput) (*dto.SessionTokens, error) {
 	now, err := uc.clockSvc.Now()
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 
-	l.Info("Executing user login", slog.String("email", email))
+	l.Info("Executing user login", slog.String("email", input.Email))
 
-	user, err := uc.authDomainService.Authenticate(email, password)
+	// 1. Authenticate using data from input
+	user, err := uc.authDomainService.Authenticate(input.Email, input.Password)
 	if err != nil {
-		l.Warn("Authentication failed", slog.String("email", email), slog.Any("error", err))
+		l.Warn("Authentication failed", slog.String("email", input.Email), slog.Any("error", err))
 		return nil, apperr.Map(err)
 	}
 
-	fingerprint, err := valueobjects.NewDeviceFingerprint(req.DeviceFingerprint)
+	// 2. Resolve Device using data from input
+	fingerprint, err := valueobjects.NewDeviceFingerprint(input.DeviceFingerprint)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
@@ -71,16 +67,16 @@ func (uc *loginUseCase) Execute(
 	device, err := uc.authDomainService.ResolveDevice(
 		fingerprint,
 		user.ID(),
-		&req.DeviceName,
-		&req.UserAgent,
-		&req.IPAddress,
+		input.DeviceName, // These are *string in LoginInput
+		input.UserAgent,
+		input.IPAddress,
 		now,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
+	// 3. Session Management
 	revoked, err := uc.sessionSvc.InvalidateExistingSessions(user.ID(), device.ID(), now)
 	if err != nil {
 		return nil, apperr.Map(err)
@@ -95,11 +91,13 @@ func (uc *loginUseCase) Execute(
 		return nil, apperr.Map(err)
 	}
 
-	roles, err := uc.fetchRoleNames(req, user.RoleIDs())
+	// 4. Role hydration - pass the logger separately
+	roles, err := uc.fetchRoleNames(l, user.RoleIDs())
 	if err != nil {
 		return nil, err
 	}
 
+	// 5. Token Issuance
 	sessionToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
 		SessionRenewalTokenID: uc.idSvc.Generate(),
 		SessionID:             sessionRenewalToken.ID().String(),
@@ -113,6 +111,7 @@ func (uc *loginUseCase) Execute(
 		return nil, apperr.Internal("failed to issue session token", err)
 	}
 
+	// 6. Persistence
 	for _, ot := range revoked {
 		_ = uc.sessionRenewalRepo.Save(ot)
 	}
@@ -126,13 +125,17 @@ func (uc *loginUseCase) Execute(
 	}, nil
 }
 
-func (uc *loginUseCase) fetchRoleNames(req *dto.RequestContext, roleIDs []valueobjects.RoleID) ([]string, error) {
-	req.Logger.Debug("Hydrating role names", slog.Int("count", len(roleIDs)))
+// Internal helper uses the passed logger instead of RequestContext
+func (uc *loginUseCase) fetchRoleNames(l *slog.Logger, roleIDs []valueobjects.RoleID) ([]string, error) {
+	l.Debug("Hydrating role names", slog.Int("count", len(roleIDs)))
 	roleNames := make([]string, 0, len(roleIDs))
 	for _, roleID := range roleIDs {
 		role, err := uc.roleRepo.GetByID(roleID)
 		if err != nil {
-			req.Logger.Error("Database error during role lookup", slog.String("role_id", roleID.String()), slog.Any("error", err))
+			l.Error("Database error during role lookup",
+				slog.String("role_id", roleID.String()),
+				slog.Any("error", err),
+			)
 			return nil, apperr.Map(err)
 		}
 		if role != nil {
