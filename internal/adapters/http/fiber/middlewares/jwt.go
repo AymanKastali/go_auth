@@ -67,7 +67,7 @@ func JWTMiddleware(
 			return apperr.Map(err)
 		}
 		userID := claims.UserID
-		tokenID := claims.TokenID
+		tokenID := claims.SessionRenewalTokenID
 		enrichedLogger := baseReq.Logger.With(
 			slog.String("user_id", userID),
 			slog.String("token_id", tokenID),
@@ -82,9 +82,9 @@ func JWTMiddleware(
 				IPAddress:         baseReq.IPAddress,
 				Logger:            enrichedLogger,
 			},
-			UserID:  userID,
-			Roles:   claims.Roles,
-			TokenID: tokenID,
+			UserID:                userID,
+			Roles:                 claims.Roles,
+			SessionRenewalTokenID: tokenID,
 		}
 
 		l.Debug("Authentication successful",

@@ -96,10 +96,10 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Refresh Token",
+                "summary": "session renewal token",
                 "parameters": [
                     {
-                        "description": "Refresh Token",
+                        "description": "session renewal token",
                         "name": "request",
                         "in": "body",
                         "required": true,

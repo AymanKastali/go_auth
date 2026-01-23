@@ -12,42 +12,42 @@ import (
 )
 
 type loginUseCase struct {
-	authDomainService dports.IAuthDomainService
-	refreshRepo       dports.IRefreshTokenRepository
-	roleRepo          dports.IRoleRepository
-	idSvc             dports.IIDService
-	clockSvc          dports.IClockService
-	sessionTokenSvc   aports.ISessionTokenIssuerService
-	sessionSvc        dports.ISessionDomainService
-	policy            policies.JWTPolicy
+	authDomainService  dports.IAuthDomainService
+	sessionRenewalRepo dports.ISessionRenewalTokenRepository
+	roleRepo           dports.IRoleRepository
+	idSvc              dports.IIDService
+	clockSvc           dports.IClockService
+	sessionTokenSvc    aports.ISessionTokenIssuerService
+	sessionSvc         dports.ISessionDomainService
+	policy             policies.SessionTokenPolicy
 }
 
 func NewLoginUseCase(
 	authDomainService dports.IAuthDomainService,
-	refreshRepo dports.IRefreshTokenRepository,
+	sessionRenewalRepo dports.ISessionRenewalTokenRepository,
 	roleRepo dports.IRoleRepository,
 	sessionTokenSvc aports.ISessionTokenIssuerService,
 	idSvc dports.IIDService,
 	clockSvc dports.IClockService,
 	sessionSvc dports.ISessionDomainService,
-	policy policies.JWTPolicy,
+	policy policies.SessionTokenPolicy,
 ) *loginUseCase {
 	return &loginUseCase{
-		authDomainService: authDomainService,
-		refreshRepo:       refreshRepo,
-		roleRepo:          roleRepo,
-		idSvc:             idSvc,
-		clockSvc:          clockSvc,
-		sessionTokenSvc:   sessionTokenSvc,
-		sessionSvc:        sessionSvc,
-		policy:            policy,
+		authDomainService:  authDomainService,
+		sessionRenewalRepo: sessionRenewalRepo,
+		roleRepo:           roleRepo,
+		idSvc:              idSvc,
+		clockSvc:           clockSvc,
+		sessionTokenSvc:    sessionTokenSvc,
+		sessionSvc:         sessionSvc,
+		policy:             policy,
 	}
 }
 
 func (uc *loginUseCase) Execute(
 	c context.Context,
 	email, password string,
-) (*dto.AuthResponse, error) {
+) (*dto.SessionTokens, error) {
 	req := dto.FromContext(c)
 	l := req.Logger
 	now, err := uc.clockSvc.Now()
@@ -86,7 +86,7 @@ func (uc *loginUseCase) Execute(
 		return nil, apperr.Map(err)
 	}
 
-	refreshToken, rawToken, err := uc.sessionSvc.CreateSession(
+	sessionRenewalToken, rawToken, err := uc.sessionSvc.CreateSession(
 		user.ID(),
 		device.ID(),
 		now,
@@ -100,29 +100,29 @@ func (uc *loginUseCase) Execute(
 		return nil, err
 	}
 
-	accessToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
-		TokenID:   uc.idSvc.Generate(),
-		SessionID: refreshToken.ID().String(),
-		UserID:    user.ID().String(),
-		DeviceID:  device.ID().String(),
-		Roles:     roles,
-		IssuedAt:  now.Time(),
-		ExpiresAt: now.Add(uc.policy.AccessTokenTTL).Time(),
+	sessionToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
+		SessionRenewalTokenID: uc.idSvc.Generate(),
+		SessionID:             sessionRenewalToken.ID().String(),
+		UserID:                user.ID().String(),
+		DeviceID:              device.ID().String(),
+		Roles:                 roles,
+		IssuedAt:              now.Time(),
+		ExpiresAt:             now.Add(uc.policy.SessionTokenTTL).Time(),
 	})
 	if err != nil {
-		return nil, apperr.Internal("failed to issue access token", err)
+		return nil, apperr.Internal("failed to issue session token", err)
 	}
 
 	for _, ot := range revoked {
-		_ = uc.refreshRepo.Save(ot)
+		_ = uc.sessionRenewalRepo.Save(ot)
 	}
-	if err := uc.refreshRepo.Save(refreshToken); err != nil {
+	if err := uc.sessionRenewalRepo.Save(sessionRenewalToken); err != nil {
 		return nil, apperr.Map(err)
 	}
 
-	return &dto.AuthResponse{
-		AccessToken:  accessToken.Raw,
-		RefreshToken: rawToken.String(),
+	return &dto.SessionTokens{
+		SessionToken:        sessionToken.Raw,
+		SessionRenewalToken: rawToken.String(),
 	}, nil
 }
 

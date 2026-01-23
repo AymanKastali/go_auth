@@ -7,9 +7,9 @@ import (
 )
 
 type SecurityConfig struct {
-	HMACSecret              []byte
-	BcryptCost              int
-	RefreshTokenSecretBytes int
+	HMACSecret                     []byte
+	BcryptCost                     int
+	SessionRenewalTokenSecretBytes int
 }
 
 func loadSecurityConfig() (*SecurityConfig, error) {
@@ -28,18 +28,18 @@ func loadSecurityConfig() (*SecurityConfig, error) {
 		cost = parsed
 	}
 
-	refreshBytes := 32 // default = 256-bit entropy
-	if sizeStr := os.Getenv("GA_REFRESH_TOKEN_SECRET_BYTES"); sizeStr != "" {
+	bytes := 32 // default = 256-bit entropy
+	if sizeStr := os.Getenv("GA_SESSION_RENEWAL_TOKEN_SECRET_BYTES"); sizeStr != "" {
 		parsed, err := strconv.Atoi(sizeStr)
 		if err != nil || parsed < 16 || parsed > 128 {
-			return nil, errors.New("GA_REFRESH_TOKEN_SECRET_BYTES must be between 16 and 128")
+			return nil, errors.New("GA_SESSION_RENEWAL_TOKEN_SECRET_BYTES must be between 16 and 128")
 		}
-		refreshBytes = parsed
+		bytes = parsed
 	}
 
 	return &SecurityConfig{
-		HMACSecret:              []byte(secret),
-		BcryptCost:              cost,
-		RefreshTokenSecretBytes: refreshBytes,
+		HMACSecret:                     []byte(secret),
+		BcryptCost:                     cost,
+		SessionRenewalTokenSecretBytes: bytes,
 	}, nil
 }

@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-type RefreshTokenMapper struct{}
+type SessionRenewalTokenMapper struct{}
 
-func NewRefreshTokenMapper() *RefreshTokenMapper { return &RefreshTokenMapper{} }
+func NewSessionRenewalTokenMapper() *SessionRenewalTokenMapper { return &SessionRenewalTokenMapper{} }
 
-func (m *RefreshTokenMapper) ToDomain(model *models.RefreshToken) *entities.RefreshToken {
+func (m *SessionRenewalTokenMapper) ToDomain(model *models.SessionRenewalToken) *entities.SessionRenewalToken {
 	if model == nil {
 		return nil
 	}
@@ -22,18 +22,18 @@ func (m *RefreshTokenMapper) ToDomain(model *models.RefreshToken) *entities.Refr
 		revokedAt = &tp
 	}
 
-	return entities.ReconstituteRefreshToken(
-		valueobjects.ReconstituteTokenID(model.ID),
+	return entities.ReconstituteSessionRenewalToken(
+		valueobjects.ReconstituteSessionRenewalTokenID(model.ID),
 		valueobjects.ReconstituteUserID(model.UserID),
 		valueobjects.ReconstituteDeviceID(model.DeviceID),
-		valueobjects.ReconstituteHashedToken(model.Hash),
+		valueobjects.ReconstituteSessionRenewalHashedToken(model.Hash),
 		valueobjects.ReconstituteTimepoint(model.CreatedAt),
 		valueobjects.ReconstituteTimepoint(model.ExpiresAt),
 		revokedAt,
 	)
 }
 
-func (m *RefreshTokenMapper) ToModel(entity *entities.RefreshToken) *models.RefreshToken {
+func (m *SessionRenewalTokenMapper) ToModel(entity *entities.SessionRenewalToken) *models.SessionRenewalToken {
 	if entity == nil {
 		return nil
 	}
@@ -44,11 +44,11 @@ func (m *RefreshTokenMapper) ToModel(entity *entities.RefreshToken) *models.Refr
 		revokedAtPtr = &t
 	}
 
-	return &models.RefreshToken{
+	return &models.SessionRenewalToken{
 		ID:        entity.ID().String(),
 		UserID:    entity.UserID().String(),
 		DeviceID:  entity.DeviceID().String(),
-		Hash:      entity.HashedToken().String(),
+		Hash:      entity.SessionRenewalHashedToken().String(),
 		CreatedAt: entity.CreatedAt().Time(),
 		ExpiresAt: entity.ExpiresAt().Time(),
 		RevokedAt: revokedAtPtr,

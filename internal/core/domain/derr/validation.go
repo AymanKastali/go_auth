@@ -118,25 +118,33 @@ func (e *ErrPasswordTooLong) Code() ErrorCode { return CodeValidation }
 
 // --- Security & Device Requirements ---
 
-type ErrRefreshTokenRequired struct{}
+type ErrSessionRenewalTokenRequired struct{}
 
-func NewErrRefreshTokenRequired() *ErrRefreshTokenRequired { return &ErrRefreshTokenRequired{} }
-func (e *ErrRefreshTokenRequired) Error() string           { return "authentication token is required" }
-func (e *ErrRefreshTokenRequired) Code() ErrorCode         { return CodeValidation }
-
-type ErrRefreshTokenSecretRequired struct{}
-
-func NewErrRefreshTokenSecretRequired() *ErrRefreshTokenSecretRequired {
-	return &ErrRefreshTokenSecretRequired{}
+func NewErrSessionRenewalTokenRequired() *ErrSessionRenewalTokenRequired {
+	return &ErrSessionRenewalTokenRequired{}
 }
-func (e *ErrRefreshTokenSecretRequired) Error() string   { return "refresh token secret is required" }
-func (e *ErrRefreshTokenSecretRequired) Code() ErrorCode { return CodeValidation }
+func (e *ErrSessionRenewalTokenRequired) Error() string   { return "authentication token is required" }
+func (e *ErrSessionRenewalTokenRequired) Code() ErrorCode { return CodeValidation }
 
-type ErrRefreshTokenIDRequired struct{}
+type ErrSessionRenewalTokenSecretRequired struct{}
 
-func NewErrRefreshTokenIDRequired() *ErrRefreshTokenIDRequired { return &ErrRefreshTokenIDRequired{} }
-func (e *ErrRefreshTokenIDRequired) Error() string             { return "refresh token identifier is required" }
-func (e *ErrRefreshTokenIDRequired) Code() ErrorCode           { return CodeValidation }
+func NewErrSessionRenewalTokenSecretRequired() *ErrSessionRenewalTokenSecretRequired {
+	return &ErrSessionRenewalTokenSecretRequired{}
+}
+func (e *ErrSessionRenewalTokenSecretRequired) Error() string {
+	return "session renewal token secret is required"
+}
+func (e *ErrSessionRenewalTokenSecretRequired) Code() ErrorCode { return CodeValidation }
+
+type ErrSessionRenewalTokenIDRequired struct{}
+
+func NewErrSessionRenewalTokenIDRequired() *ErrSessionRenewalTokenIDRequired {
+	return &ErrSessionRenewalTokenIDRequired{}
+}
+func (e *ErrSessionRenewalTokenIDRequired) Error() string {
+	return "session renewal token identifier is required"
+}
+func (e *ErrSessionRenewalTokenIDRequired) Code() ErrorCode { return CodeValidation }
 
 type ErrTokenHashRequired struct{}
 
@@ -146,13 +154,15 @@ func NewErrTokenHashRequired() *ErrTokenHashRequired {
 func (e *ErrTokenHashRequired) Error() string   { return "token hash is required" }
 func (e *ErrTokenHashRequired) Code() ErrorCode { return CodeValidation }
 
-type ErrInvalidRefreshTokenFormat struct{}
+type ErrInvalidSessionRenewalTokenFormat struct{}
 
-func NewErrInvalidRefreshTokenFormat() *ErrInvalidRefreshTokenFormat {
-	return &ErrInvalidRefreshTokenFormat{}
+func NewErrInvalidSessionRenewalTokenFormat() *ErrInvalidSessionRenewalTokenFormat {
+	return &ErrInvalidSessionRenewalTokenFormat{}
 }
-func (e *ErrInvalidRefreshTokenFormat) Error() string   { return "invalid refresh token format" }
-func (e *ErrInvalidRefreshTokenFormat) Code() ErrorCode { return CodeValidation }
+func (e *ErrInvalidSessionRenewalTokenFormat) Error() string {
+	return "invalid session renewal token format"
+}
+func (e *ErrInvalidSessionRenewalTokenFormat) Code() ErrorCode { return CodeValidation }
 
 type ErrDeviceIDRequired struct{}
 

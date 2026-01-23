@@ -11,18 +11,18 @@ import (
 )
 
 type RefreshTokenHandler struct {
-	uc ports.IRefreshTokenUseCase
+	uc ports.ISessionRenewalUseCase
 }
 
-func NewRefreshTokenHandler(uc ports.IRefreshTokenUseCase) *RefreshTokenHandler {
+func NewRefreshTokenHandler(uc ports.ISessionRenewalUseCase) *RefreshTokenHandler {
 	return &RefreshTokenHandler{uc: uc}
 }
 
-// @Summary  Refresh Token
+// @Summary  refresh token
 // @Tags     auth
 // @Accept   json
 // @Produce  json
-// @Param    request  body      object  true  "Refresh Token"
+// @Param    request  body      object  true  "refresh token"
 // @Success  200      {object}  object
 // @Failure  401      {string}  string "Invalid Token"
 // @Router   /auth/refresh [post]
@@ -40,7 +40,7 @@ func (h *RefreshTokenHandler) Execute(c fiber.Ctx) error {
 	}
 
 	if err := utils.Validate(req); err != nil {
-		l.Warn("Refresh token request validation failed", slog.Any("error", err))
+		l.Warn("refresh token request validation failed", slog.Any("error", err))
 		return http.NewBadRequest(err)
 	}
 
@@ -58,8 +58,8 @@ func (h *RefreshTokenHandler) Execute(c fiber.Ctx) error {
 	return utils.OK(
 		c,
 		dto.LoginResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
+			AccessToken:  authResp.SessionToken,
+			RefreshToken: authResp.SessionRenewalToken,
 		},
 		"tokens rotated successfully",
 	)

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
 const FiberCtxKey = "app_context"
@@ -12,7 +13,7 @@ const FiberCtxKey = "app_context"
 func NewContextMiddleware(l *slog.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// 1. Extract Identity
-		requestID, _ := c.Locals("requestid").(string)
+		requestID := requestid.FromContext(c)
 		deviceFingerprint := c.Get("X-Device-Fingerprint")
 
 		// 2. Scoped Logger (Tracing is now automatic)

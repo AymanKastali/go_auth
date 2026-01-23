@@ -10,25 +10,25 @@ import (
 	"gorm.io/gorm"
 )
 
-type gormRefreshTokenRepository struct {
+type gormSessionRenewalTokenRepository struct {
 	db     *gorm.DB
-	mapper *mappers.RefreshTokenMapper
+	mapper *mappers.SessionRenewalTokenMapper
 }
 
-func NewGormRefreshTokenRepository(
+func NewGormSessionRenewalTokenRepository(
 	db *gorm.DB,
-	mapper *mappers.RefreshTokenMapper,
-) *gormRefreshTokenRepository {
-	return &gormRefreshTokenRepository{
+	mapper *mappers.SessionRenewalTokenMapper,
+) *gormSessionRenewalTokenRepository {
+	return &gormSessionRenewalTokenRepository{
 		db:     db,
 		mapper: mapper,
 	}
 }
 
 // Save inserts or updates the entity
-func (r *gormRefreshTokenRepository) Save(e *entities.RefreshToken) error {
+func (r *gormSessionRenewalTokenRepository) Save(e *entities.SessionRenewalToken) error {
 	if e == nil {
-		return errors.New("cannot save nil RefreshToken")
+		return errors.New("cannot save nil SessionRenewalToken")
 	}
 
 	model := r.mapper.ToModel(e)
@@ -36,8 +36,8 @@ func (r *gormRefreshTokenRepository) Save(e *entities.RefreshToken) error {
 }
 
 // FindByID returns the entity by ID or nil if not found
-func (r *gormRefreshTokenRepository) FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error) {
-	var model models.RefreshToken
+func (r *gormSessionRenewalTokenRepository) FindByID(id valueobjects.SessionRenewalTokenID) (*entities.SessionRenewalToken, error) {
+	var model models.SessionRenewalToken
 	err := r.db.Where("id = ?", id.String()).First(&model).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -51,13 +51,13 @@ func (r *gormRefreshTokenRepository) FindByID(id valueobjects.TokenID) (*entitie
 }
 
 // FindByDevice returns all tokens for a given user and device
-func (r *gormRefreshTokenRepository) FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error) {
-	var modelsList []models.RefreshToken
+func (r *gormSessionRenewalTokenRepository) FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.SessionRenewalToken, error) {
+	var modelsList []models.SessionRenewalToken
 	if err := r.db.Where("user_id = ? AND device_id = ?", userID.String(), deviceID.String()).Find(&modelsList).Error; err != nil {
 		return nil, err
 	}
 
-	tokens := make([]*entities.RefreshToken, len(modelsList))
+	tokens := make([]*entities.SessionRenewalToken, len(modelsList))
 	for i, m := range modelsList {
 		tokens[i] = r.mapper.ToDomain(&m)
 	}
@@ -66,13 +66,13 @@ func (r *gormRefreshTokenRepository) FindByUserAndDevice(userID valueobjects.Use
 }
 
 // FindByUser returns all tokens for a given user
-func (r *gormRefreshTokenRepository) FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error) {
-	var modelsList []models.RefreshToken
+func (r *gormSessionRenewalTokenRepository) FindByUser(userID valueobjects.UserID) ([]*entities.SessionRenewalToken, error) {
+	var modelsList []models.SessionRenewalToken
 	if err := r.db.Where("user_id = ?", userID.String()).Find(&modelsList).Error; err != nil {
 		return nil, err
 	}
 
-	tokens := make([]*entities.RefreshToken, len(modelsList))
+	tokens := make([]*entities.SessionRenewalToken, len(modelsList))
 	for i, m := range modelsList {
 		tokens[i] = r.mapper.ToDomain(&m)
 	}

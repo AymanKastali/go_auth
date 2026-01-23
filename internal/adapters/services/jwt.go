@@ -8,8 +8,9 @@ import (
 )
 
 type sessionClaims struct {
-	Roles    []string `json:"roles"`
-	DeviceID string   `json:"did"`
+	Roles     []string `json:"roles"`
+	DeviceID  string   `json:"did"`
+	SessionID string   `json:"sid"`
 	jwt.RegisteredClaims
 }
 
@@ -39,13 +40,14 @@ func (s *jwtSessionTokenIssuerService) Issue(
 ) (dto.IssuedSessionToken, error) {
 
 	claims := sessionClaims{
-		Roles:    ctx.Roles,
-		DeviceID: ctx.DeviceID,
+		Roles:     ctx.Roles,
+		DeviceID:  ctx.DeviceID,
+		SessionID: ctx.SessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Subject:   ctx.UserID,
 			Audience:  []string{s.audience},
-			ID:        ctx.TokenID,
+			ID:        ctx.SessionRenewalTokenID,
 			IssuedAt:  jwt.NewNumericDate(ctx.IssuedAt),
 			ExpiresAt: jwt.NewNumericDate(ctx.ExpiresAt),
 		},
@@ -75,11 +77,11 @@ func (s *jwtSessionTokenIssuerService) Validate(
 	}
 
 	return dto.SessionTokenMetadata{
-		TokenID:   claims.ID,
-		UserID:    claims.Subject,
-		DeviceID:  claims.DeviceID,
-		Roles:     claims.Roles,
-		IssuedAt:  claims.IssuedAt.Time,
-		ExpiresAt: claims.ExpiresAt.Time,
+		SessionRenewalTokenID: claims.ID,
+		UserID:                claims.Subject,
+		DeviceID:              claims.DeviceID,
+		Roles:                 claims.Roles,
+		IssuedAt:              claims.IssuedAt.Time,
+		ExpiresAt:             claims.ExpiresAt.Time,
 	}, nil
 }

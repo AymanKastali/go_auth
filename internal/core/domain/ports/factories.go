@@ -26,10 +26,10 @@ type IDeviceFactory interface {
 	) (*entities.Device, error)
 }
 
-type IRefreshTokenFactory interface {
+type ISessionRenewalTokenFactory interface {
 	New(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
 		now valueobjects.Timepoint,
-	) (*entities.RefreshToken, valueobjects.RawRefreshToken, error)
+	) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error)
 }

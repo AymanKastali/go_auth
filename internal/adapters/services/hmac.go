@@ -16,15 +16,15 @@ func NewHMACHasher(secret []byte) *hmacHasher {
 	return &hmacHasher{secret: secret}
 }
 
-func (h *hmacHasher) Hash(raw valueobjects.RefreshTokenSecret) (valueobjects.HashedToken, error) {
+func (h *hmacHasher) Hash(raw valueobjects.SessionRenewalTokenSecret) (valueobjects.SessionRenewalHashedToken, error) {
 	mac := hmac.New(sha256.New, h.secret)
 	mac.Write([]byte(raw.String()))
 	hashedStr := hex.EncodeToString(mac.Sum(nil))
 
-	return valueobjects.NewHashedToken(hashedStr)
+	return valueobjects.NewSessionRenewalHashedToken(hashedStr)
 }
 
-func (h *hmacHasher) Compare(raw valueobjects.RefreshTokenSecret, hash valueobjects.HashedToken) (bool, error) {
+func (h *hmacHasher) Compare(raw valueobjects.SessionRenewalTokenSecret, hash valueobjects.SessionRenewalHashedToken) (bool, error) {
 	stored, err := hex.DecodeString(hash.String())
 	if err != nil {
 		return false, derr.NewErrTokenHashRequired()

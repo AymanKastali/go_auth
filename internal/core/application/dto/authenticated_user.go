@@ -3,10 +3,10 @@ package dto
 import "time"
 
 type AuthUser struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Roles     []string  `json:"roles,omitempty"`
+	ID        string
+	Email     string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Roles     []string
 }
