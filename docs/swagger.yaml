@@ -70,7 +70,7 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Refresh Token
+      - description: session renewal token
         in: body
         name: request
         required: true
@@ -87,7 +87,7 @@ paths:
           description: Invalid Token
           schema:
             type: string
-      summary: Refresh Token
+      summary: session renewal token
       tags:
       - auth
   /auth/register:

@@ -8,17 +8,17 @@ import (
 )
 
 type sessionDomainService struct {
-	refreshRepo         ports.IRefreshTokenRepository
-	refreshTokenFactory ports.IRefreshTokenFactory
+	sessionRenewalRepo         ports.ISessionRenewalTokenRepository
+	sessionRenewalTokenFactory ports.ISessionRenewalTokenFactory
 }
 
 func NewSessionDomainService(
-	refreshRepo ports.IRefreshTokenRepository,
-	refreshTokenFactory ports.IRefreshTokenFactory,
+	sessionRenewalRepo ports.ISessionRenewalTokenRepository,
+	sessionRenewalTokenFactory ports.ISessionRenewalTokenFactory,
 ) *sessionDomainService {
 	return &sessionDomainService{
-		refreshRepo:         refreshRepo,
-		refreshTokenFactory: refreshTokenFactory,
+		sessionRenewalRepo:         sessionRenewalRepo,
+		sessionRenewalTokenFactory: sessionRenewalTokenFactory,
 	}
 }
 
@@ -26,13 +26,13 @@ func (s *sessionDomainService) InvalidateExistingSessions(
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
 	now valueobjects.Timepoint,
-) ([]*entities.RefreshToken, error) {
-	oldTokens, err := s.refreshRepo.FindByUserAndDevice(userID, deviceID)
+) ([]*entities.SessionRenewalToken, error) {
+	oldTokens, err := s.sessionRenewalRepo.FindByUserAndDevice(userID, deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	var revokedTokens []*entities.RefreshToken
+	var revokedTokens []*entities.SessionRenewalToken
 	for _, ot := range oldTokens {
 		// Business Rule: Skip if already revoked to avoid unnecessary DB writes
 		if ot.IsRevoked() {
@@ -51,8 +51,8 @@ func (s *sessionDomainService) CreateSession(
 	userID valueobjects.UserID,
 	deviceID valueobjects.DeviceID,
 	now valueobjects.Timepoint,
-) (*entities.RefreshToken, valueobjects.RawRefreshToken, error) {
-	return s.refreshTokenFactory.New(
+) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error) {
+	return s.sessionRenewalTokenFactory.New(
 		userID,
 		deviceID,
 		now,
@@ -60,7 +60,7 @@ func (s *sessionDomainService) CreateSession(
 }
 
 func (s *sessionDomainService) RotateSession(
-	oldToken *entities.RefreshToken,
+	oldToken *entities.SessionRenewalToken,
 	now valueobjects.Timepoint,
 ) error {
 	// 1. Invariant Check: Is the token already revoked? (Reuse Detection)

@@ -40,7 +40,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 
 	pwdHasher := adaptersvc.NewBcryptHasher(cfg.Security.BcryptCost)
 	tokenHasher := adaptersvc.NewHMACHasher(cfg.Security.HMACSecret)
-	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.RefreshTokenSecretBytes)
+	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.SessionRenewalTokenSecretBytes)
 
 	jwtIssuer := adaptersvc.NewJWTSessionTokenIssuerService(
 		cfg.JWT.PrivateKey,
@@ -55,24 +55,24 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	userRepo := repositories.NewGormUserRepository(db, mappers.NewUserMapper(), idSvc, pwdHasher)
 	roleRepo := repositories.NewGormRoleRepository(db, mappers.NewRoleMapper(), idSvc)
 	deviceRepo := repositories.NewGormDeviceRepository(db, mappers.NewDeviceMapper(), idSvc)
-	refreshRepo := repositories.NewGormRefreshTokenRepository(db, mappers.NewRefreshTokenMapper())
+	sessionRenewalRepo := repositories.NewGormSessionRenewalTokenRepository(db, mappers.NewSessionRenewalTokenMapper())
 
 	// =========================
 	// Policies
 	// =========================
-	jwtPolicy := policies.NewDefaultJWTPolicy()
-	refreshTokenPolicy := policies.NewDefaultRefreshTokenPolicy()
+	SessionTokenPolicy := policies.NewDefaultSessionTokenPolicy()
+	sessionRenewalTokenPolicy := policies.NewDefaultSessionRenewalTokenPolicy()
 	passwordPolicy := policies.NewDefaultPasswordPolicy()
 
 	// =========================
 	// Domain Factories
 	// =========================
 	deviceFactory := factories.NewDefaultDeviceFactory(idSvc, clockSvc)
-	refreshTokenFactory := factories.NewDefaultRefreshTokenFactory(
+	sessionRenewalTokenFactory := factories.NewDefaultSessionRenewalTokenFactory(
 		tokenGenerator,
 		tokenHasher,
 		idSvc,
-		refreshTokenPolicy,
+		sessionRenewalTokenPolicy,
 	)
 	registrationPolicy := domainsvc.NewDefaultUserRegistrationPolicy(userRepo, roleRepo)
 	userFactory := factories.NewDefaultUserFactory(registrationPolicy, passwordPolicy, idSvc, pwdHasher)
@@ -81,7 +81,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	// Domain Services
 	// =========================
 	authDomainSvc := domainsvc.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory)
-	sessionDomainSvc := domainsvc.NewSessionDomainService(refreshRepo, refreshTokenFactory)
+	sessionDomainSvc := domainsvc.NewSessionDomainService(sessionRenewalRepo, sessionRenewalTokenFactory)
 
 	// =========================
 	// Application Use Cases
@@ -90,18 +90,18 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 
 	loginUC := usecases.NewLoginUseCase(
 		authDomainSvc,
-		refreshRepo,
+		sessionRenewalRepo,
 		roleRepo,
 		jwtIssuer,
 		idSvc,
 		clockSvc,
 		sessionDomainSvc,
-		jwtPolicy,
+		SessionTokenPolicy,
 	)
 
-	refreshUC := usecases.NewRefreshTokenUseCase(
+	refreshUC := usecases.NewSessionRenewalTokenUseCase(
 		sessionDomainSvc,
-		refreshRepo,
+		sessionRenewalRepo,
 		userRepo,
 		roleRepo,
 		deviceRepo,
@@ -109,10 +109,10 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 		clockSvc,
 		idSvc,
 		tokenHasher,
-		jwtPolicy,
+		SessionTokenPolicy,
 	)
 
-	logoutUC := usecases.NewLogoutUseCase(refreshRepo, clockSvc, tokenHasher)
+	logoutUC := usecases.NewLogoutUseCase(sessionRenewalRepo, clockSvc, tokenHasher)
 	authUserUC := usecases.NewAuthUserUseCase(userRepo, roleRepo)
 	roleUC := usecases.NewUpdateRoleUseCase(userRepo, roleRepo, idSvc, clockSvc)
 

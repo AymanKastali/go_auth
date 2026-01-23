@@ -67,7 +67,7 @@ func (h *LoginHandler) Execute(c fiber.Ctx) error {
 	l.Info("User authenticated successfully", slog.String("email", req.Email))
 
 	return utils.OK(c, dto.LoginResponse{
-		AccessToken:  authResp.AccessToken,
-		RefreshToken: authResp.RefreshToken,
+		AccessToken:  authResp.SessionToken,
+		RefreshToken: authResp.SessionRenewalToken,
 	}, "authenticated")
 }

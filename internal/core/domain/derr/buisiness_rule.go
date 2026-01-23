@@ -94,45 +94,45 @@ func (e *ErrDeviceRevoked) Code() ErrorCode { return CodeBusinessRule }
 
 // --- Token Rules ---
 
-type ErrRefreshTokenRevoked struct {
-	TokenID string
+type ErrSessionRenewalTokenRevoked struct {
+	SessionRenewalTokenID string
 }
 
-func NewErrRefreshTokenRevoked(tokenID string) *ErrRefreshTokenRevoked {
-	return &ErrRefreshTokenRevoked{TokenID: tokenID}
+func NewErrSessionRenewalTokenRevoked(tokenID string) *ErrSessionRenewalTokenRevoked {
+	return &ErrSessionRenewalTokenRevoked{SessionRenewalTokenID: tokenID}
 }
 
-func (e *ErrRefreshTokenRevoked) Error() string {
-	return fmt.Sprintf("refresh token '%s' has been revoked", e.TokenID)
+func (e *ErrSessionRenewalTokenRevoked) Error() string {
+	return fmt.Sprintf("session renewal token '%s' has been revoked", e.SessionRenewalTokenID)
 }
 
-func (e *ErrRefreshTokenRevoked) Code() ErrorCode { return CodeBusinessRule }
+func (e *ErrSessionRenewalTokenRevoked) Code() ErrorCode { return CodeBusinessRule }
 
-type ErrRefreshTokenExpired struct {
-	TokenID string
+type ErrSessionRenewalTokenExpired struct {
+	SessionRenewalTokenID string
 }
 
-func NewErrRefreshTokenExpired(tokenID string) *ErrRefreshTokenExpired {
-	return &ErrRefreshTokenExpired{TokenID: tokenID}
+func NewErrSessionRenewalTokenExpired(tokenID string) *ErrSessionRenewalTokenExpired {
+	return &ErrSessionRenewalTokenExpired{SessionRenewalTokenID: tokenID}
 }
 
-func (e *ErrRefreshTokenExpired) Error() string {
-	return fmt.Sprintf("refresh token '%s' has expired", e.TokenID)
+func (e *ErrSessionRenewalTokenExpired) Error() string {
+	return fmt.Sprintf("session renewal token '%s' has expired", e.SessionRenewalTokenID)
 }
 
-func (e *ErrRefreshTokenExpired) Code() ErrorCode { return CodeBusinessRule }
+func (e *ErrSessionRenewalTokenExpired) Code() ErrorCode { return CodeBusinessRule }
 
 type ErrTokenDoesNotBelongToDevice struct {
-	TokenID  string
-	DeviceID string
+	SessionRenewalTokenID string
+	DeviceID              string
 }
 
 func NewErrTokenDoesNotBelongToDevice(tokenID, deviceID string) *ErrTokenDoesNotBelongToDevice {
-	return &ErrTokenDoesNotBelongToDevice{TokenID: tokenID, DeviceID: deviceID}
+	return &ErrTokenDoesNotBelongToDevice{SessionRenewalTokenID: tokenID, DeviceID: deviceID}
 }
 
 func (e *ErrTokenDoesNotBelongToDevice) Error() string {
-	return fmt.Sprintf("security violation: token '%s' does not belong to device '%s'", e.TokenID, e.DeviceID)
+	return fmt.Sprintf("security violation: token '%s' does not belong to device '%s'", e.SessionRenewalTokenID, e.DeviceID)
 }
 
 func (e *ErrTokenDoesNotBelongToDevice) Code() ErrorCode { return CodeBusinessRule }

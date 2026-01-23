@@ -22,12 +22,12 @@ type IPasswordHasherService interface {
 }
 
 type IRandomTokenGenerator interface {
-	Generate() (valueobjects.RefreshTokenSecret, error)
+	Generate() (valueobjects.SessionRenewalTokenSecret, error)
 }
 
 type ITokenHasherService interface {
-	Hash(raw valueobjects.RefreshTokenSecret) (valueobjects.HashedToken, error)
-	Compare(raw valueobjects.RefreshTokenSecret, hash valueobjects.HashedToken) (bool, error)
+	Hash(raw valueobjects.SessionRenewalTokenSecret) (valueobjects.SessionRenewalHashedToken, error)
+	Compare(raw valueobjects.SessionRenewalTokenSecret, hash valueobjects.SessionRenewalHashedToken) (bool, error)
 }
 
 type IUserRegistrationPolicy interface {
@@ -52,16 +52,16 @@ type ISessionDomainService interface {
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
 		now valueobjects.Timepoint,
-	) ([]*entities.RefreshToken, error)
+	) ([]*entities.SessionRenewalToken, error)
 
 	CreateSession(
 		userID valueobjects.UserID,
 		deviceID valueobjects.DeviceID,
 		now valueobjects.Timepoint,
-	) (*entities.RefreshToken, valueobjects.RawRefreshToken, error)
+	) (*entities.SessionRenewalToken, valueobjects.SessionRenewalRawToken, error)
 
 	RotateSession(
-		oldToken *entities.RefreshToken,
+		oldToken *entities.SessionRenewalToken,
 		now valueobjects.Timepoint,
 	) error
 }

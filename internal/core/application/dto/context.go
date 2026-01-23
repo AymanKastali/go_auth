@@ -18,9 +18,9 @@ type RequestContext struct {
 
 type AuthContext struct {
 	*RequestContext
-	UserID  string
-	Roles   []string
-	TokenID string
+	UserID                string
+	Roles                 []string
+	SessionRenewalTokenID string
 }
 
 func Inject(ctx context.Context, val any) context.Context {

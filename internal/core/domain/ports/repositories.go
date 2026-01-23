@@ -28,9 +28,9 @@ type IRoleRepository interface {
 	GetAll() ([]*aggregates.Role, error)
 }
 
-type IRefreshTokenRepository interface {
-	Save(token *entities.RefreshToken) error
-	FindByID(id valueobjects.TokenID) (*entities.RefreshToken, error)
-	FindByUser(userID valueobjects.UserID) ([]*entities.RefreshToken, error)
-	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.RefreshToken, error)
+type ISessionRenewalTokenRepository interface {
+	Save(token *entities.SessionRenewalToken) error
+	FindByID(id valueobjects.SessionRenewalTokenID) (*entities.SessionRenewalToken, error)
+	FindByUser(userID valueobjects.UserID) ([]*entities.SessionRenewalToken, error)
+	FindByUserAndDevice(userID valueobjects.UserID, deviceID valueobjects.DeviceID) ([]*entities.SessionRenewalToken, error)
 }

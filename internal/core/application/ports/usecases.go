@@ -14,18 +14,18 @@ type IAuthUserUseCase interface {
 type ILoginUseCase interface {
 	Execute(
 		c context.Context, email, password string,
-	) (*dto.AuthResponse, error)
+	) (*dto.SessionTokens, error)
 }
 type ILogoutUseCase interface {
 	Execute(
-		c context.Context, refreshToken string,
+		c context.Context, sessionRenewalToken string,
 	) error
 }
 
-type IRefreshTokenUseCase interface {
+type ISessionRenewalUseCase interface {
 	Execute(
-		c context.Context, oldRefreshToken string,
-	) (*dto.AuthResponse, error)
+		c context.Context, oldSessionRenewalToken string,
+	) (*dto.SessionTokens, error)
 }
 
 type IRegisterUseCase interface {

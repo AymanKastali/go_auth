@@ -8,20 +8,20 @@ import (
 )
 
 type LogoutUseCase struct {
-	refreshRepo ports.IRefreshTokenRepository
-	clockSvc    ports.IClockService
-	tokenHasher ports.ITokenHasherService
+	sessionRenewalRepo ports.ISessionRenewalTokenRepository
+	clockSvc           ports.IClockService
+	tokenHasher        ports.ITokenHasherService
 }
 
 func NewLogoutUseCase(
-	repo ports.IRefreshTokenRepository,
+	repo ports.ISessionRenewalTokenRepository,
 	clockSvc ports.IClockService,
 	tokenHasher ports.ITokenHasherService,
 ) *LogoutUseCase {
 	return &LogoutUseCase{
-		refreshRepo: repo,
-		clockSvc:    clockSvc,
-		tokenHasher: tokenHasher,
+		sessionRenewalRepo: repo,
+		clockSvc:           clockSvc,
+		tokenHasher:        tokenHasher,
 	}
 }
 
@@ -30,12 +30,12 @@ func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
 	if err != nil {
 		return apperr.Map(err)
 	}
-	tokenVO, err := valueobjects.ParseRawRefreshToken(rawToken)
+	tokenVO, err := valueobjects.ParseSessionRenewalRawToken(rawToken)
 	if err != nil {
-		return apperr.Validation("Invalid refresh token", nil)
+		return apperr.Validation("Invalid session renewal token", nil)
 	}
 
-	tokenEntity, err := uc.refreshRepo.FindByID(tokenVO.TokenID())
+	tokenEntity, err := uc.sessionRenewalRepo.FindByID(tokenVO.ID())
 	if err != nil {
 		return apperr.Map(err)
 	}
@@ -44,17 +44,17 @@ func (uc *LogoutUseCase) Execute(ctx context.Context, rawToken string) error {
 		return nil
 	}
 
-	valid, err := uc.tokenHasher.Compare(tokenVO.Secret(), tokenEntity.HashedToken())
+	valid, err := uc.tokenHasher.Compare(tokenVO.Secret(), tokenEntity.SessionRenewalHashedToken())
 	if err != nil {
 		return apperr.Map(err)
 	}
 	if !valid {
-		return apperr.Unauthorized("Invalid refresh token", nil)
+		return apperr.Unauthorized("Invalid session renewal token", nil)
 	}
 
 	if err := tokenEntity.Revoke(now); err != nil {
 		return apperr.Map(err)
 	}
 
-	return uc.refreshRepo.Save(tokenEntity)
+	return uc.sessionRenewalRepo.Save(tokenEntity)
 }
