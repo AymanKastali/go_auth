@@ -76,5 +76,5 @@ func (h *UpdateRoleHandler) Execute(c fiber.Ctx) error {
 		slog.String("action", req.Action),
 	)
 
-	return utils.NoContent(c)
+	return c.SendStatus(fiber.StatusNoContent)
 }

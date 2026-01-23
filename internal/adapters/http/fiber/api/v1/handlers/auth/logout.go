@@ -25,7 +25,7 @@ func NewLogoutHandler(uc ports.ILogoutUseCase) *LogoutHandler {
 // @Accept       json
 // @Produce      json
 // @Param        request  body      dto.LogoutRequest  true  "Logout Details"
-// @Success      204      {object}  nil                "Successfully logged out"
+// @Success      204      "Successfully logged out"
 // @Failure      400      {object}  dto.ErrorResponse  "Invalid request body or validation failed"
 // @Failure      401      {object}  dto.ErrorResponse  "Unauthorized - Invalid or expired token"
 // @Failure      500      {object}  dto.ErrorResponse  "Internal server error"
@@ -60,5 +60,5 @@ func (h *LogoutHandler) Execute(c fiber.Ctx) error {
 	l.Info("User logged out successfully")
 
 	// 5. Return 204 No Content
-	return utils.NoContent(c)
+	return c.SendStatus(fiber.StatusNoContent)
 }

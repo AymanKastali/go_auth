@@ -48,8 +48,10 @@ func (h *AuthUserHandler) Execute(c fiber.Ctx) error {
 		return err
 	}
 
+	l.Debug("User profile retrieved successfully")
+
 	// 3. Map Domain Profile to HTTP Response DTO
-	userResponse := dto.UserResponse{
+	data := dto.UserResponse{
 		ID:        profile.ID,
 		Email:     profile.Email,
 		Status:    profile.Status,
@@ -57,9 +59,8 @@ func (h *AuthUserHandler) Execute(c fiber.Ctx) error {
 		CreatedAt: profile.CreatedAt,
 		UpdatedAt: profile.UpdatedAt,
 	}
-
-	l.Debug("User profile retrieved successfully")
+	resp := dto.SuccessResponse{Message: "User profile retrieved successfully", Data: data}
 
 	// 4. Return standardized success envelope
-	return utils.OK(c, userResponse, "User profile retrieved successfully")
+	return c.Status(fiber.StatusOK).JSON(resp)
 }

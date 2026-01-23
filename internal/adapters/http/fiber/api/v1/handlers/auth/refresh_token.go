@@ -69,14 +69,10 @@ func (h *RefreshTokenHandler) Execute(c fiber.Ctx) error {
 	}
 
 	l.Info("Tokens rotated successfully")
-
-	// 6. Return standardized envelope response
-	return utils.OK(
-		c,
-		dto.LoginResponse{
-			AccessToken:  authResp.SessionToken,
-			RefreshToken: authResp.SessionRenewalToken,
-		},
-		"tokens rotated successfully",
-	)
+	data := dto.LoginResponse{
+		AccessToken:  authResp.SessionToken,
+		RefreshToken: authResp.SessionRenewalToken,
+	}
+	resp := dto.SuccessResponse{Message: "tokens rotated successfully", Data: data}
+	return c.Status(fiber.StatusOK).JSON(resp)
 }

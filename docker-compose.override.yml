@@ -13,6 +13,7 @@ services:
       - "2345:2345"
     volumes:
       - .:/workspace:cached
+      - /workspace/docs  # This "anonymous volume" protects the container's /docs from being overwritten by your host
     depends_on:
       postgres:
         condition: service_healthy

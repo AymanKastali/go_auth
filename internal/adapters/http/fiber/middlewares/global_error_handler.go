@@ -26,7 +26,6 @@ func NewGlobalErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 
 		statusCode := netHTTP.StatusInternalServerError
 		resp := dto.ErrorResponse{
-			Success: false,
 			Type:    string(apperr.TypeInternal),
 			Message: "An unexpected system error occurred",
 			TraceID: reqCtx.RequestID,
