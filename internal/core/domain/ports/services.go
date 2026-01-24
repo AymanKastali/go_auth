@@ -30,6 +30,10 @@ type ITokenHasherService interface {
 	Compare(raw valueobjects.SessionRenewalRawTokenSecret, hash valueobjects.SessionRenewalHashedToken) (bool, error)
 }
 
+type IDeviceHasher interface {
+	Hash(t valueobjects.DeviceFingerprintTraits) (valueobjects.DeviceFingerprint, error)
+}
+
 type IUserRegistrationPolicy interface {
 	Validate(email valueobjects.Email) error
 	DefaultRoles() ([]valueobjects.RoleID, error)
@@ -37,8 +41,11 @@ type IUserRegistrationPolicy interface {
 
 type IAuthDomainService interface {
 	Authenticate(emailStr, password string) (*aggregates.User, error)
+	DeriveFingerprint(
+		traits valueobjects.DeviceFingerprintTraits,
+	) (valueobjects.DeviceFingerprint, error)
 	ResolveDevice(
-		fingerprint valueobjects.DeviceFingerprint,
+		traits valueobjects.DeviceFingerprintTraits,
 		userID valueobjects.UserID,
 		name *string,
 		userAgent *string,

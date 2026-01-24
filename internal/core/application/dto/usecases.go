@@ -3,7 +3,7 @@ package dto
 type LoginInput struct {
 	Email             string
 	Password          string
-	DeviceFingerprint string
+	DeviceFingerprint map[string]string
 	DeviceName        *string
 	UserAgent         *string
 	IPAddress         *string
@@ -11,5 +11,5 @@ type LoginInput struct {
 
 type SessionRenewalInput struct {
 	RefreshToken      string
-	DeviceFingerprint string
+	DeviceFingerprint map[string]string
 }

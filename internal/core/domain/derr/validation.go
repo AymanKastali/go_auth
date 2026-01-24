@@ -178,6 +178,16 @@ func (e *ErrDeviceFingerprintRequired) Error() string {
 }
 func (e *ErrDeviceFingerprintRequired) Code() ErrorCode { return CodeValidation }
 
+type ErrDeviceFingerprintTraits struct{}
+
+func NewErrDeviceFingerprintTraits() *ErrDeviceFingerprintTraits {
+	return &ErrDeviceFingerprintTraits{}
+}
+func (e *ErrDeviceFingerprintTraits) Error() string {
+	return "device fingerprint traits cannot be entirely empty"
+}
+func (e *ErrDeviceFingerprintTraits) Code() ErrorCode { return CodeValidation }
+
 // --- Temporal & Logical Constraints ---
 
 type ErrTimepointRequired struct{}

@@ -10,12 +10,18 @@ type SecurityConfig struct {
 	HMACSecret                        []byte
 	BcryptCost                        int
 	SessionRenewalRawTokenSecretBytes int
+	RSASecret                         []byte
 }
 
 func loadSecurityConfig() (*SecurityConfig, error) {
-	secret := os.Getenv("GA_HMAC_SECRET")
-	if secret == "" {
+	hmacSecret := os.Getenv("GA_HMAC_SECRET")
+	if hmacSecret == "" {
 		return nil, errors.New("GA_HMAC_SECRET is required")
+	}
+
+	rsaSecret := os.Getenv("GA_RSA_SECRET")
+	if rsaSecret == "" {
+		return nil, errors.New("GA_RSA_SECRET is required")
 	}
 
 	costStr := os.Getenv("GA_BCRYPT_COST")
@@ -38,8 +44,9 @@ func loadSecurityConfig() (*SecurityConfig, error) {
 	}
 
 	return &SecurityConfig{
-		HMACSecret:                        []byte(secret),
+		HMACSecret:                        []byte(hmacSecret),
 		BcryptCost:                        cost,
 		SessionRenewalRawTokenSecretBytes: bytes,
+		RSASecret:                         []byte(rsaSecret),
 	}, nil
 }

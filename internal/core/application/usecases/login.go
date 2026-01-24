@@ -59,15 +59,15 @@ func (uc *loginUseCase) Execute(l *slog.Logger, input dto.LoginInput) (*dto.Sess
 		return nil, apperr.Map(err)
 	}
 
-	// VO Conversion (Gatekeeper)
-	fingerprint, err := valueobjects.NewDeviceFingerprint(input.DeviceFingerprint)
+	traits, err := valueobjects.NewDeviceFingerprintTraits(input.DeviceFingerprint)
 	if err != nil {
+		l.Warn("Invalid device traits provided", slog.Any("error", err))
 		return nil, apperr.Map(err)
 	}
 
 	// 2. Resolve Device
 	device, err := uc.authDomainService.ResolveDevice(
-		fingerprint,
+		traits,
 		user.ID(),
 		input.DeviceName,
 		input.UserAgent,
