@@ -14,6 +14,7 @@ type authDomainService struct {
 	passwordHasher ports.IPasswordHasherService
 	idSvc          ports.IIDService
 	deviceFactory  ports.IDeviceFactory
+	deviceHasher   ports.IDeviceHasher
 }
 
 func NewAuthDomainService(
@@ -22,6 +23,7 @@ func NewAuthDomainService(
 	passwordHasher ports.IPasswordHasherService,
 	idSvc ports.IIDService,
 	deviceFactory ports.IDeviceFactory,
+	deviceHasher ports.IDeviceHasher,
 ) *authDomainService {
 	return &authDomainService{
 		userRepo:       userRepo,
@@ -29,6 +31,7 @@ func NewAuthDomainService(
 		passwordHasher: passwordHasher,
 		idSvc:          idSvc,
 		deviceFactory:  deviceFactory,
+		deviceHasher:   deviceHasher,
 	}
 }
 
@@ -62,14 +65,25 @@ func (s *authDomainService) Authenticate(emailStr, password string) (*aggregates
 	return user, nil
 }
 
+func (s *authDomainService) DeriveFingerprint(
+	traits valueobjects.DeviceFingerprintTraits,
+) (valueobjects.DeviceFingerprint, error) {
+	return s.deviceHasher.Hash(traits)
+}
+
 func (s *authDomainService) ResolveDevice(
-	fingerprint valueobjects.DeviceFingerprint,
+	traits valueobjects.DeviceFingerprintTraits,
 	userID valueobjects.UserID,
 	name *string,
 	userAgent *string,
 	ip *string,
 	now valueobjects.Timepoint,
 ) (*entities.Device, error) {
+	fingerprint, err := s.deviceHasher.Hash(traits)
+	if err != nil {
+		return nil, err
+	}
+
 	device, err := s.deviceRepo.GetByFingerprint(fingerprint)
 	if err != nil {
 		return nil, err

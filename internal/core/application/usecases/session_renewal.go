@@ -13,6 +13,7 @@ import (
 )
 
 type sessionRenewalTokenUseCase struct {
+	authDomainService  dports.IAuthDomainService
 	sessionSvc         dports.ISessionDomainService
 	sessionRenewalRepo dports.ISessionRenewalTokenRepository
 	userRepo           dports.IUserRepository
@@ -25,6 +26,7 @@ type sessionRenewalTokenUseCase struct {
 }
 
 func NewSessionRenewalTokenUseCase(
+	authDomainService dports.IAuthDomainService,
 	sessionSvc dports.ISessionDomainService,
 	sessionRenewalRepo dports.ISessionRenewalTokenRepository,
 	userRepo dports.IUserRepository,
@@ -36,6 +38,7 @@ func NewSessionRenewalTokenUseCase(
 	policy policies.SessionTokenPolicy,
 ) *sessionRenewalTokenUseCase {
 	return &sessionRenewalTokenUseCase{
+		authDomainService:  authDomainService,
 		sessionSvc:         sessionSvc,
 		sessionRenewalRepo: sessionRenewalRepo,
 		userRepo:           userRepo,
@@ -54,19 +57,28 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 		return nil, apperr.Map(err)
 	}
 
-	// 1. VO Conversion (Gatekeeping)
+	// 1. VO Conversion & Validation
 	tokenVO, err := valueobjects.ParseSessionRenewalRawToken(input.RefreshToken)
 	if err != nil {
 		l.Warn("Invalid refresh token format provided")
 		return nil, apperr.Map(err)
 	}
 
-	fingerprintVO, err := valueobjects.NewDeviceFingerprint(input.DeviceFingerprint)
+	// Convert raw map to validated Traits
+	traits, err := valueobjects.NewDeviceFingerprintTraits(input.DeviceFingerprint)
+	if err != nil {
+		l.Warn("Invalid device traits provided", slog.Any("error", err))
+		return nil, apperr.Map(err)
+	}
+
+	// 2. Derive Fingerprint via AuthDomainService
+	// This ensures the same hashing/peppering logic used in Login is applied here.
+	fingerprintVO, err := uc.authDomainService.DeriveFingerprint(traits)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 
-	// 2. Data Retrieval
+	// 3. Data Retrieval
 	oldTokenEntity, err := uc.sessionRenewalRepo.FindByID(tokenVO.ID())
 	if err != nil {
 		return nil, apperr.Map(err)
@@ -76,17 +88,18 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 		return nil, apperr.Unauthorized("Session not found", nil)
 	}
 
+	// Retrieve the device using the derived fingerprint
 	currentDevice, err := uc.deviceRepo.GetByFingerprint(fingerprintVO)
 	if err != nil {
 		return nil, apperr.Map(err)
 	}
 	if currentDevice == nil {
-		l.Warn("Device fingerprint not recognized", slog.String("fingerprint", input.DeviceFingerprint))
+		l.Warn("Device fingerprint not recognized")
 		return nil, apperr.Forbidden("Device not recognized", nil)
 	}
 
-	// 3. Orchestrate Domain Logic via Service
-	// This now handles Secret Verification, Device Check, and Rotation logic internally.
+	// 4. Orchestrate Domain Logic via Service
+	// RefreshSession should verify if the currentDevice matches the device bound to the token.
 	newTokenEntity, rawToken, err := uc.sessionSvc.RefreshSession(
 		oldTokenEntity,
 		tokenVO.Secret(),
@@ -98,7 +111,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 		return nil, apperr.Map(err)
 	}
 
-	// 4. Role hydration (Optimized batch fetch)
+	// 5. User & Role hydration
 	user, err := uc.userRepo.GetByID(oldTokenEntity.UserID())
 	if err != nil || user == nil {
 		return nil, apperr.Unauthorized("User context no longer valid", nil)
@@ -114,12 +127,12 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 		roleNames[i] = role.Name()
 	}
 
-	// 5. Token Issuance
+	// 6. Token Issuance
 	sessionToken, err := uc.sessionTokenSvc.Issue(dto.SessionTokenMetadata{
 		SessionRenewalRawTokenID: uc.idSvc.Generate(),
 		SessionID:                newTokenEntity.ID().String(),
 		UserID:                   user.ID().String(),
-		DeviceID:                 oldTokenEntity.DeviceID().String(),
+		DeviceID:                 currentDevice.ID().String(), // Use the verified device ID
 		Roles:                    roleNames,
 		IssuedAt:                 now.Time(),
 		ExpiresAt:                now.Add(uc.policy.SessionTokenTTL).Time(),
@@ -128,7 +141,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 		return nil, apperr.Internal("Failed to issue session token", err)
 	}
 
-	// 6. Persistence (Atomic Batch Save)
+	// 7. Persistence (Atomic Batch Save)
 	allTokens := []*entities.SessionRenewalToken{oldTokenEntity, newTokenEntity}
 	if err := uc.sessionRenewalRepo.SaveMany(allTokens); err != nil {
 		l.Error("Failed to persist rotated tokens", slog.Any("error", err))
@@ -137,7 +150,7 @@ func (uc *sessionRenewalTokenUseCase) Execute(l *slog.Logger, input dto.SessionR
 
 	l.Info("Token rotation complete",
 		slog.String("user_id", user.ID().String()),
-		slog.String("new_token_id", newTokenEntity.ID().String()),
+		slog.String("device_id", currentDevice.ID().String()),
 	)
 
 	return &dto.SessionTokens{

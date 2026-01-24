@@ -14,7 +14,7 @@ const (
 
 type RequestContext struct {
 	RequestID         string
-	DeviceFingerprint string
+	DeviceFingerprint map[string]string
 	DeviceName        string
 	UserAgent         string
 	IPAddress         string

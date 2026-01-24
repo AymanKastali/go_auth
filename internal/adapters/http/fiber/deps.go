@@ -39,6 +39,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 
 	pwdHasher := adaptersvc.NewBcryptHasher(cfg.Security.BcryptCost)
 	tokenHasher := adaptersvc.NewHMACHasher(cfg.Security.HMACSecret)
+	deviceHasher := adaptersvc.NewDeviceHasher(string(cfg.Security.RSASecret))
 	tokenGenerator := adaptersvc.NewCryptoRandomTokenGenerator(cfg.Security.SessionRenewalRawTokenSecretBytes)
 
 	jwtIssuer := adaptersvc.NewJWTSessionTokenIssuerService(
@@ -78,7 +79,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	// =========================
 	roleSvc := services.NewRoleService(roleRepo, idSvc)
 	userSvc := services.NewUserService(userRepo, roleRepo, pwdHasher, userFactory, passwordPolicy)
-	authDomainSvc := services.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory)
+	authDomainSvc := services.NewAuthDomainService(userRepo, deviceRepo, pwdHasher, idSvc, deviceFactory, deviceHasher)
 	sessionDomainSvc := services.NewSessionDomainSvc(sessionRenewalRepo, sessionRenewalTokenFactory, tokenHasher, tokenGenerator)
 
 	// =========================
@@ -98,6 +99,7 @@ func InitDeps(db *gorm.DB, cfg *config.Config, logger *slog.Logger) (*Deps, erro
 	)
 
 	refreshUC := usecases.NewSessionRenewalTokenUseCase(
+		authDomainSvc,
 		sessionDomainSvc,
 		sessionRenewalRepo,
 		userRepo,
