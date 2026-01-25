@@ -2,34 +2,40 @@ package postgres
 
 import (
 	"context"
-	"go_auth/internal/adapters/persistence/postgres/pgerr"
 	"time"
+
+	"go_auth/internal/core/domain" // Import your domain for the internal error type
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func NewPostgresConnection(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		TranslateError: true,
+func NewPostgresConnection(url string) (*gorm.DB, error) {
+	// 1. Open Connection
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{
+		TranslateError: true, // Crucial for mapping GORM errors to DB-specific errors
 	})
 
 	if err != nil {
-		return nil, pgerr.WrapUnavailable(err, "failed to open database connection")
+		// Wrap as a Domain Internal Error
+		return nil, domain.NewInternalError("failed to open database connection", err)
 	}
 
+	// 2. Access Underlying SQL Driver
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, pgerr.WrapUnavailable(err, "failed to access underlying sql driver")
+		return nil, domain.NewInternalError("failed to access underlying sql driver", err)
 	}
 
+	// 3. Health Check (Ping)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := sqlDB.PingContext(ctx); err != nil {
-		return nil, pgerr.WrapUnavailable(err, "database is unreachable")
+		return nil, domain.NewInternalError("database is unreachable", err)
 	}
 
+	// 4. Connection Pool Settings
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
@@ -40,7 +46,13 @@ func NewPostgresConnection(dsn string) (*gorm.DB, error) {
 func Close(db *gorm.DB) error {
 	sqlDB, err := db.DB()
 	if err != nil {
-		return err
+		// Even during close, we should report the technical failure clearly
+		return domain.NewInternalError("failed to retrieve sql driver during close", err)
 	}
-	return sqlDB.Close()
+
+	if err := sqlDB.Close(); err != nil {
+		return domain.NewInternalError("failed to close database connection", err)
+	}
+
+	return nil
 }

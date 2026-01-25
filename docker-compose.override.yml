@@ -1,6 +1,6 @@
 services:
   web:
-    container_name: "${GA_PROJECT_NAME}_app"
+    container_name: "${GA_APP_NAME}_app"
     build:
       context: .
       dockerfile: build/Dockerfile.debug
@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${GA_PORT}:${GA_PORT}"
+      - "${GA_HTTP_PORT}:${GA_HTTP_PORT}"
       - "2345:2345"
     volumes:
       - .:/workspace:cached

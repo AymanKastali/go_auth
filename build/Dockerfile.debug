@@ -12,7 +12,6 @@ RUN go mod download
 
 # 3. Copy all source code (needed for debugging)
 COPY ./build ./build
-COPY ./config ./config
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 
