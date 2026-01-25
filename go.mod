@@ -7,7 +7,6 @@ require github.com/google/uuid v1.6.0
 require (
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/gofiber/fiber/v3 v3.0.0-rc.3
-	github.com/gofiber/swagger/v2 v2.0.0-20251031122725-30bc194ed26e
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.47.0
@@ -46,7 +45,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/swaggo/files/v2 v2.0.2 // indirect
 	github.com/tinylib/msgp v1.6.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.69.0 // indirect
