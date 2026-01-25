@@ -8,9 +8,8 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Email       string `json:"email" validate:"required,email"`
-	Password    string `json:"password" validate:"required"`
-	Fingerprint string `json:"fingerprint" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 type RefreshRequest struct {
@@ -23,7 +22,10 @@ type UserResponse struct {
 }
 
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken      string `json:"access_token"`
+	AccessExpiredAt  string `json:"access_token_exp"`
+	RefreshToken     string `json:"refresh_token"`
+	RefreshExpiresAt string `json:"refresh_token_exp"`
 }
 
 type SuccessResponse struct {
@@ -32,7 +34,7 @@ type SuccessResponse struct {
 }
 
 type ErrorResponse struct {
-	Type    string         `json:"type" example:"VALIDATION"`
+	Code    string         `json:"code" example:"VALIDATION"`
 	Message string         `json:"message" example:"humanized error message"`
 	TraceID string         `json:"trace_id" example:"req-12345"`
 	Details map[string]any `json:"details,omitempty"`

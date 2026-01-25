@@ -8,6 +8,7 @@ import (
 	"go_auth/internal/core/application"
 	"go_auth/internal/core/domain"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +16,8 @@ import (
 )
 
 func main() {
+	l := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	// 1. Load Centralized Config
 	cfg, err := adapters.Load()
 	if err != nil {
@@ -26,7 +29,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("DATABASE CONNECTION FAILED: %v", err)
 	}
-	defer postgres.Close(db)
+	defer func() {
+		if err := postgres.Close(db); err != nil {
+			log.Printf("DATABASE CLOSE ERROR: %v", err)
+		}
+	}()
 
 	log.Println("Running database migrations...")
 	if err := postgres.Migrate(db); err != nil {
@@ -103,7 +110,7 @@ func main() {
 	// 6. Transport Layer (Fiber v3)
 	handler := fiberapp.NewAuthHandler(regUC, logUC, refUC, outUC, valUC)
 	middleware := fiberapp.Protected(valUC)
-	app := fiberapp.SetupApp(handler, middleware)
+	app := fiberapp.SetupApp(handler, middleware, l)
 
 	// 7. Graceful Shutdown Orchestration
 	sigChan := make(chan os.Signal, 1)

@@ -27,17 +27,17 @@ func NewRegisterUseCase(
 func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) error {
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	rawPassword, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	user, err := uc.regService.Register(ctx, email, rawPassword)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	return MapToAppError(uc.userRepo.Save(ctx, user))
@@ -65,17 +65,17 @@ func NewLoginUseCase(
 func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginResponse, error) {
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	password, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	fp, err := domain.NewDeviceFingerprint(cmd.Fingerprint)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 1. Domain Auth: Handles Password & Session (Refresh Token) creation
@@ -83,18 +83,18 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 		ctx, email, password, fp, cmd.UserAgent, cmd.IPAddress,
 	)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 2. Application Auth: Issue the stateless Access Token (JWT)
 	accessToken, expiresAt, err := uc.tokenProvider.Generate(user, session.ID())
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 3. Persist the User Aggregate (with the new session)
 	if err := uc.userRepo.Save(ctx, user); err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	return LoginResponse{
@@ -128,35 +128,35 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 	// 1. Map Primitives to Domain Value Objects (With proper error handling)
 	uid, err := domain.NewUserID(cmd.UserID)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	raw, err := domain.NewRawToken(cmd.RefreshToken)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	fp, err := domain.NewDeviceFingerprint(cmd.Fingerprint)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 2. Coordinate Domain Service
 	// This now returns the session metadata needed for the response
 	user, session, err := uc.authSvc.RefreshUserSession(ctx, uid, raw, fp)
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 3. Application Auth: Issue new stateless Access Token
 	accessToken, expiresAt, err := uc.tokenProvider.Generate(user, session.ID())
 	if err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	// 4. Persist Aggregate changes (Heartbeat/Activity)
 	if err := uc.userRepo.Save(ctx, user); err != nil {
-		return ZeroLoginResponse, MapToAppError(err)
+		return ZeroLoginResponse, err
 	}
 
 	return LoginResponse{
@@ -191,31 +191,32 @@ func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAcce
 	// 1. Reconstitute Technical Value Objects from Input
 	token, err := domain.NewAccessToken(query.AccessToken)
 	if err != nil {
-		return ValidateAccessResponse{}, MapToAppError(err)
+		return ValidateAccessResponse{}, err
 	}
 
 	// 2. Technical Port: Cryptographic/Stateless Validation
 	identity, err := uc.tokenProvider.Validate(token)
 	if err != nil {
-		return ValidateAccessResponse{}, MapToAppError(err)
+		return ValidateAccessResponse{}, err
 	}
 
 	// 3. Data Port: Retrieve the Aggregate Root
 	user, err := uc.userRepo.FindByID(ctx, identity.UserID())
 	if err != nil {
-		return ValidateAccessResponse{}, MapToAppError(err)
+		return ValidateAccessResponse{}, err
 	}
 
 	// 4. Domain Service: Enforce Business Invariants
 	// We pass 'now' into the Guard to handle temporal validation (expiration)
 	if err := uc.identityGuard.CheckIntegrity(user, identity.SessionID()); err != nil {
-		return ValidateAccessResponse{}, MapToAppError(err)
+		return ValidateAccessResponse{}, err
 	}
 
 	// 5. Success: Map to Response DTO
 	return ValidateAccessResponse{
 		UserID:    user.ID().String(),
 		SessionID: identity.SessionID().String(),
+		Roles:     user.RoleNames(),
 	}, nil
 }
 
@@ -232,23 +233,23 @@ func NewLogoutUseCase(repo domain.IUserRepository, clock domain.IClock) ILogoutU
 func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 	uid, err := domain.NewUserID(cmd.UserID)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	sid, err := domain.NewSessionID(cmd.SessionID)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	user, err := uc.userRepo.FindByID(ctx, uid)
 	if err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	// Aggregate logic: Remove/Revoke the session
 	now := uc.clock.Now()
 	if err := user.RevokeSession(sid, now); err != nil {
-		return MapToAppError(err)
+		return err
 	}
 
 	return MapToAppError(uc.userRepo.Save(ctx, user))

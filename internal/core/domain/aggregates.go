@@ -87,13 +87,27 @@ func (a *User) Activate(now Timepoint) error {
 	a.updatedAt = now
 	return nil
 }
-func (u *User) AssignRole(role Role) {
+
+func (u *User) AssignRole(role Role, now Timepoint) error {
+	// 1. Guard against modifications to deleted entities
+	if u.IsDeleted() {
+		return NewUserDeletedError(u.id.String())
+	}
+
+	// 2. Prevent logical duplicates
 	for _, r := range u.roles {
 		if r.Equal(role) {
-			return
+			return nil // Already assigned, no action needed
 		}
 	}
+
+	// 3. Apply state change
 	u.roles = append(u.roles, role)
+
+	// 4. Update the aggregate's version/timestamp
+	u.updatedAt = now
+
+	return nil
 }
 
 func (u *User) HasRole(name string) bool {
@@ -148,7 +162,9 @@ func (a *User) RevokeSession(sid SessionID, now Timepoint) error {
 	for i := range a.sessions {
 		if a.sessions[i].ID().Equal(sid) {
 			// 1. Tell the session entity to revoke itself
-			a.sessions[i].Revoke(now)
+			if err := a.sessions[i].Revoke(now); err != nil {
+				return err
+			}
 
 			// 2. Update the Aggregate Root's timestamp
 			a.updatedAt = now
@@ -179,3 +195,10 @@ func (a *User) UpdatedAt() Timepoint           { return a.updatedAt }
 func (a *User) DeletedAt() *Timepoint          { return a.deletedAt }
 func (a *User) IsDeleted() bool                { return a.deletedAt != nil }
 func (a *User) IsActive() bool                 { return a.isActive }
+func (u *User) RoleNames() []string {
+	names := make([]string, len(u.roles))
+	for i, r := range u.roles {
+		names[i] = r.Name()
+	}
+	return names
+}

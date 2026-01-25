@@ -41,6 +41,7 @@ type ValidateAccessQuery struct {
 type ValidateAccessResponse struct {
 	UserID    string
 	SessionID string
+	Roles     []string
 }
 
 // LoginResponse (The Dual-Token DTO)

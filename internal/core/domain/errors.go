@@ -160,7 +160,7 @@ func (e *ErrTokenAlreadyRevoked) Code() ErrorCode { return CodeConflict }
 type ErrEmailAlreadyTaken struct{ Email string }
 
 func NewEmailAlreadyTakenError(email string) *ErrEmailAlreadyTaken {
-	return &ErrEmailAlreadyTaken{}
+	return &ErrEmailAlreadyTaken{Email: email}
 }
 
 func (e *ErrEmailAlreadyTaken) Error() string {

@@ -68,10 +68,14 @@ func (s *userRegistrationService) Register(
 	}
 
 	// Assign the static VO role
-	user.AssignRole(RoleMember)
+	if err := user.AssignRole(RoleMember, now); err != nil {
+		return nil, err
+	}
 
 	// Pass the required Timepoint
-	user.Activate(now)
+	if err := user.Activate(now); err != nil {
+		return nil, err
+	}
 
 	return user, nil
 }

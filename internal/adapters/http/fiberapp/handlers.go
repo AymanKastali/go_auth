@@ -62,25 +62,42 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		return adapters.ErrBadRequest(err.Error())
 	}
 
+	// Validate the request fields (email, password)
 	if err := Validate(req); err != nil {
 		return adapters.ErrBadRequest(err.Error())
 	}
 
-	// Map to Application Command
+	// Retrieve the RequestContext built by middleware
+	rcIface := c.Locals("request_ctx")
+	if rcIface == nil {
+		return adapters.ErrBadRequest("missing request context")
+	}
+	rc, ok := rcIface.(*RequestContext)
+	if !ok {
+		return adapters.ErrBadRequest("invalid request context")
+	}
+
+	// Build the LoginCommand using headers-derived fingerprint
 	cmd := application.LoginCommand{
 		Email:       req.Email,
 		Password:    req.Password,
-		Fingerprint: req.Fingerprint,
-		UserAgent:   c.Get("User-Agent"),
-		IPAddress:   c.IP(),
+		Fingerprint: rc.FingerprintString(), // use header-based fingerprint
+		UserAgent:   rc.UserAgent(),
+		IPAddress:   rc.IPAddress(),
 	}
 
 	resp, err := h.loginUC.Execute(c.Context(), cmd)
+	loginResp := LoginResponse{
+		AccessToken:      resp.AccessToken,
+		AccessExpiredAt:  resp.AccessExpiredAt,
+		RefreshToken:     resp.RefreshToken,
+		RefreshExpiresAt: resp.RefreshExpiresAt,
+	}
 	if err != nil {
 		return err
 	}
 
-	return SendOK(c, "login successful", resp)
+	return SendOK(c, "login successful", loginResp)
 }
 
 // 3. Refresh Token
