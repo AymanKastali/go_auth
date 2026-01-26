@@ -1,86 +1,107 @@
 package fiberapp
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
+	"slices"
+
+	"github.com/mssola/useragent"
 )
 
-// RequestContext carries request and user info
+type ctxKey struct{}
+
+var requestCtxKey = &ctxKey{}
+
+type DeviceMetadata struct {
+	OS       string
+	Platform string
+	Browser  string
+	Version  string
+	IsMobile bool
+	IsBot    bool
+	Model    string
+}
+
 type RequestContext struct {
-	// Request metadata
-	requestID string
-	userAgent string
-	ipAddress string
-	language  string
+	requestID      string
+	userAgent      string // Added to keep raw UA for fingerprinting
+	ipAddress      string
+	acceptLanguage string
 
-	// Authenticated user info
+	deviceMetadata DeviceMetadata
+
 	userID    string
-	roles     []string
 	sessionID string
+	roles     []string
 
-	// Logger (never nil)
 	logger *slog.Logger
 }
 
-// Constructor
+// NewRequestContext now takes the raw UA string and parses it internally
 func NewRequestContext(
-	requestID, userAgent, ipAddress, language string,
+	requestID string,
+	ipAddress, acceptLanguage, uaRaw string,
 	logger *slog.Logger,
 ) *RequestContext {
 	if logger == nil {
 		logger = slog.Default()
 	}
+
+	ua := useragent.New(uaRaw)
+	browserName, browserVersion := ua.Browser()
+
 	return &RequestContext{
-		requestID: requestID,
-		userAgent: userAgent,
-		ipAddress: ipAddress,
-		language:  language,
-		logger:    logger,
-		roles:     []string{}, // ensure safe default
+		requestID:      requestID,
+		userAgent:      uaRaw,
+		ipAddress:      ipAddress,
+		acceptLanguage: acceptLanguage,
+		deviceMetadata: DeviceMetadata{
+			OS:       ua.OS(),
+			Platform: ua.Platform(),
+			Browser:  browserName,
+			Version:  browserVersion,
+			IsMobile: ua.Mobile(),
+			IsBot:    ua.Bot(),
+			Model:    ua.Model(),
+		},
+		logger: logger,
+		roles:  []string{},
 	}
 }
 
-// Safe Getters
-func (rc *RequestContext) RequestID() string { return rc.requestID }
-func (rc *RequestContext) UserAgent() string { return rc.userAgent }
-func (rc *RequestContext) IPAddress() string { return rc.ipAddress }
-func (rc *RequestContext) Language() string  { return rc.language }
-
-func (rc *RequestContext) UserID() string { return rc.userID }
-func (rc *RequestContext) Roles() []string {
-	if rc.roles == nil {
-		return []string{}
+func GetRequestContext(ctx context.Context) *RequestContext {
+	rc, ok := ctx.Value(requestCtxKey).(*RequestContext)
+	if ok && rc != nil {
+		return rc
 	}
-	return rc.roles
-}
-func (rc *RequestContext) SessionID() string { return rc.sessionID }
-
-func (rc *RequestContext) Logger() *slog.Logger { return rc.logger }
-
-// Auth helpers
-func (rc *RequestContext) IsAuthenticated() bool {
-	return rc.userID != ""
-}
-
-func (rc *RequestContext) HasRole(role string) bool {
-	for _, r := range rc.Roles() {
-		if r == role {
-			return true
-		}
+	return &RequestContext{
+		requestID: "unknown",
+		logger:    slog.Default(),
+		roles:     []string{},
 	}
-	return false
 }
 
-// Setters (for middleware / auth layer)
+// --- Getters ---
+
+func (rc *RequestContext) RequestID() string      { return rc.requestID }
+func (rc *RequestContext) IPAddress() string      { return rc.ipAddress }
+func (rc *RequestContext) AcceptLanguage() string { return rc.acceptLanguage }
+func (rc *RequestContext) UserAgent() string      { return rc.userAgent }
+
+// Metadata Getters (Aligned with the struct)
+func (rc *RequestContext) Device() DeviceMetadata { return rc.deviceMetadata }
+
+// Auth Getters
+func (rc *RequestContext) UserID() string           { return rc.userID }
+func (rc *RequestContext) SessionID() string        { return rc.sessionID }
+func (rc *RequestContext) Roles() []string          { return rc.roles }
+func (rc *RequestContext) IsAuthenticated() bool    { return rc.userID != "" }
+func (rc *RequestContext) HasRole(role string) bool { return slices.Contains(rc.roles, role) }
+func (rc *RequestContext) Logger() *slog.Logger     { return rc.logger }
+
+// Setters
 func (rc *RequestContext) SetUser(userID, sessionID string, roles []string) {
 	rc.userID = userID
 	rc.sessionID = sessionID
 	rc.roles = roles
-}
-
-// Fingerprint
-
-// FingerprintString returns the combined raw fingerprint string
-func (rc *RequestContext) FingerprintString() string {
-	return fmt.Sprintf("%s|%s|%s", rc.userAgent, rc.ipAddress, rc.language)
 }

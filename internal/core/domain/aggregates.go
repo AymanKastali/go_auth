@@ -140,11 +140,27 @@ func (a *User) AddSession(newSession Session, maxSessions int) error {
 	return nil
 }
 
-func (a *User) RefreshSession(hash HashedToken, fp DeviceFingerprint, now Timepoint) (Session, error) {
+func (a *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerprint, now Timepoint) (Session, error) {
+	if a.IsDeleted() || !a.isActive {
+		return ZeroSession, NewUserInactiveError(a.id.String())
+	}
 	for i := range a.sessions {
 		if a.sessions[i].HashedToken().Equal(hash) {
-			// ... existing validation logic ...
 
+			// 1. SECURITY CHECK: Ensure the hardware/browser fingerprint matches the one stored in the session
+			if !a.sessions[i].ValidateFingerprint(currentFingerprint) {
+				// Potential hijacking! Revoke the session immediately for safety
+				_ = a.sessions[i].Revoke(now)
+				a.updatedAt = now
+				return ZeroSession, NewSessionFingerprintMismatchError(a.sessions[i].ID().String())
+			}
+
+			// 2. LIFECYCLE CHECK: Ensure the session hasn't expired or been revoked
+			if !a.sessions[i].IsValid(now) {
+				return ZeroSession, NewSessionExpiredError()
+			}
+
+			// 3. Update Activity
 			a.sessions[i].UpdateActivity(now)
 			a.updatedAt = now
 
@@ -182,6 +198,12 @@ func (u *User) HasActiveSession(sid SessionID, now Timepoint) bool {
 		}
 	}
 	return false
+}
+
+func (a *User) CleanupSessions(now Timepoint) {
+	a.sessions = slices.DeleteFunc(a.sessions, func(s Session) bool {
+		return !s.IsValid(now)
+	})
 }
 
 // User Getters

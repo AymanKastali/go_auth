@@ -24,23 +24,31 @@ func NewRegisterUseCase(
 	}
 }
 
-func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) error {
+func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) (RegisterUserResponse, error) {
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		return err
+		return ZeroRegisterUserResponse, err
 	}
 
 	rawPassword, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
-		return err
+		return ZeroRegisterUserResponse, err
 	}
 
 	user, err := uc.regService.Register(ctx, email, rawPassword)
 	if err != nil {
-		return err
+		return ZeroRegisterUserResponse, err
 	}
 
-	return MapToAppError(uc.userRepo.Save(ctx, user))
+	err = uc.userRepo.Save(ctx, user)
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	return RegisterUserResponse{
+		UserID: user.ID().String(),
+		Email:  user.Email().String(),
+	}, nil
 }
 
 // Login Use Case
@@ -63,6 +71,7 @@ func NewLoginUseCase(
 }
 
 func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginResponse, error) {
+	// 1. Transform Primitives -> Domain VOs
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
 		return ZeroLoginResponse, err
@@ -73,35 +82,44 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 		return ZeroLoginResponse, err
 	}
 
-	fp, err := domain.NewDeviceFingerprint(cmd.Fingerprint)
-	if err != nil {
-		return ZeroLoginResponse, err
-	}
-
-	// 1. Domain Auth: Handles Password & Session (Refresh Token) creation
-	user, session, rawRefreshToken, err := uc.authSvc.Authenticate(
-		ctx, email, password, fp, cmd.UserAgent, cmd.IPAddress,
+	// Transform Device Primitives -> DeviceIdentity VO
+	identity, err := domain.NewDeviceIdentity(
+		cmd.IPAddress,
+		cmd.OS,
+		cmd.Browser,
+		cmd.Model,
+		cmd.AcceptLanguage,
+		cmd.UserAgent,
+		cmd.IsMobile,
 	)
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
 
-	// 2. Application Auth: Issue the stateless Access Token (JWT)
+	// 2. Call Domain Service with VOs
+	user, session, rawRefreshToken, err := uc.authSvc.Authenticate(
+		ctx, email, password, identity,
+	)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+
+	// 3. Issue stateless token
 	accessToken, expiresAt, err := uc.tokenProvider.Generate(user, session.ID())
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
 
-	// 3. Persist the User Aggregate (with the new session)
+	// 4. Persist
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		return ZeroLoginResponse, err
 	}
 
 	return LoginResponse{
-		AccessToken:      accessToken.String(),
-		AccessExpiredAt:  expiresAt.String(),
-		RefreshToken:     rawRefreshToken.String(),
-		RefreshExpiresAt: session.ExpiresAt().String(),
+		AccessToken:        accessToken.String(),
+		AccessTokenExpiry:  expiresAt.String(),
+		RefreshToken:       rawRefreshToken.String(),
+		RefreshTokenExpiry: session.ExpiresAt().String(),
 	}, nil
 }
 
@@ -160,10 +178,10 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 	}
 
 	return LoginResponse{
-		AccessToken:      accessToken.String(),
-		AccessExpiredAt:  expiresAt.String(),
-		RefreshToken:     cmd.RefreshToken,
-		RefreshExpiresAt: session.ExpiresAt().String(),
+		AccessToken:        accessToken.String(),
+		AccessTokenExpiry:  expiresAt.String(),
+		RefreshToken:       cmd.RefreshToken,
+		RefreshTokenExpiry: session.ExpiresAt().String(),
 	}, nil
 }
 

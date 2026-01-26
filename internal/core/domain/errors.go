@@ -33,7 +33,10 @@ type ErrRequiredAttribute struct {
 }
 
 func NewRequiredAttributeError(entity EntityName, field string) *ErrRequiredAttribute {
-	return &ErrRequiredAttribute{}
+	return &ErrRequiredAttribute{
+		Entity: entity,
+		Field:  field,
+	}
 }
 func (e *ErrRequiredAttribute) Error() string {
 	return fmt.Sprintf("%s.%s is required", e.Entity, e.Field)
@@ -217,6 +220,12 @@ func (e *ErrSessionFingerprintMismatch) Error() string {
 	return fmt.Sprintf("session '%s' fingerprint mismatch", e.SessionID)
 }
 func (e *ErrSessionFingerprintMismatch) Code() ErrorCode { return CodeForbidden }
+
+type ErrSessionExpired struct{}
+
+func NewSessionExpiredError() *ErrSessionExpired { return &ErrSessionExpired{} }
+func (e *ErrSessionExpired) Error() string       { return "session has expired" }
+func (e *ErrSessionExpired) Code() ErrorCode     { return CodeForbidden }
 
 // CodeNotFound
 type ErrSessionNotFound struct{ SessionID string }

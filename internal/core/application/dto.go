@@ -1,7 +1,8 @@
 package application
 
 var (
-	ZeroLoginResponse = LoginResponse{}
+	ZeroLoginResponse        = LoginResponse{}
+	ZeroRegisterUserResponse = RegisterUserResponse{}
 )
 
 // RegisterUserCommand
@@ -12,11 +13,15 @@ type RegisterUserCommand struct {
 
 // LoginCommand
 type LoginCommand struct {
-	Email       string
-	Password    string
-	Fingerprint string
-	UserAgent   string
-	IPAddress   string
+	Email          string
+	Password       string
+	IPAddress      string
+	OS             string
+	Browser        string
+	Model          string
+	AcceptLanguage string
+	UserAgent      string
+	IsMobile       bool
 }
 
 // RefreshTokenCommand
@@ -46,8 +51,13 @@ type ValidateAccessResponse struct {
 
 // LoginResponse (The Dual-Token DTO)
 type LoginResponse struct {
-	AccessToken      string
-	AccessExpiredAt  string
-	RefreshToken     string
-	RefreshExpiresAt string
+	AccessToken        string
+	AccessTokenExpiry  string
+	RefreshToken       string
+	RefreshTokenExpiry string
+}
+
+type RegisterUserResponse struct {
+	UserID string
+	Email  string
 }

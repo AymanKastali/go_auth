@@ -51,16 +51,14 @@ type IAuthenticationService interface {
 		ctx context.Context,
 		email Email,
 		password RawPassword,
-		fp DeviceFingerprint,
-		ua string,
-		ip string,
+		identity DeviceIdentity,
 	) (*User, Session, RawToken, error)
 
 	RefreshUserSession(
 		ctx context.Context,
 		uid UserID,
 		raw RawToken,
-		fp DeviceFingerprint,
+		currentFingerprint DeviceFingerprint,
 	) (*User, Session, error)
 }
 
@@ -90,16 +88,12 @@ type IUserFactory interface {
 }
 
 type ISessionFactory interface {
-	// Build assembles a Session entity.
-	// The SessionID and HashedToken are provided by the Service.
 	Build(
 		id SessionID,
 		token HashedToken,
-		fingerprint DeviceFingerprint,
-		userAgent string,
-		ipAddress string,
+		identity DeviceIdentity,
 		expiresAt Timepoint,
-		createdAt Timepoint,
+		now Timepoint,
 	) (*Session, error)
 }
 

@@ -1,8 +1,6 @@
 package fiberapp
 
 import (
-	"context"
-	"log/slog"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -28,32 +26,4 @@ func ExtractToken(authHeader string) string {
 	}
 
 	return parts[1]
-}
-
-// Context
-type ctxKey struct{}
-
-var requestCtxKey = &ctxKey{}
-
-func WithRequestContext(ctx context.Context, rc *RequestContext) context.Context {
-	return context.WithValue(ctx, requestCtxKey, rc)
-}
-
-func GetRequestContext(ctx context.Context) *RequestContext {
-	rc, ok := ctx.Value(requestCtxKey).(*RequestContext)
-	if ok && rc != nil {
-		return rc
-	}
-
-	// Safe default context for unauthenticated/background requests
-	return &RequestContext{
-		requestID: "unknown",
-		userAgent: "",
-		ipAddress: "",
-		language:  "",
-		userID:    "",
-		roles:     []string{},
-		sessionID: "",
-		logger:    slog.Default(),
-	}
 }
