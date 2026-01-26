@@ -57,6 +57,8 @@ func MapToAppError(err error) error {
 			return &AppError{Code: AppErrConflict, Message: domainErr.Error(), Err: err}
 		case domain.CodeNotFound:
 			return &AppError{Code: AppErrNotFound, Message: domainErr.Error(), Err: err}
+		case domain.CodeUnauthorized:
+			return &AppError{Code: AppErrUnauthorized, Message: domainErr.Error(), Err: err}
 		case domain.CodeForbidden:
 			return &AppError{Code: AppErrForbidden, Message: domainErr.Error(), Err: err}
 		}

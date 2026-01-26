@@ -66,6 +66,12 @@ func (s Session) ValidateFingerprint(currentFingerprint DeviceFingerprint) bool 
 	return s.identity.Fingerprint() == currentFingerprint
 }
 
+func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
+	s.hashedToken = newToken
+	s.expiresAt = newExpiry
+	s.lastActiveAt = now
+}
+
 func (s *Session) Revoke(now Timepoint) error {
 	if s.IsRevoked() {
 		return NewTokenAlreadyRevokedError(s.id.String())
