@@ -95,18 +95,27 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 
 func toSessionModel(userID string, s domain.Session) SessionModel {
 	var revokedAt *time.Time
-	if s.RevokedAt() != nil {
+	if s.IsRevoked() {
 		t := s.RevokedAt().Time()
 		revokedAt = &t
 	}
 
+	// Access the Value Object from the domain entity
+	identity := s.Identity()
+
 	return SessionModel{
-		ID:           s.ID().String(),
-		UserID:       userID,
-		HashedToken:  s.HashedToken().String(),
-		Fingerprint:  s.Fingerprint().String(),
-		UserAgent:    s.UserAgent(),
-		IPAddress:    s.IPAddress(),
+		ID:          s.ID().String(),
+		UserID:      userID,
+		HashedToken: s.HashedToken().String(),
+		// Flatten the Value Object into the DB columns
+		IPAddress:      identity.IPAddress(),
+		UserAgent:      identity.UserAgent(),
+		OS:             identity.OS(),
+		Browser:        identity.Browser(),
+		Model:          identity.Model(),
+		AcceptLanguage: identity.Language(),
+		IsMobile:       identity.IsMobile(),
+
 		ExpiresAt:    s.ExpiresAt().Time(),
 		LastActiveAt: s.LastActiveAt().Time(),
 		RevokedAt:    revokedAt,
@@ -116,18 +125,24 @@ func toSessionModel(userID string, s domain.Session) SessionModel {
 func toSessionDomain(m SessionModel) (domain.Session, error) {
 	sid, err := domain.NewSessionID(m.ID)
 	if err != nil {
-		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute session id from database", err)
+		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute session id", err)
 	}
 
 	token, err := domain.NewHashedToken(m.HashedToken)
 	if err != nil {
-		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute hashed token from database", err)
+		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute hashed token", err)
 	}
 
-	fingerprint, err := domain.NewDeviceFingerprint(m.Fingerprint)
-	if err != nil {
-		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute fingerprint from database", err)
-	}
+	// 1. Reconstitute the Value Object first
+	identity := domain.ReconstituteDeviceIdentity(
+		m.IPAddress,
+		m.OS,
+		m.Browser,
+		m.Model,
+		m.AcceptLanguage,
+		m.UserAgent,
+		m.IsMobile,
+	)
 
 	var revokedAt *domain.Timepoint
 	if m.RevokedAt != nil {
@@ -135,12 +150,11 @@ func toSessionDomain(m SessionModel) (domain.Session, error) {
 		revokedAt = &t
 	}
 
+	// 2. Pass the Value Object into the Domain Entity reconstitution
 	session := domain.ReconstituteSession(
 		sid,
 		token,
-		fingerprint,
-		m.UserAgent,
-		m.IPAddress,
+		identity,
 		domain.ReconstituteTimepoint(m.ExpiresAt),
 		domain.ReconstituteTimepoint(m.LastActiveAt),
 		revokedAt,

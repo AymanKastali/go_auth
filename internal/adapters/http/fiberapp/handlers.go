@@ -48,11 +48,16 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 		Password: req.Password,
 	}
 
-	if err := h.registerUC.Execute(c.Context(), cmd); err != nil {
-		return err
+	user, err := h.registerUC.Execute(c.Context(), cmd)
+	registerResp := RegisterUserResponse{
+		UserID: user.UserID,
+		Email:  user.Email,
 	}
 
-	return SendNoContent(c)
+	if err != nil {
+		return err
+	}
+	return SendCreated(c, "user registered successfully", registerResp)
 }
 
 // 2. Login
@@ -67,34 +72,31 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		return adapters.ErrBadRequest(err.Error())
 	}
 
-	// Retrieve the RequestContext built by middleware
-	rcIface := c.Locals("request_ctx")
-	if rcIface == nil {
-		return adapters.ErrBadRequest("missing request context")
-	}
-	rc, ok := rcIface.(*RequestContext)
-	if !ok {
-		return adapters.ErrBadRequest("invalid request context")
-	}
+	rc := GetRequestContext(c.Context())
+	meta := rc.Device()
 
 	// Build the LoginCommand using headers-derived fingerprint
 	cmd := application.LoginCommand{
-		Email:       req.Email,
-		Password:    req.Password,
-		Fingerprint: rc.FingerprintString(), // use header-based fingerprint
-		UserAgent:   rc.UserAgent(),
-		IPAddress:   rc.IPAddress(),
+		Email:          req.Email,
+		Password:       req.Password,
+		IPAddress:      rc.IPAddress(),
+		OS:             meta.OS,
+		Browser:        meta.Browser,
+		Model:          meta.Model,
+		AcceptLanguage: rc.AcceptLanguage(),
+		UserAgent:      rc.UserAgent(),
+		IsMobile:       meta.IsMobile,
 	}
 
 	resp, err := h.loginUC.Execute(c.Context(), cmd)
-	loginResp := LoginResponse{
-		AccessToken:      resp.AccessToken,
-		AccessExpiredAt:  resp.AccessExpiredAt,
-		RefreshToken:     resp.RefreshToken,
-		RefreshExpiresAt: resp.RefreshExpiresAt,
-	}
 	if err != nil {
 		return err
+	}
+	loginResp := LoginResponse{
+		AccessToken:        resp.AccessToken,
+		AccessTokenExpiry:  resp.AccessTokenExpiry,
+		RefreshToken:       resp.RefreshToken,
+		RefreshTokenExpiry: resp.RefreshTokenExpiry,
 	}
 
 	return SendOK(c, "login successful", loginResp)

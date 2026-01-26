@@ -28,20 +28,17 @@ func NewSessionFactory() ISessionFactory {
 func (f *sessionFactory) Build(
 	id SessionID,
 	token HashedToken,
-	fp DeviceFingerprint,
-	ua string,
-	ip string,
+	identity DeviceIdentity, // Already constructed and validated
 	expiresAt Timepoint,
 	now Timepoint,
 ) (*Session, error) {
-	// We call NewSession which validates that the expiration
-	// isn't in the past relative to 'now'.
+	// The factory's job is now pure assembly.
+	// NewSession will still perform business-rule validation
+	// (e.g., ensuring expiresAt > now).
 	return NewSession(
 		id,
 		token,
-		fp,
-		ua,
-		ip,
+		identity,
 		expiresAt,
 		now,
 	)

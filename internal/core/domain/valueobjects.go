@@ -1,24 +1,24 @@
 package domain
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
 )
 
 var (
-	ZeroUserID            = UserID{}
-	ZeroEmail             = Email{}
-	ZeroHashedPassword    = HashedPassword{}
-	ZeroRawPassword       = RawPassword{}
-	ZeroTimepoint         = Timepoint{}
-	ZeroSessionID         = SessionID{}
-	ZeroDeviceFingerprint = DeviceFingerprint{}
-	ZeroHashedToken       = HashedToken{}
-	ZeroRawToken          = RawToken{}
-	ZeroAccessToken       = AccessToken{}
-	ZeroAccessIdentity    = AccessIdentity{}
-	ZeroRole              = Role{}
+	ZeroUserID         = UserID{}
+	ZeroEmail          = Email{}
+	ZeroHashedPassword = HashedPassword{}
+	ZeroRawPassword    = RawPassword{}
+	ZeroTimepoint      = Timepoint{}
+	ZeroSessionID      = SessionID{}
+	ZeroHashedToken    = HashedToken{}
+	ZeroRawToken       = RawToken{}
+	ZeroAccessToken    = AccessToken{}
+	ZeroAccessIdentity = AccessIdentity{}
+	ZeroRole           = Role{}
 )
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
@@ -118,19 +118,6 @@ func ReconstituteSessionID(value string) SessionID { return SessionID{value: val
 func (vo SessionID) String() string             { return vo.value }
 func (vo SessionID) IsEmpty() bool              { return vo.value == "" }
 func (vo SessionID) Equal(other SessionID) bool { return vo.value == other.value }
-
-// DeviceFingerprint
-type DeviceFingerprint struct{ value string }
-
-func NewDeviceFingerprint(value string) (DeviceFingerprint, error) {
-	if value == "" {
-		return ZeroDeviceFingerprint, NewRequiredAttributeError("DeviceFingerprint", "value")
-	}
-	return DeviceFingerprint{value: value}, nil
-}
-func (vo DeviceFingerprint) String() string                     { return vo.value }
-func (vo DeviceFingerprint) IsEmpty() bool                      { return vo.value == "" }
-func (vo DeviceFingerprint) Equal(other DeviceFingerprint) bool { return vo.value == other.value }
 
 // HashedToken
 type HashedToken struct{ value string }
@@ -246,3 +233,97 @@ func NewRole(name string) (Role, error) {
 }
 func (r Role) Name() string          { return r.name }
 func (r Role) Equal(other Role) bool { return r.name == other.name }
+
+// DeviceIdentity
+type DeviceIdentity struct {
+	ipAddress string
+	os        string
+	browser   string
+	model     string
+	isMobile  bool
+	language  string
+	userAgent string
+}
+
+func NewDeviceIdentity(
+	ip, os, browser, model, lang, ua string,
+	isMobile bool,
+) (DeviceIdentity, error) {
+	if ip == "" {
+		return DeviceIdentity{}, NewRequiredAttributeError("DeviceIdentity", "ipAddress")
+	}
+	if ua == "" {
+		return DeviceIdentity{}, NewRequiredAttributeError("DeviceIdentity", "userAgent")
+	}
+
+	return DeviceIdentity{
+		ipAddress: ip,
+		os:        os,
+		browser:   browser,
+		model:     model,
+		isMobile:  isMobile,
+		language:  lang,
+		userAgent: ua,
+	}, nil
+}
+
+func ReconstituteDeviceIdentity(
+	ip, os, browser, model, lang, ua string,
+	isMobile bool,
+) DeviceIdentity {
+	return DeviceIdentity{
+		ipAddress: ip,
+		os:        os,
+		browser:   browser,
+		model:     model,
+		isMobile:  isMobile,
+		language:  lang,
+		userAgent: ua,
+	}
+}
+
+func (d DeviceIdentity) Fingerprint() DeviceFingerprint {
+	return NewDeviceFingerprintFromIdentity(d.userAgent, d.ipAddress, d.language)
+}
+
+func (d DeviceIdentity) DisplayName() string {
+	if d.isMobile && d.model != "" && d.model != "Generic" {
+		return fmt.Sprintf("%s (%s)", d.model, d.browser)
+	}
+
+	return fmt.Sprintf("%s on %s", d.browser, d.os)
+}
+
+func (d DeviceIdentity) IsSameDevice(other DeviceIdentity) bool {
+	return d.Fingerprint() == other.Fingerprint()
+}
+
+func (d DeviceIdentity) IPAddress() string { return d.ipAddress }
+func (d DeviceIdentity) OS() string        { return d.os }
+func (d DeviceIdentity) Browser() string   { return d.browser }
+func (d DeviceIdentity) Model() string     { return d.model }
+func (d DeviceIdentity) IsMobile() bool    { return d.isMobile }
+func (d DeviceIdentity) Language() string  { return d.language }
+func (d DeviceIdentity) UserAgent() string { return d.userAgent }
+
+// DeviceFingerprint
+type DeviceFingerprint struct{ value string }
+
+func NewDeviceFingerprintFromIdentity(ua, ip, lang string) DeviceFingerprint {
+	val := fmt.Sprintf("%s|%s|%s", ua, ip, lang)
+	return DeviceFingerprint{value: val}
+}
+
+func NewDeviceFingerprint(value string) (DeviceFingerprint, error) {
+	if value == "" {
+		return DeviceFingerprint{}, NewRequiredAttributeError("DeviceFingerprint", "value")
+	}
+	return DeviceFingerprint{value: value}, nil
+}
+
+func ReconstituteDeviceFingerprint(value string) DeviceFingerprint {
+	return DeviceFingerprint{value: value}
+}
+
+func (vo DeviceFingerprint) String() string                     { return vo.value }
+func (vo DeviceFingerprint) Equal(other DeviceFingerprint) bool { return vo.value == other.value }

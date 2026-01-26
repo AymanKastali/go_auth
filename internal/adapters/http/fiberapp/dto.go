@@ -22,10 +22,15 @@ type UserResponse struct {
 }
 
 type LoginResponse struct {
-	AccessToken      string `json:"access_token"`
-	AccessExpiredAt  string `json:"access_token_exp"`
-	RefreshToken     string `json:"refresh_token"`
-	RefreshExpiresAt string `json:"refresh_token_exp"`
+	AccessToken        string `json:"access_token"`
+	AccessTokenExpiry  string `json:"access_exp"`
+	RefreshToken       string `json:"refresh_token"`
+	RefreshTokenExpiry string `json:"refresh_exp"`
+}
+
+type RegisterUserResponse struct {
+	UserID string `json:"id"`
+	Email  string `json:"email"`
 }
 
 type SuccessResponse struct {

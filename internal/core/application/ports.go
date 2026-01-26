@@ -8,7 +8,7 @@ import (
 type IRegisterUseCase interface {
 	// Execute orchestrates the registration process.
 	// It takes a Command (DTO) and returns an error if the process fails.
-	Execute(ctx context.Context, cmd RegisterUserCommand) error
+	Execute(ctx context.Context, cmd RegisterUserCommand) (RegisterUserResponse, error)
 }
 
 // ILoginUserUseCase defines the boundary for user authentication.

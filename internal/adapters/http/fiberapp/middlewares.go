@@ -30,26 +30,16 @@ func AppErrorMiddleware() fiber.Handler {
 
 func ContextMiddleware(baseLogger *slog.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Safe retrieval of request ID
 		reqID := requestid.FromContext(c)
 
-		// Scoped logger
-		scopedLogger := baseLogger.With(
-			slog.String("req_id", reqID),
-		)
-
-		// Build request context
 		rc := NewRequestContext(
 			reqID,
-			c.Get("User-Agent"),
 			c.IP(),
 			c.Get("Accept-Language"),
-			scopedLogger,
+			c.Get("User-Agent"),
+			baseLogger.With(slog.String("req_id", reqID)),
 		)
 
-		c.Locals("request_ctx", rc)
-
-		c.Locals("request_ctx", rc)
 		ctx := context.WithValue(c.Context(), requestCtxKey, rc)
 		c.SetContext(ctx)
 
@@ -77,17 +67,8 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 			return err
 		}
 
-		// Fetch RequestContext from locals
-		rcIface := c.Locals("request_ctx")
-		if rcIface != nil {
-			if rc, ok := rcIface.(*RequestContext); ok {
-				rc.SetUser(access.UserID, access.SessionID, access.Roles)
-			}
-		}
-
-		// Optionally also store in locals for quick access
-		c.Locals("user_id", access.UserID)
-		c.Locals("session_id", access.SessionID)
+		rc := GetRequestContext(c.Context())
+		rc.SetUser(access.UserID, access.SessionID, access.Roles)
 
 		return c.Next()
 	}

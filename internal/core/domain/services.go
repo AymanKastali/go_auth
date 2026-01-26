@@ -45,7 +45,11 @@ func (s *userRegistrationService) Register(
 	}
 
 	// 2. Uniqueness check
-	existing, _ := s.userRepo.FindByEmail(ctx, email)
+	existing, err := s.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
 	if existing != nil {
 		return nil, NewEmailAlreadyTakenError(email.String())
 	}
@@ -115,9 +119,7 @@ func (s *authenticationService) Authenticate(
 	ctx context.Context,
 	email Email,
 	password RawPassword,
-	fp DeviceFingerprint,
-	ua string,
-	ip string,
+	identity DeviceIdentity,
 ) (*User, Session, RawToken, error) {
 	// 1. Fetch the Aggregate Root
 	user, err := s.userRepo.FindByEmail(ctx, email)
@@ -144,7 +146,13 @@ func (s *authenticationService) Authenticate(
 	}
 
 	// 4. Use "Dumb" Factory to assemble the Session entity
-	session, err := s.sessionFactory.Build(sid, hashedT, fp, ua, ip, expiry, now)
+	session, err := s.sessionFactory.Build(
+		sid,
+		hashedT,
+		identity,
+		expiry,
+		now,
+	)
 	if err != nil {
 		return nil, ZeroSession, ZeroRawToken, err
 	}
@@ -162,7 +170,7 @@ func (s *authenticationService) RefreshUserSession(
 	ctx context.Context,
 	uid UserID,
 	raw RawToken,
-	fp DeviceFingerprint,
+	currentFingerprint DeviceFingerprint,
 ) (*User, Session, error) {
 	user, err := s.userRepo.FindByID(ctx, uid)
 	if err != nil {
@@ -176,7 +184,7 @@ func (s *authenticationService) RefreshUserSession(
 
 	now := s.clock.Now()
 	// We need the aggregate to return the session it just validated
-	session, err := user.RefreshSession(hashed, fp, now)
+	session, err := user.RefreshSession(hashed, currentFingerprint, now)
 	if err != nil {
 		return nil, ZeroSession, err
 	}
