@@ -32,3 +32,8 @@ type IValidateAccessUseCase interface {
 type ILogoutUseCase interface {
 	Execute(ctx context.Context, cmd LogoutCommand) error
 }
+
+// ISeedSuperAdmin handles the creation of the super admin user when bootstrap the app.
+type ISeedSuperAdmin interface {
+	Execute(ctx context.Context, cmd RegisterUserCommand) error
+}

@@ -5,6 +5,49 @@ import (
 	"go_auth/internal/core/domain"
 )
 
+// SeedingSuperAdmin
+type seedSuperAdminUseCase struct {
+	userRepo    domain.IUserRepository
+	regService  domain.IUserRegistrationService
+	passwordSvc domain.IPasswordService
+}
+
+func NewSeedSuperAdminUseCase(
+	repo domain.IUserRepository,
+	svc domain.IUserRegistrationService,
+	pwd domain.IPasswordService,
+) ISeedSuperAdmin {
+	return &seedSuperAdminUseCase{
+		userRepo:    repo,
+		regService:  svc,
+		passwordSvc: pwd,
+	}
+}
+
+func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) error {
+	email, err := domain.NewEmail(cmd.Email)
+	if err != nil {
+		return err
+	}
+
+	rawPassword, err := domain.NewRawPassword(cmd.Password)
+	if err != nil {
+		return err
+	}
+
+	user, err := uc.regService.Register(ctx, email, rawPassword)
+	if err != nil {
+		return err
+	}
+
+	err = uc.userRepo.Save(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Register Use Case
 type registerUseCase struct {
 	userRepo    domain.IUserRepository

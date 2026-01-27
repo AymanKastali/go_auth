@@ -107,6 +107,23 @@ func main() {
 	outUC := application.NewLogoutUseCase(userRepo, clock)
 	valUC := application.NewValidateAccessUseCase(tokenProvider, userRepo, identityGuard)
 
+	// Seeding SuperAdmin
+	seedSAUC := application.NewSeedSuperAdminUseCase(userRepo, regService, passwordSvc)
+	seedCtx, seedCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer seedCancel()
+	seedCmd := application.RegisterUserCommand{
+		Email:    cfg.Seed.AdminEmail,
+		Password: cfg.Seed.AdminPassword,
+	}
+	log.Println("Seeding SuperAdmin...")
+	if err := seedSAUC.Execute(seedCtx, seedCmd); err != nil {
+		// We log but don't always terminate,
+		// especially if the error is "User already exists"
+		log.Printf("Seed skipped or failed: %v", err)
+	} else {
+		log.Println("SuperAdmin seeded successfully.")
+	}
+
 	// 6. Transport Layer (Fiber v3)
 	handler := fiberapp.NewAuthHandler(regUC, logUC, refUC, outUC, valUC)
 	middleware := fiberapp.Protected(valUC)
