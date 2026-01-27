@@ -71,7 +71,15 @@ type IIdentityGuardService interface {
 // requirement for the "Login" and "Refresh" use cases.
 type IAccessTokenProvider interface {
 	// Generate creates a signed token and returns its expiry time.
-	Generate(user *User, sid SessionID) (AccessToken, Timepoint, error)
+	Generate(
+		userID UserID,
+		email Email,
+		sessionID SessionID,
+		roles []Role,
+		IssuedAt Timepoint,
+		expiresAt Timepoint,
+		notBefore Timepoint,
+	) (AccessToken, Timepoint, error)
 	Validate(token AccessToken) (AccessIdentity, error)
 }
 
@@ -105,8 +113,20 @@ type IPasswordPolicy interface {
 
 type ISessionPolicy interface {
 	// GetExpiryDuration returns how long a session should remain valid.
-	GetExpiryDuration() time.Duration
-
+	GetSessionLifetime() time.Duration
 	// GetMaxActiveSessions returns the limit of concurrent sessions per user.
 	GetMaxActiveSessions() int
+}
+
+// Access
+type IAccessPolicy interface {
+	GetAccessLifetime() time.Duration
+}
+
+type IAccessGrantor interface {
+	GrantImmediateAccess(
+		ctx context.Context,
+		user *User,
+		sessionID SessionID,
+	) (AccessToken, Timepoint, error)
 }

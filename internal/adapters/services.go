@@ -134,6 +134,7 @@ func (s *passwordService) Compare(raw domain.RawPassword, hashed domain.HashedPa
 	return err == nil
 }
 
+// JWT Service
 type jwtProvider struct {
 	secretKey []byte
 	expiry    time.Duration
@@ -163,26 +164,28 @@ type CustomClaims struct {
 }
 
 func (p *jwtProvider) Generate(
-	user *domain.User,
-	sid domain.SessionID,
+	userID domain.UserID,
+	email domain.Email,
+	sessionID domain.SessionID,
+	roles []domain.Role,
+	IssuedAt domain.Timepoint,
+	expiresAt domain.Timepoint,
+	notBefore domain.Timepoint,
 ) (domain.AccessToken, domain.Timepoint, error) {
-	now := time.Now().UTC()
-	expiryTime := now.Add(p.expiry)
-
-	roleNames := make([]string, len(user.Roles()))
-	for i, r := range user.Roles() {
+	roleNames := make([]string, len(roles))
+	for i, r := range roles {
 		roleNames[i] = r.Name()
 	}
 
 	claims := CustomClaims{
-		Email: user.Email().String(),
+		Email: email.String(),
 		Roles: roleNames,
-		SID:   sid.String(), // Link to database session
+		SID:   sessionID.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   user.ID().String(),
-			ExpiresAt: jwt.NewNumericDate(expiryTime),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(IssuedAt.Time()),
+			ExpiresAt: jwt.NewNumericDate(expiresAt.Time()),
+			NotBefore: jwt.NewNumericDate(notBefore.Time()),
 			Issuer:    p.issuer,
 			Audience:  jwt.ClaimStrings{p.audience},
 		},
@@ -200,8 +203,49 @@ func (p *jwtProvider) Generate(
 		return domain.ZeroAccessToken, domain.ZeroTimepoint, err
 	}
 
-	return accessToken, domain.NewTimepoint(expiryTime), nil
+	return accessToken, expiresAt, nil
 }
+
+// func (p *jwtProvider) Generate(
+// 	user *domain.User,
+// 	sid domain.SessionID,
+// ) (domain.AccessToken, domain.Timepoint, error) {
+// 	now := time.Now().UTC()
+// 	expiryTime := now.Add(p.expiry)
+
+// 	roleNames := make([]string, len(user.Roles()))
+// 	for i, r := range user.Roles() {
+// 		roleNames[i] = r.Name()
+// 	}
+
+// 	claims := CustomClaims{
+// 		Email: user.Email().String(),
+// 		Roles: roleNames,
+// 		SID:   sid.String(), // Link to database session
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			Subject:   user.ID().String(),
+// 			ExpiresAt: jwt.NewNumericDate(expiryTime),
+// 			IssuedAt:  jwt.NewNumericDate(now),
+// 			NotBefore: jwt.NewNumericDate(now),
+// 			Issuer:    p.issuer,
+// 			Audience:  jwt.ClaimStrings{p.audience},
+// 		},
+// 	}
+
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+// 	signedStr, err := token.SignedString(p.secretKey)
+// 	if err != nil {
+// 		return domain.ZeroAccessToken, domain.ZeroTimepoint,
+// 			domain.NewInternalError("failed to sign access token", err)
+// 	}
+
+// 	accessToken, err := domain.NewAccessToken(signedStr)
+// 	if err != nil {
+// 		return domain.ZeroAccessToken, domain.ZeroTimepoint, err
+// 	}
+
+//		return accessToken, domain.NewTimepoint(expiryTime), nil
+//	}
 func (p *jwtProvider) Validate(token domain.AccessToken) (domain.AccessIdentity, error) {
 	// 1. Technical Parse with Claims Validation
 	parsedToken, err := jwt.ParseWithClaims(

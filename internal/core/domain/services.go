@@ -137,7 +137,7 @@ func (s *authenticationService) Authenticate(
 
 	// 3. Prepare fresh credentials and timestamps
 	now := s.clock.Now()
-	expiry := now.Add(s.sessionPolicy.GetExpiryDuration())
+	expiry := now.Add(s.sessionPolicy.GetSessionLifetime())
 
 	// We generate a "potential" SessionID and HashedToken.
 	// If it's a new device, these are used.
@@ -240,4 +240,44 @@ func (s *identityGuardService) CheckIntegrity(user *User, sid SessionID) error {
 	}
 
 	return nil
+}
+
+// Access Session For User
+// Authentication Service
+type accessGrantor struct {
+	tokenProvider IAccessTokenProvider
+	policy        IAccessPolicy
+	clock         IClock
+}
+
+func NewAccessGrantor(
+	tokenProvider IAccessTokenProvider,
+	policy IAccessPolicy,
+	clock IClock,
+) IAccessGrantor {
+	return &accessGrantor{
+		tokenProvider: tokenProvider,
+		policy:        policy,
+		clock:         clock,
+	}
+}
+
+func (s *accessGrantor) GrantImmediateAccess(
+	ctx context.Context,
+	user *User,
+	sessionID SessionID,
+) (AccessToken, Timepoint, error) {
+	now := s.clock.Now()
+	issuedAt := now
+	expiresAt := issuedAt.Add(s.policy.GetAccessLifetime())
+	notBefore := issuedAt
+	return s.tokenProvider.Generate(
+		user.ID(),
+		user.Email(),
+		sessionID,
+		user.Roles(),
+		issuedAt,
+		expiresAt,
+		notBefore,
+	)
 }

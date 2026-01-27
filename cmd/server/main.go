@@ -71,6 +71,10 @@ func main() {
 		cfg.SessionPolicy.MaxActive,
 	)
 
+	accessPolicy := domain.NewAccessPolicy(
+		cfg.JWT.AccessTTL,
+	)
+
 	// Factories encapsulate the complex creation logic of entities
 	userFactory := domain.NewUserFactory()
 	sessionFactory := domain.NewSessionFactory()
@@ -100,10 +104,16 @@ func main() {
 		idGen,
 	)
 
+	accessGranterService := domain.NewAccessGrantor(
+		tokenProvider,
+		accessPolicy,
+		clock,
+	)
+
 	// 5. Application Use Cases
 	regUC := application.NewRegisterUseCase(userRepo, regService, passwordSvc)
-	logUC := application.NewLoginUseCase(userRepo, authService, tokenProvider)
-	refUC := application.NewRefreshTokenUseCase(userRepo, authService, tokenProvider)
+	logUC := application.NewLoginUseCase(userRepo, authService, accessGranterService)
+	refUC := application.NewRefreshTokenUseCase(userRepo, authService, accessGranterService)
 	outUC := application.NewLogoutUseCase(userRepo, clock)
 	valUC := application.NewValidateAccessUseCase(tokenProvider, userRepo, identityGuard)
 

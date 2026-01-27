@@ -98,18 +98,18 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 type loginUseCase struct {
 	userRepo      domain.IUserRepository
 	authSvc       domain.IAuthenticationService
-	tokenProvider domain.IAccessTokenProvider
+	accessGranter domain.IAccessGrantor
 }
 
 func NewLoginUseCase(
 	repo domain.IUserRepository,
 	svc domain.IAuthenticationService,
-	provider domain.IAccessTokenProvider,
+	accessGranter domain.IAccessGrantor,
 ) ILoginUserUseCase {
 	return &loginUseCase{
 		userRepo:      repo,
 		authSvc:       svc,
-		tokenProvider: provider,
+		accessGranter: accessGranter,
 	}
 }
 
@@ -148,7 +148,7 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 	}
 
 	// 3. Issue stateless token
-	accessToken, expiresAt, err := uc.tokenProvider.Generate(user, session.ID())
+	accessToken, expiresAt, err := uc.accessGranter.GrantImmediateAccess(ctx, user, session.ID())
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
@@ -170,18 +170,18 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 type refreshTokenUseCase struct {
 	userRepo      domain.IUserRepository
 	authSvc       domain.IAuthenticationService
-	tokenProvider domain.IAccessTokenProvider
+	accessGranter domain.IAccessGrantor
 }
 
 func NewRefreshTokenUseCase(
 	repo domain.IUserRepository,
-	svc domain.IAuthenticationService,
-	provider domain.IAccessTokenProvider,
+	authSvc domain.IAuthenticationService,
+	accessGranter domain.IAccessGrantor,
 ) IRefreshTokenUseCase {
 	return &refreshTokenUseCase{
 		userRepo:      repo,
-		authSvc:       svc,
-		tokenProvider: provider,
+		authSvc:       authSvc,
+		accessGranter: accessGranter,
 	}
 }
 
@@ -210,7 +210,7 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 	}
 
 	// 3. Application Auth: Issue new stateless Access Token
-	accessToken, expiresAt, err := uc.tokenProvider.Generate(user, session.ID())
+	accessToken, expiresAt, err := uc.accessGranter.GrantImmediateAccess(ctx, user, session.ID())
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
