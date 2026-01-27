@@ -37,7 +37,7 @@ type RequestContext struct {
 	logger *slog.Logger
 }
 
-// NewRequestContext now takes the raw UA string and parses it internally
+// NewRequestContext now takes the raw UA string and parses it internally.
 func NewRequestContext(
 	requestID string,
 	ipAddress, acceptLanguage, uaRaw string,

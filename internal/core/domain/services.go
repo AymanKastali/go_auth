@@ -126,15 +126,23 @@ func (s *authenticationService) Authenticate(
 	if err != nil {
 		return nil, ZeroSession, ZeroRawToken, err
 	}
+	if user == nil {
+		return nil, ZeroSession, ZeroRawToken, NewInvalidCredentialsError()
+	}
 
 	// 2. Business Logic: Verify Password
 	if !s.passwordSvc.Compare(password, user.HashedPassword()) {
 		return nil, ZeroSession, ZeroRawToken, NewInvalidCredentialsError()
 	}
 
-	// 3. Prepare Session Data
+	// 3. Prepare fresh credentials and timestamps
 	now := s.clock.Now()
 	expiry := now.Add(s.sessionPolicy.GetExpiryDuration())
+
+	// We generate a "potential" SessionID and HashedToken.
+	// If it's a new device, these are used.
+	// If it's an existing device, the token is rotated but the SessionID might be ignored
+	// depending on your preference (usually we keep the SessionID or rotate both).
 	sid, err := s.idGen.GenerateSessionID(ctx)
 	if err != nil {
 		return nil, ZeroSession, ZeroRawToken, err
@@ -145,8 +153,8 @@ func (s *authenticationService) Authenticate(
 		return nil, ZeroSession, ZeroRawToken, err
 	}
 
-	// 4. Use "Dumb" Factory to assemble the Session entity
-	session, err := s.sessionFactory.Build(
+	// 4. Build the "Candidate" Session
+	candidateSession, err := s.sessionFactory.Build(
 		sid,
 		hashedT,
 		identity,
@@ -157,13 +165,24 @@ func (s *authenticationService) Authenticate(
 		return nil, ZeroSession, ZeroRawToken, err
 	}
 
-	// 5. Update the Aggregate Root
-	// Note: We need a method on the User aggregate to handle this!
-	if err := user.AddSession(*session, s.sessionPolicy.GetMaxActiveSessions()); err != nil {
+	// 5. Let the Aggregate decide: Update existing or Add new
+	err = user.Login(*candidateSession, s.sessionPolicy.GetMaxActiveSessions())
+	if err != nil {
 		return nil, ZeroSession, ZeroRawToken, err
 	}
 
-	return user, *session, rawT, nil
+	// 6. Retrieve the actual session from the aggregate to return to the caller.
+	// This ensures that if the aggregate updated an existing session, we return
+	// that specific session (with its original ID) instead of the 'candidate' one.
+	var finalSession Session
+	for _, session := range user.Sessions() {
+		if session.Identity().Fingerprint().Equal(identity.Fingerprint()) && !session.IsRevoked() {
+			finalSession = session
+			break
+		}
+	}
+
+	return user, finalSession, rawT, nil
 }
 
 func (s *authenticationService) RefreshUserSession(
