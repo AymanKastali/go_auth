@@ -48,9 +48,8 @@ func main() {
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 
 	// Token provider (Stateless Access Tokens/JWT)
-	tokenProvider := adapters.NewAccessTokenProvider(
+	jwtService := adapters.NewJWTService(
 		cfg.JWT.Secret,
-		cfg.JWT.AccessTTL,
 		cfg.JWT.Issuer,
 		cfg.JWT.Audience,
 	)
@@ -80,8 +79,6 @@ func main() {
 	sessionFactory := domain.NewSessionFactory()
 
 	// 4. Domain Services
-	// Satisfying the exact "want" arguments from the compiler
-	identityGuard := domain.NewIdentityGuardService(clock)
 
 	regService := domain.NewUserRegistrationService(
 		userRepo,
@@ -94,28 +91,28 @@ func main() {
 
 	// Note: AuthenticationService usually needs a way to hash/verify tokens
 	// and manage sessions via a policy and factory.
-	authService := domain.NewAuthenticationService(
+	authenticateUserService := domain.NewAuthenticateUserService(
 		userRepo,
 		passwordSvc,
-		refreshTokenSvc, // Used as ITokenService for Refresh Tokens
-		sessionFactory,
-		sessionPolicy,
-		clock,
-		idGen,
 	)
 
+	establishUserSessionSvc := domain.NewEstablishUserSessionService(
+		sessionFactory, sessionPolicy, clock, idGen, refreshTokenSvc,
+	)
+	refreshUserSessionService := domain.NewRefreshUserSessionService(clock, refreshTokenSvc)
+
 	accessGranterService := domain.NewAccessGrantor(
-		tokenProvider,
+		jwtService,
 		accessPolicy,
 		clock,
 	)
 
 	// 5. Application Use Cases
 	regUC := application.NewRegisterUseCase(userRepo, regService, passwordSvc)
-	logUC := application.NewLoginUseCase(userRepo, authService, accessGranterService)
-	refUC := application.NewRefreshTokenUseCase(userRepo, authService, accessGranterService)
+	logUC := application.NewLoginUseCase(userRepo, authenticateUserService, establishUserSessionSvc, accessGranterService)
+	refUC := application.NewRefreshTokenUseCase(userRepo, refreshUserSessionService, accessGranterService)
 	outUC := application.NewLogoutUseCase(userRepo, clock)
-	valUC := application.NewValidateAccessUseCase(tokenProvider, userRepo, identityGuard)
+	valUC := application.NewValidateAccessUseCase(jwtService, userRepo, clock)
 
 	// Seeding SuperAdmin
 	seedSAUC := application.NewSeedSuperAdminUseCase(userRepo, regService, passwordSvc)

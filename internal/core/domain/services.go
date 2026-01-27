@@ -5,7 +5,7 @@ import (
 )
 
 // Registration Service
-type userRegistrationService struct {
+type registerUserService struct {
 	userRepo       IUserRepository
 	passwordPolicy IPasswordPolicy
 	passwordSvc    IPasswordService
@@ -21,8 +21,8 @@ func NewUserRegistrationService(
 	factory IUserFactory,
 	idGen IIDGenerator,
 	clock IClock,
-) IUserRegistrationService {
-	return &userRegistrationService{
+) IRegisterUserService {
+	return &registerUserService{
 		userRepo:       repo,
 		passwordPolicy: policy,
 		passwordSvc:    pwdSvc,
@@ -32,7 +32,7 @@ func NewUserRegistrationService(
 	}
 }
 
-func (s *userRegistrationService) Register(
+func (s *registerUserService) Execute(
 	ctx context.Context,
 	email Email,
 	password RawPassword,
@@ -61,7 +61,7 @@ func (s *userRegistrationService) Register(
 	}
 
 	// 4. Build the user
-	id, err := s.idGen.GenerateUserID(ctx)
+	id, err := s.idGen.GenerateUserID()
 	if err != nil {
 		return nil, err
 	}
@@ -84,119 +84,124 @@ func (s *userRegistrationService) Register(
 	return user, nil
 }
 
-// Authentication Service
-type authenticationService struct {
-	userRepo       IUserRepository
-	passwordSvc    IPasswordService
-	tokenSvc       ITokenService
-	sessionFactory ISessionFactory
-	sessionPolicy  ISessionPolicy
-	clock          IClock
-	idGen          IIDGenerator
+// Authenticate User Service
+type authenticateUserService struct {
+	userRepo    IUserRepository
+	passwordSvc IPasswordService
 }
 
-func NewAuthenticationService(
+func NewAuthenticateUserService(
 	userRepo IUserRepository,
 	passwordSvc IPasswordService,
-	tokenSvc ITokenService,
-	sessionFactory ISessionFactory,
-	sessionPolicy ISessionPolicy,
-	clock IClock,
-	idGen IIDGenerator,
-) IAuthenticationService {
-	return &authenticationService{
-		userRepo:       userRepo,
-		passwordSvc:    passwordSvc,
-		tokenSvc:       tokenSvc,
-		sessionFactory: sessionFactory,
-		sessionPolicy:  sessionPolicy,
-		clock:          clock,
-		idGen:          idGen,
+) IAuthenticateUser {
+	return &authenticateUserService{
+		userRepo:    userRepo,
+		passwordSvc: passwordSvc,
 	}
 }
 
-func (s *authenticationService) Authenticate(
+func (s *authenticateUserService) Execute(
 	ctx context.Context,
 	email Email,
 	password RawPassword,
-	identity DeviceIdentity,
-) (*User, Session, RawToken, error) {
-	// 1. Fetch the Aggregate Root
+) (*User, error) {
 	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
-		return nil, ZeroSession, ZeroRawToken, err
+		return nil, err
 	}
 	if user == nil {
-		return nil, ZeroSession, ZeroRawToken, NewInvalidCredentialsError()
+		return nil, NewInvalidCredentialsError()
 	}
 
 	// 2. Business Logic: Verify Password
 	if !s.passwordSvc.Compare(password, user.HashedPassword()) {
-		return nil, ZeroSession, ZeroRawToken, NewInvalidCredentialsError()
+		return nil, NewInvalidCredentialsError()
 	}
 
-	// 3. Prepare fresh credentials and timestamps
-	now := s.clock.Now()
-	expiry := now.Add(s.sessionPolicy.GetSessionLifetime())
-
-	// We generate a "potential" SessionID and HashedToken.
-	// If it's a new device, these are used.
-	// If it's an existing device, the token is rotated but the SessionID might be ignored
-	// depending on your preference (usually we keep the SessionID or rotate both).
-	sid, err := s.idGen.GenerateSessionID(ctx)
-	if err != nil {
-		return nil, ZeroSession, ZeroRawToken, err
-	}
-
-	rawT, hashedT, err := s.tokenSvc.Generate()
-	if err != nil {
-		return nil, ZeroSession, ZeroRawToken, err
-	}
-
-	// 4. Build the "Candidate" Session
-	candidateSession, err := s.sessionFactory.Build(
-		sid,
-		hashedT,
-		identity,
-		expiry,
-		now,
-	)
-	if err != nil {
-		return nil, ZeroSession, ZeroRawToken, err
-	}
-
-	// 5. Let the Aggregate decide: Update existing or Add new
-	err = user.Login(*candidateSession, s.sessionPolicy.GetMaxActiveSessions())
-	if err != nil {
-		return nil, ZeroSession, ZeroRawToken, err
-	}
-
-	// 6. Retrieve the actual session from the aggregate to return to the caller.
-	// This ensures that if the aggregate updated an existing session, we return
-	// that specific session (with its original ID) instead of the 'candidate' one.
-	var finalSession Session
-	for _, session := range user.Sessions() {
-		if session.Identity().Fingerprint().Equal(identity.Fingerprint()) && !session.IsRevoked() {
-			finalSession = session
-			break
-		}
-	}
-
-	return user, finalSession, rawT, nil
+	return user, nil
 }
 
-func (s *authenticationService) RefreshUserSession(
+// Establish User Session
+
+type establishUserSessionService struct {
+	sessionFactory ISessionFactory
+	sessionPolicy  ISessionPolicy
+	clock          IClock
+	idGen          IIDGenerator
+	tokenService   ITokenService
+}
+
+func NewEstablishUserSessionService(
+	sessionFactory ISessionFactory,
+	sessionPolicy ISessionPolicy,
+	clock IClock,
+	idGen IIDGenerator,
+	tokenService ITokenService,
+) IEstablishUserSession {
+	return &establishUserSessionService{
+		sessionFactory: sessionFactory,
+		sessionPolicy:  sessionPolicy,
+		clock:          clock,
+		idGen:          idGen,
+		tokenService:   tokenService,
+	}
+}
+
+func (s *establishUserSessionService) Execute(
 	ctx context.Context,
-	uid UserID,
+	user *User,
+	deviceIdentity DeviceIdentity,
+) (*Session, RawToken, error) {
+	sid, err := s.idGen.GenerateSessionID()
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+	rawToken, err := s.tokenService.Generate()
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+	hashedToken, err := s.tokenService.Hash(rawToken)
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+	now := s.clock.Now()
+	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
+
+	session, err := s.sessionFactory.Build(sid, hashedToken, deviceIdentity, expiresAt, now)
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+
+	err = user.EstablishSession(*session, s.sessionPolicy.GetMaxActiveSessions())
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+
+	return session, rawToken, nil
+}
+
+type refreshUserSessionService struct {
+	tokenService ITokenService
+	clock        IClock
+}
+
+func NewRefreshUserSessionService(
+	clock IClock,
+	tokenService ITokenService,
+) IRefreshUserSession {
+	return &refreshUserSessionService{
+		clock:        clock,
+		tokenService: tokenService,
+	}
+}
+
+func (s *refreshUserSessionService) Execute(
+	ctx context.Context,
+	user *User,
 	raw RawToken,
 	currentFingerprint DeviceFingerprint,
 ) (*User, Session, error) {
-	user, err := s.userRepo.FindByID(ctx, uid)
-	if err != nil {
-		return nil, ZeroSession, err
-	}
-
-	hashed, err := s.tokenSvc.Hash(raw)
+	hashed, err := s.tokenService.Hash(raw)
 	if err != nil {
 		return nil, ZeroSession, err
 	}
@@ -211,54 +216,23 @@ func (s *authenticationService) RefreshUserSession(
 	return user, session, nil
 }
 
-// Identity Guard Service
-type identityGuardService struct {
-	clock IClock
-}
-
-func NewIdentityGuardService(clock IClock) IIdentityGuardService {
-	return &identityGuardService{clock: clock}
-}
-
-func (s *identityGuardService) CheckIntegrity(user *User, sid SessionID) error {
-	now := s.clock.Now()
-	if user == nil {
-		return NewUserNotFoundError(user.ID().String())
-	}
-
-	if !user.IsActive() {
-		return NewUserInactiveError(user.ID().String())
-	}
-
-	if user.IsDeleted() {
-		return NewUserDeletedError(user.ID().String())
-	}
-
-	// Check if the specific session is valid (not revoked/expired)
-	if !user.HasActiveSession(sid, now) {
-		return NewSessionInvalidError(sid.String())
-	}
-
-	return nil
-}
-
 // Access Session For User
 // Authentication Service
 type accessGrantor struct {
-	tokenProvider IAccessTokenProvider
-	policy        IAccessPolicy
-	clock         IClock
+	tokenService IAccessTokenService
+	policy       IAccessPolicy
+	clock        IClock
 }
 
 func NewAccessGrantor(
-	tokenProvider IAccessTokenProvider,
+	tokenService IAccessTokenService,
 	policy IAccessPolicy,
 	clock IClock,
 ) IAccessGrantor {
 	return &accessGrantor{
-		tokenProvider: tokenProvider,
-		policy:        policy,
-		clock:         clock,
+		tokenService: tokenService,
+		policy:       policy,
+		clock:        clock,
 	}
 }
 
@@ -271,7 +245,7 @@ func (s *accessGrantor) GrantImmediateAccess(
 	issuedAt := now
 	expiresAt := issuedAt.Add(s.policy.GetAccessLifetime())
 	notBefore := issuedAt
-	return s.tokenProvider.Generate(
+	return s.tokenService.Issue(
 		user.ID(),
 		user.Email(),
 		sessionID,

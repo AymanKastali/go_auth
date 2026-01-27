@@ -1,7 +1,6 @@
 package adapters
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -34,7 +33,7 @@ type idGenerator struct{}
 
 func NewIDGenerator() domain.IIDGenerator { return &idGenerator{} }
 
-func (g *idGenerator) GenerateUserID(ctx context.Context) (domain.UserID, error) {
+func (g *idGenerator) GenerateUserID() (domain.UserID, error) {
 	// Generate a new UUIDv7
 	rawID, err := uuid.NewV7()
 	if err != nil {
@@ -50,7 +49,7 @@ func (g *idGenerator) GenerateUserID(ctx context.Context) (domain.UserID, error)
 	return userID, nil
 }
 
-func (g *idGenerator) GenerateSessionID(ctx context.Context) (domain.SessionID, error) {
+func (g *idGenerator) GenerateSessionID() (domain.SessionID, error) {
 	rawID, err := uuid.NewV7()
 	if err != nil {
 		return domain.ZeroSessionID, domain.NewInternalError("failed to generate unique session identity", err)
@@ -71,25 +70,20 @@ func NewTokenService() domain.ITokenService {
 	return &tokenService{}
 }
 
-func (s *tokenService) Generate() (domain.RawToken, domain.HashedToken, error) {
+func (s *tokenService) Generate() (domain.RawToken, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		return domain.ZeroRawToken, domain.ZeroHashedToken,
+		return domain.ZeroRawToken,
 			domain.NewInternalError("token generation failed", ErrTokenGeneration)
 	}
 
 	rawStr := hex.EncodeToString(b)
 	rawToken, err := domain.NewRawToken(rawStr)
 	if err != nil {
-		return domain.ZeroRawToken, domain.ZeroHashedToken, errors.Join(ErrTokenMapping, err)
+		return domain.ZeroRawToken, errors.Join(ErrTokenMapping, err)
 	}
 
-	hashedToken, err := s.Hash(rawToken)
-	if err != nil {
-		return domain.ZeroRawToken, domain.ZeroHashedToken, err
-	}
-
-	return rawToken, hashedToken, nil
+	return rawToken, nil
 }
 
 func (s *tokenService) Hash(rawToken domain.RawToken) (domain.HashedToken, error) {
@@ -135,22 +129,19 @@ func (s *passwordService) Compare(raw domain.RawPassword, hashed domain.HashedPa
 }
 
 // JWT Service
-type jwtProvider struct {
+type jwtService struct {
 	secretKey []byte
-	expiry    time.Duration
 	issuer    string
 	audience  string
 }
 
-func NewAccessTokenProvider(
+func NewJWTService(
 	secret string,
-	expiry time.Duration,
 	issuer string,
 	audience string,
-) domain.IAccessTokenProvider {
-	return &jwtProvider{
+) domain.IAccessTokenService {
+	return &jwtService{
 		secretKey: []byte(secret),
-		expiry:    expiry,
 		issuer:    issuer,
 		audience:  audience,
 	}
@@ -163,7 +154,7 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (p *jwtProvider) Generate(
+func (p *jwtService) Issue(
 	userID domain.UserID,
 	email domain.Email,
 	sessionID domain.SessionID,
@@ -206,47 +197,7 @@ func (p *jwtProvider) Generate(
 	return accessToken, expiresAt, nil
 }
 
-// func (p *jwtProvider) Generate(
-// 	user *domain.User,
-// 	sid domain.SessionID,
-// ) (domain.AccessToken, domain.Timepoint, error) {
-// 	now := time.Now().UTC()
-// 	expiryTime := now.Add(p.expiry)
-
-// 	roleNames := make([]string, len(user.Roles()))
-// 	for i, r := range user.Roles() {
-// 		roleNames[i] = r.Name()
-// 	}
-
-// 	claims := CustomClaims{
-// 		Email: user.Email().String(),
-// 		Roles: roleNames,
-// 		SID:   sid.String(), // Link to database session
-// 		RegisteredClaims: jwt.RegisteredClaims{
-// 			Subject:   user.ID().String(),
-// 			ExpiresAt: jwt.NewNumericDate(expiryTime),
-// 			IssuedAt:  jwt.NewNumericDate(now),
-// 			NotBefore: jwt.NewNumericDate(now),
-// 			Issuer:    p.issuer,
-// 			Audience:  jwt.ClaimStrings{p.audience},
-// 		},
-// 	}
-
-// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-// 	signedStr, err := token.SignedString(p.secretKey)
-// 	if err != nil {
-// 		return domain.ZeroAccessToken, domain.ZeroTimepoint,
-// 			domain.NewInternalError("failed to sign access token", err)
-// 	}
-
-// 	accessToken, err := domain.NewAccessToken(signedStr)
-// 	if err != nil {
-// 		return domain.ZeroAccessToken, domain.ZeroTimepoint, err
-// 	}
-
-//		return accessToken, domain.NewTimepoint(expiryTime), nil
-//	}
-func (p *jwtProvider) Validate(token domain.AccessToken) (domain.AccessIdentity, error) {
+func (p *jwtService) Validate(token domain.AccessToken) (domain.AccessIdentity, error) {
 	// 1. Technical Parse with Claims Validation
 	parsedToken, err := jwt.ParseWithClaims(
 		token.String(),

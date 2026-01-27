@@ -8,13 +8,13 @@ import (
 // SeedingSuperAdmin
 type seedSuperAdminUseCase struct {
 	userRepo    domain.IUserRepository
-	regService  domain.IUserRegistrationService
+	regService  domain.IRegisterUserService
 	passwordSvc domain.IPasswordService
 }
 
 func NewSeedSuperAdminUseCase(
 	repo domain.IUserRepository,
-	svc domain.IUserRegistrationService,
+	svc domain.IRegisterUserService,
 	pwd domain.IPasswordService,
 ) ISeedSuperAdmin {
 	return &seedSuperAdminUseCase{
@@ -35,7 +35,7 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 		return err
 	}
 
-	user, err := uc.regService.Register(ctx, email, rawPassword)
+	user, err := uc.regService.Execute(ctx, email, rawPassword)
 	if err != nil {
 		return err
 	}
@@ -51,13 +51,13 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 // Register Use Case
 type registerUseCase struct {
 	userRepo    domain.IUserRepository
-	regService  domain.IUserRegistrationService
+	regService  domain.IRegisterUserService
 	passwordSvc domain.IPasswordService
 }
 
 func NewRegisterUseCase(
 	repo domain.IUserRepository,
-	svc domain.IUserRegistrationService,
+	svc domain.IRegisterUserService,
 	pwd domain.IPasswordService,
 ) IRegisterUseCase {
 	return &registerUseCase{
@@ -78,7 +78,7 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 		return ZeroRegisterUserResponse, err
 	}
 
-	user, err := uc.regService.Register(ctx, email, rawPassword)
+	user, err := uc.regService.Execute(ctx, email, rawPassword)
 	if err != nil {
 		return ZeroRegisterUserResponse, err
 	}
@@ -96,25 +96,27 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 
 // Login Use Case
 type loginUseCase struct {
-	userRepo      domain.IUserRepository
-	authSvc       domain.IAuthenticationService
-	accessGranter domain.IAccessGrantor
+	userRepo                domain.IUserRepository
+	authenticateUserSvc     domain.IAuthenticateUser
+	establishUserSessionSvc domain.IEstablishUserSession
+	accessGranter           domain.IAccessGrantor
 }
 
 func NewLoginUseCase(
 	repo domain.IUserRepository,
-	svc domain.IAuthenticationService,
+	authenticateUserSvc domain.IAuthenticateUser,
+	establishUserSessionSvc domain.IEstablishUserSession,
 	accessGranter domain.IAccessGrantor,
 ) ILoginUserUseCase {
 	return &loginUseCase{
-		userRepo:      repo,
-		authSvc:       svc,
-		accessGranter: accessGranter,
+		userRepo:                repo,
+		authenticateUserSvc:     authenticateUserSvc,
+		establishUserSessionSvc: establishUserSessionSvc,
+		accessGranter:           accessGranter,
 	}
 }
 
 func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginResponse, error) {
-	// 1. Transform Primitives -> Domain VOs
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
 		return ZeroLoginResponse, err
@@ -124,8 +126,10 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
+	user, err := uc.authenticateUserSvc.Execute(
+		ctx, email, password,
+	)
 
-	// Transform Device Primitives -> DeviceIdentity VO
 	identity, err := domain.NewDeviceIdentity(
 		cmd.IPAddress,
 		cmd.OS,
@@ -139,21 +143,13 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 		return ZeroLoginResponse, err
 	}
 
-	// 2. Call Domain Service with VOs
-	user, session, rawRefreshToken, err := uc.authSvc.Authenticate(
-		ctx, email, password, identity,
-	)
-	if err != nil {
-		return ZeroLoginResponse, err
-	}
+	session, rawToken, err := uc.establishUserSessionSvc.Execute(ctx, user, identity)
 
-	// 3. Issue stateless token
 	accessToken, expiresAt, err := uc.accessGranter.GrantImmediateAccess(ctx, user, session.ID())
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
 
-	// 4. Persist
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		return ZeroLoginResponse, err
 	}
@@ -161,33 +157,38 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 	return LoginResponse{
 		AccessToken:        accessToken.String(),
 		AccessTokenExpiry:  expiresAt.String(),
-		RefreshToken:       rawRefreshToken.String(),
+		RefreshToken:       rawToken.String(),
 		RefreshTokenExpiry: session.ExpiresAt().String(),
 	}, nil
 }
 
 // Refresh Token Use Case
 type refreshTokenUseCase struct {
-	userRepo      domain.IUserRepository
-	authSvc       domain.IAuthenticationService
-	accessGranter domain.IAccessGrantor
+	userRepo                  domain.IUserRepository
+	refreshUserSessionService domain.IRefreshUserSession
+	accessGranter             domain.IAccessGrantor
 }
 
 func NewRefreshTokenUseCase(
 	repo domain.IUserRepository,
-	authSvc domain.IAuthenticationService,
+	refreshUserSessionService domain.IRefreshUserSession,
 	accessGranter domain.IAccessGrantor,
 ) IRefreshTokenUseCase {
 	return &refreshTokenUseCase{
-		userRepo:      repo,
-		authSvc:       authSvc,
-		accessGranter: accessGranter,
+		userRepo:                  repo,
+		refreshUserSessionService: refreshUserSessionService,
+		accessGranter:             accessGranter,
 	}
 }
 
 func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenCommand) (LoginResponse, error) {
 	// 1. Map Primitives to Domain Value Objects (With proper error handling)
 	uid, err := domain.NewUserID(cmd.UserID)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+
+	user, err := uc.userRepo.FindByID(ctx, uid)
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
@@ -204,7 +205,7 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 
 	// 2. Coordinate Domain Service
 	// This now returns the session metadata needed for the response
-	user, session, err := uc.authSvc.RefreshUserSession(ctx, uid, raw, fp)
+	user, session, err := uc.refreshUserSessionService.Execute(ctx, user, raw, fp)
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
@@ -230,50 +231,45 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 
 // Validate Access (Query)
 type validateAccessUseCase struct {
-	tokenProvider domain.IAccessTokenProvider
-	userRepo      domain.IUserRepository
-	identityGuard domain.IIdentityGuardService
+	tokenService domain.IAccessTokenService
+	userRepo     domain.IUserRepository
+	clock        domain.IClock
 }
 
 func NewValidateAccessUseCase(
-	provider domain.IAccessTokenProvider,
+	provider domain.IAccessTokenService,
 	repo domain.IUserRepository,
-	identityGuard domain.IIdentityGuardService,
+	clock domain.IClock,
 
 ) IValidateAccessUseCase {
 	return &validateAccessUseCase{
-		tokenProvider: provider,
-		userRepo:      repo,
-		identityGuard: identityGuard,
+		tokenService: provider,
+		userRepo:     repo,
+		clock:        clock,
 	}
 }
 
 func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAccessQuery) (ValidateAccessResponse, error) {
-	// 1. Reconstitute Technical Value Objects from Input
 	token, err := domain.NewAccessToken(query.AccessToken)
 	if err != nil {
 		return ValidateAccessResponse{}, err
 	}
 
-	// 2. Technical Port: Cryptographic/Stateless Validation
-	identity, err := uc.tokenProvider.Validate(token)
+	identity, err := uc.tokenService.Validate(token)
 	if err != nil {
 		return ValidateAccessResponse{}, err
 	}
 
-	// 3. Data Port: Retrieve the Aggregate Root
 	user, err := uc.userRepo.FindByID(ctx, identity.UserID())
 	if err != nil {
 		return ValidateAccessResponse{}, err
 	}
 
-	// 4. Domain Service: Enforce Business Invariants
-	// We pass 'now' into the Guard to handle temporal validation (expiration)
-	if err := uc.identityGuard.CheckIntegrity(user, identity.SessionID()); err != nil {
+	now := uc.clock.Now()
+	if err := user.ValidateIntegrity(identity.SessionID(), now); err != nil {
 		return ValidateAccessResponse{}, err
 	}
 
-	// 5. Success: Map to Response DTO
 	return ValidateAccessResponse{
 		UserID:    user.ID().String(),
 		SessionID: identity.SessionID().String(),

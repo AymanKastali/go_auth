@@ -15,12 +15,12 @@ type IUserRepository interface {
 
 // Services
 type IIDGenerator interface {
-	GenerateUserID(ctx context.Context) (UserID, error)
-	GenerateSessionID(ctx context.Context) (SessionID, error)
+	GenerateUserID() (UserID, error)
+	GenerateSessionID() (SessionID, error)
 }
 
 type ITokenService interface {
-	Generate() (RawToken, HashedToken, error)
+	Generate() (RawToken, error)
 	Hash(rawToken RawToken) (HashedToken, error)
 	Compare(raw RawToken, hashed HashedToken) bool
 }
@@ -34,44 +34,43 @@ type IPasswordService interface {
 	Compare(plain RawPassword, hashed HashedPassword) bool
 }
 
-type IUserRegistrationService interface {
-	// Register ensures the email is unique before creating the User.
-	// It coordinates the Repository and the IDGenerator.
-	Register(
+type IRegisterUserService interface {
+	Execute(
 		ctx context.Context,
 		email Email,
 		password RawPassword,
 	) (*User, error)
 }
 
-type IAuthenticationService interface {
-	// Authenticate verifies credentials and, if successful, adds a Session to the User.
-	// It returns the User (with the new session) and the RawToken to be sent to the client.
-	Authenticate(
+type IRefreshUserSession interface {
+	Execute(
 		ctx context.Context,
-		email Email,
-		password RawPassword,
-		identity DeviceIdentity,
-	) (*User, Session, RawToken, error)
-
-	RefreshUserSession(
-		ctx context.Context,
-		uid UserID,
+		user *User,
 		raw RawToken,
 		currentFingerprint DeviceFingerprint,
 	) (*User, Session, error)
 }
 
-type IIdentityGuardService interface {
-	// CheckIntegrity validates if the user and session are currently fit for use.
-	CheckIntegrity(user *User, sid SessionID) error
+type IAuthenticateUser interface {
+	Execute(
+		ctx context.Context,
+		email Email,
+		password RawPassword,
+	) (*User, error)
+}
+
+type IEstablishUserSession interface {
+	Execute(
+		ctx context.Context,
+		user *User,
+		deviceIdentity DeviceIdentity,
+	) (*Session, RawToken, error)
 }
 
 // Services
 // requirement for the "Login" and "Refresh" use cases.
-type IAccessTokenProvider interface {
-	// Generate creates a signed token and returns its expiry time.
-	Generate(
+type IAccessTokenService interface {
+	Issue(
 		userID UserID,
 		email Email,
 		sessionID SessionID,
@@ -85,8 +84,6 @@ type IAccessTokenProvider interface {
 
 // Factories
 type IUserFactory interface {
-	// Build assembles a new User aggregate root.
-	// It is "dumb" because it receives pre-computed values.
 	Build(
 		id UserID,
 		email Email,

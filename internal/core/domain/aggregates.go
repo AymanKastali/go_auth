@@ -119,30 +119,7 @@ func (u *User) HasRole(name string) bool {
 	return false
 }
 
-// func (a *User) AddSession(newSession Session, maxSessions int) error {
-// 	if a.IsDeleted() {
-// 		return NewUserDeletedError(a.id.String())
-// 	}
-
-// 	if !a.isActive {
-// 		return NewUserInactiveError(a.id.String())
-// 	}
-
-// 	// Logic: If we hit the limit, remove the oldest session (FIFO)
-// 	// This ensures the user is never locked out by their own sessions.
-// 	if len(a.sessions) >= maxSessions {
-// 		// sessions[0] is usually the oldest
-// 		a.sessions = a.sessions[1:]
-// 	}
-
-//		a.sessions = append(a.sessions, newSession)
-//		a.updatedAt = newSession.LastActiveAt() // Maintain Aggregate updatedAt
-//		return nil
-//	}
-func (u *User) Login(
-	newSession Session,
-	maxSessions int,
-) error {
+func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 	if u.IsDeleted() {
 		return NewUserDeletedError(u.id.String())
 	}
@@ -153,17 +130,17 @@ func (u *User) Login(
 	// 1. Try to find an existing active session with the same device fingerprint
 	for i := range u.sessions {
 		// If device matches and it's not revoked
-		if u.sessions[i].Identity().Fingerprint().Equal(newSession.Identity().Fingerprint()) &&
+		if u.sessions[i].Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) &&
 			!u.sessions[i].IsRevoked() {
 
 			// UPDATE logic: Re-use the existing session but update its token and timestamps
 			u.sessions[i].UpdateLogin(
-				newSession.HashedToken(),
-				newSession.ExpiresAt(),
-				newSession.LastActiveAt(),
+				candidate.HashedToken(),
+				candidate.ExpiresAt(),
+				candidate.LastActiveAt(),
 			)
 
-			u.updatedAt = newSession.LastActiveAt()
+			u.updatedAt = candidate.LastActiveAt()
 			return nil
 		}
 	}
@@ -174,8 +151,8 @@ func (u *User) Login(
 	}
 
 	// 3. Add as a brand new session
-	u.sessions = append(u.sessions, newSession)
-	u.updatedAt = newSession.LastActiveAt()
+	u.sessions = append(u.sessions, candidate)
+	u.updatedAt = candidate.LastActiveAt()
 	return nil
 }
 
@@ -253,6 +230,24 @@ func (a *User) CleanupSessions(now Timepoint) {
 	a.sessions = slices.DeleteFunc(a.sessions, func(s Session) bool {
 		return !s.IsValid(now)
 	})
+}
+
+func (u *User) ValidateIntegrity(sid SessionID, now Timepoint) error {
+	// 1. Check account lifecycle status
+	if u.IsDeleted() {
+		return NewUserDeletedError(u.id.String())
+	}
+
+	if !u.isActive {
+		return NewUserInactiveError(u.id.String())
+	}
+
+	// 2. Check session existence and validity
+	if !u.HasActiveSession(sid, now) {
+		return NewSessionInvalidError(sid.String())
+	}
+
+	return nil
 }
 
 // User Getters
