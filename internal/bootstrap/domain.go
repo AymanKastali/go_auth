@@ -20,7 +20,7 @@ type DomainServices struct {
 	ULIDGen       domain.IIDGenerator
 }
 
-func SetupDomain(cfg *adapters.Config, db *gorm.DB) DomainServices {
+func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 	userRepo := postgres.NewPostgresUserRepository(db)
 
 	clock := adapters.NewClock()

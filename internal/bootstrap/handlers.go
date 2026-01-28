@@ -11,7 +11,7 @@ type Handlers struct {
 	AuthGuard fiber.Handler
 }
 
-func SetupHandlers(uc UseCases) Handlers {
+func NewHandlers(uc UseCases) Handlers {
 	return Handlers{
 		Auth: fiberapp.NewAuthHandler(
 			uc.Register,

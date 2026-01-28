@@ -11,7 +11,7 @@ type UseCases struct {
 	SeedSA   application.ISeedSuperAdmin
 }
 
-func SetupUseCases(d DomainServices) UseCases {
+func NewUseCases(d DomainServices) UseCases {
 	return UseCases{
 		Register: application.NewRegisterUseCase(d.UserRepo, d.RegisterSvc),
 		Login:    application.NewLoginUseCase(d.UserRepo, d.AuthSvc, d.SessionSvc, d.AccessGrantor),
