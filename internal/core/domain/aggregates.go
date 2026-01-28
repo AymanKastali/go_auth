@@ -129,9 +129,11 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 
 	now := candidate.LastActiveAt()
 
+	// 1. Logic: Update existing session if it matches the device fingerprint
 	for i := range u.sessions {
 		s := &u.sessions[i]
 		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
+			// Re-use existing session state, update tokens and timestamps
 			s.UpdateLogin(
 				candidate.HashedToken(),
 				candidate.ExpiresAt(),
@@ -142,11 +144,12 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 		}
 	}
 
-	// Now the call matches the func(now Timepoint) signature
+	// 2. Logic: Handle capacity for a brand new session
 	if len(u.sessions) >= maxSessions {
 		u.revokeOldestSession(now)
 	}
 
+	// 3. State Change: Append the new session
 	u.sessions = append(u.sessions, candidate)
 	u.updatedAt = now
 	return nil

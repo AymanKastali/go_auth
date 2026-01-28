@@ -157,34 +157,50 @@ func (s *establishUserSessionService) Execute(
 	user *User,
 	deviceIdentity DeviceIdentity,
 ) (*Session, RawToken, error) {
-	id, err := s.idGen.Generate()
-	if err != nil {
-		return nil, ZeroRawToken, err
+	now := s.clock.Now()
+
+	// 1. Identify the Session ID: Check if the user already has an active session for this device
+	var sid SessionID
+	for _, existing := range user.Sessions() {
+		if existing.Identity().Fingerprint().Equal(deviceIdentity.Fingerprint()) && !existing.IsRevoked() {
+			sid = existing.ID()
+			break
+		}
 	}
 
-	sid, err := NewSessionID(id)
-	if err != nil {
-		return nil, ZeroRawToken, err
+	// 2. If no existing session was found, generate a brand new ID
+	if sid.IsEmpty() {
+		id, err := s.idGen.Generate()
+		if err != nil {
+			return nil, ZeroRawToken, err
+		}
+
+		sid, err = NewSessionID(id)
+		if err != nil {
+			return nil, ZeroRawToken, err
+		}
 	}
 
+	// 3. Generate new security materials
 	rawToken, err := s.tokenService.Generate()
 	if err != nil {
 		return nil, ZeroRawToken, err
 	}
+
 	hashedToken, err := s.tokenService.Hash(rawToken)
 	if err != nil {
 		return nil, ZeroRawToken, err
 	}
-	now := s.clock.Now()
-	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
 
+	// 4. Build the session candidate
+	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
 	session, err := s.sessionFactory.Build(sid, hashedToken, deviceIdentity, expiresAt, now)
 	if err != nil {
 		return nil, ZeroRawToken, err
 	}
 
-	err = user.EstablishSession(*session, s.sessionPolicy.GetMaxActiveSessions())
-	if err != nil {
+	// 5. Delegate state transition to the Aggregate
+	if err := user.EstablishSession(*session, s.sessionPolicy.GetMaxActiveSessions()); err != nil {
 		return nil, ZeroRawToken, err
 	}
 
