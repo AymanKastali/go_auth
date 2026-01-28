@@ -23,21 +23,14 @@ type fiberPostgresContainer struct {
 func NewFiberPostgresContainer() *fiberPostgresContainer {
 	c := &fiberPostgresContainer{}
 
-	// Load config and logger
 	c.Config = LoadConfig()
 	c.Logger = SetupLogger(c.Config.App.LogLevel)
-
-	// Setup database
 	c.DB = SetupDatabase(c.Config.Database.URL)
+	c.Domain = NewDomainServices(c.Config, c.DB)
+	c.UC = NewUseCases(c.Domain)
+	c.Handlers = NewHandlers(c.UC)
 
-	// Setup domain services
-	c.Domain = SetupDomain(c.Config, c.DB)
-
-	// Setup use cases
-	c.UC = SetupUseCases(c.Domain)
-
-	// Setup Fiber app with handlers
-	c.App, c.Handlers = SetupApp(c.Config.App, c.UC, c.Domain.ULIDGen, c.Logger)
+	c.App, c.Handlers = NewApp(c.Config.App, c.Handlers, c.Domain.ULIDGen, c.Logger)
 
 	return c
 }
