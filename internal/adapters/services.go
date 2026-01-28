@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -29,38 +30,39 @@ func (c *clock) Now() domain.Timepoint {
 }
 
 // ID Service
-type idGenerator struct{}
+type uuidV7Generator struct{}
 
-func NewIDGenerator() domain.IIDGenerator { return &idGenerator{} }
-
-func (g *idGenerator) GenerateUserID() (domain.UserID, error) {
-	// Generate a new UUIDv7
-	rawID, err := uuid.NewV7()
-	if err != nil {
-		return domain.ZeroUserID, domain.NewInternalError("failed to generate unique user identity", err)
-	}
-
-	userID, err := domain.NewUserID(rawID.String())
-	if err != nil {
-		// Wrap our local adapter error with the domain validation error
-		return domain.ZeroUserID, errors.Join(ErrIDMapping, err)
-	}
-
-	return userID, nil
+func NewUUIDV7Generator() domain.IIDGenerator {
+	return &uuidV7Generator{}
 }
 
-func (g *idGenerator) GenerateSessionID() (domain.SessionID, error) {
-	rawID, err := uuid.NewV7()
+func (g *uuidV7Generator) Generate() (string, error) {
+	// NewV7 uses the current time internally
+	id, err := uuid.NewV7()
 	if err != nil {
-		return domain.ZeroSessionID, domain.NewInternalError("failed to generate unique session identity", err)
+		return "", domain.NewInternalError("failed to generate uuid v7", err)
 	}
 
-	sessionID, err := domain.NewSessionID(rawID.String())
-	if err != nil {
-		return domain.ZeroSessionID, errors.Join(ErrIDMapping, err)
+	return id.String(), nil
+}
+
+// ULID Generator
+type ulidGenerator struct{}
+
+func NewULIDGenerator() domain.IIDGenerator {
+	return &ulidGenerator{}
+}
+
+func (g *ulidGenerator) Generate() (string, error) {
+	// ulid.Make() is the recommended, thread-safe way to create a ULID
+	// using the current time and a monotonic entropy source.
+	id := ulid.Make()
+
+	if id.IsZero() {
+		return "", domain.NewInternalError("failed to generate ulid", nil)
 	}
 
-	return sessionID, nil
+	return id.String(), nil
 }
 
 // Token Service

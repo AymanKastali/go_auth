@@ -12,6 +12,7 @@
         "pgerr",
         "SAUC",
         "usecases",
+        "UUIDV",
         "valueobjects"
     ]
 }

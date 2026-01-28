@@ -1,6 +1,7 @@
 package fiberapp
 
 import (
+	"go_auth/internal/core/domain"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -8,12 +9,15 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
-func SetupApp(handler *AuthHandler, middleware fiber.Handler, baseLogger *slog.Logger) *fiber.App {
+func SetupApp(handler *AuthHandler, middleware fiber.Handler, baseLogger *slog.Logger, idGen domain.IIDGenerator) *fiber.App {
 	app := fiber.New(fiber.Config{
 		ErrorHandler: NewErrorHandler(),
 		AppName:      "AuthService v1.0",
 	})
-	app.Use(requestid.New())
+	app.Use(requestid.New(requestid.Config{Generator: func() string {
+		id, _ := idGen.Generate()
+		return id
+	}}))
 	app.Use(logger.New(logger.Config{
 		CustomTags: map[string]logger.LogFunc{
 			// Define a custom tag "requestid" by calling Fiber's helper

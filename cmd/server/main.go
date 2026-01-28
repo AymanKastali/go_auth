@@ -66,7 +66,8 @@ func main() {
 	// Low-level technical ports
 	userRepo := postgres.NewPostgresUserRepository(db)
 	clock := adapters.NewClock()
-	idGen := adapters.NewIDGenerator()
+	uuidv7Gen := adapters.NewUUIDV7Generator()
+	ulidGen := adapters.NewULIDGenerator()
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 	jwtService := adapters.NewJWTService(cfg.JWT.Secret, cfg.JWT.Issuer, cfg.JWT.Audience)
 	refreshTokenSvc := adapters.NewTokenService()
@@ -85,9 +86,9 @@ func main() {
 	sessionFactory := domain.NewSessionFactory()
 
 	// 5. Domain Services
-	regService := domain.NewRegisterUserService(userRepo, passPolicy, passwordSvc, userFactory, idGen, clock)
+	regService := domain.NewRegisterUserService(userRepo, passPolicy, passwordSvc, userFactory, uuidv7Gen, clock)
 	authService := domain.NewAuthenticateUserService(userRepo, passwordSvc)
-	sessionService := domain.NewEstablishUserSessionService(sessionFactory, sessionPolicy, clock, idGen, refreshTokenSvc)
+	sessionService := domain.NewEstablishUserSessionService(sessionFactory, sessionPolicy, clock, uuidv7Gen, refreshTokenSvc)
 	refreshService := domain.NewRefreshSessionService(userRepo, refreshTokenSvc, clock)
 	accessGranter := domain.NewAccessGrantor(jwtService, accessPolicy, clock)
 
@@ -117,7 +118,7 @@ func main() {
 	// 8. Transport Layer (Fiber v3)
 	handler := fiberapp.NewAuthHandler(regUC, logUC, refUC, outUC, valUC)
 	middleware := fiberapp.Protected(valUC)
-	app := fiberapp.SetupApp(handler, middleware, logger)
+	app := fiberapp.SetupApp(handler, middleware, logger, ulidGen)
 
 	// 9. Graceful Shutdown Orchestration
 	sigChan := make(chan os.Signal, 1)

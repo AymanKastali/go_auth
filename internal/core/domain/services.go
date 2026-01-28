@@ -61,12 +61,17 @@ func (s *registerUserService) Execute(
 	}
 
 	// 4. Build the user
-	id, err := s.idGen.GenerateUserID()
+	id, err := s.idGen.Generate()
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := s.userFactory.Build(id, email, hashed, s.clock.Now())
+	uid, err := NewUserID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.userFactory.Build(uid, email, hashed, s.clock.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +157,16 @@ func (s *establishUserSessionService) Execute(
 	user *User,
 	deviceIdentity DeviceIdentity,
 ) (*Session, RawToken, error) {
-	sid, err := s.idGen.GenerateSessionID()
+	id, err := s.idGen.Generate()
 	if err != nil {
 		return nil, ZeroRawToken, err
 	}
+
+	sid, err := NewSessionID(id)
+	if err != nil {
+		return nil, ZeroRawToken, err
+	}
+
 	rawToken, err := s.tokenService.Generate()
 	if err != nil {
 		return nil, ZeroRawToken, err
