@@ -10,7 +10,7 @@ import (
 
 type AuthHandler struct {
 	registerUC     application.IRegisterUseCase
-	loginUC        application.ILoginUserUseCase
+	loginUC        application.ILoginUseCase
 	refreshUC      application.IRefreshTokenUseCase
 	logoutUC       application.ILogoutUseCase
 	validateAccess application.IValidateAccessUseCase
@@ -19,7 +19,7 @@ type AuthHandler struct {
 // ... NewAuthHandler constructor ...
 func NewAuthHandler(
 	reg application.IRegisterUseCase,
-	log application.ILoginUserUseCase,
+	log application.ILoginUseCase,
 	ref application.IRefreshTokenUseCase,
 	out application.ILogoutUseCase,
 	val application.IValidateAccessUseCase,

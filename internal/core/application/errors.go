@@ -48,7 +48,6 @@ func MapToAppError(err error) error {
 	}
 
 	var domainErr domain.DomainError
-	// Check if it's a known Domain Error
 	if errors.As(err, &domainErr) {
 		switch domainErr.Code() {
 		case domain.CodeValidation, domain.CodeBusinessRule:
@@ -61,6 +60,8 @@ func MapToAppError(err error) error {
 			return &AppError{Code: AppErrUnauthorized, Message: domainErr.Error(), Err: err}
 		case domain.CodeForbidden:
 			return &AppError{Code: AppErrForbidden, Message: domainErr.Error(), Err: err}
+		default:
+			return &AppError{Code: AppErrInternal, Message: domainErr.Error(), Err: err}
 		}
 	}
 

@@ -11,8 +11,8 @@ type IRegisterUseCase interface {
 	Execute(ctx context.Context, cmd RegisterUserCommand) (RegisterUserResponse, error)
 }
 
-// ILoginUserUseCase defines the boundary for user authentication.
-type ILoginUserUseCase interface {
+// ILoginUseCase defines the boundary for user authentication.
+type ILoginUseCase interface {
 	// Execute verifies credentials and returns the response DTO containing the RawToken.
 	Execute(ctx context.Context, cmd LoginCommand) (LoginResponse, error)
 }
