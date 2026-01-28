@@ -7,17 +7,28 @@ import (
 	"github.com/gofiber/swagger/v2"
 )
 
-func RegisterRoutes(app *fiber.App, handler *AuthHandler, authGuard fiber.Handler) {
+func RegisterRoutes(
+	app *fiber.App,
+	authHandler *AuthHandler,
+	userHandler *UserHandler,
+	authGuard fiber.Handler,
+) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	api := app.Group("/api/v1")
 
+	// Auth
 	auth := api.Group("/auth")
 	// Public
-	auth.Post("/register", handler.Register)
-	auth.Post("/login", handler.Login)
-	auth.Post("/refresh", handler.Refresh)
+	auth.Post("/register", authHandler.Register)
+	auth.Post("/login", authHandler.Login)
+	auth.Post("/refresh", authHandler.Refresh)
 
 	// Protected
-	auth.Post("/logout", authGuard, handler.Logout)
+	auth.Post("/logout", authGuard, authHandler.Logout)
+
+	// Users
+	users := api.Group("/users")
+	users.Use(authGuard)
+	users.Get("", userHandler.FindByEmail)
 }

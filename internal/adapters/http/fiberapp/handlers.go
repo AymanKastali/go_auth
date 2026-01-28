@@ -204,3 +204,52 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	)
 	return SendNoContent(c)
 }
+
+// User Handler
+
+type UserHandler struct {
+	findByEmail application.IFetchUserByEmail
+}
+
+// ... NewAuthHandler constructor ...
+func UewUserHandler(
+	findByEmail application.IFetchUserByEmail,
+) *UserHandler {
+
+	return &UserHandler{
+		findByEmail: findByEmail,
+	}
+
+}
+
+func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
+	email := c.Query("email")
+	if email == "" {
+		logger.Warn("http_find_by_email_missing_param")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "email query parameter is required",
+		})
+	}
+
+	// 2. Execute the Use Case
+	user, err := h.findByEmail.Execute(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	resp := UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+	}
+
+	// 3. Log and Return Success
+	logger.Info("http_find_by_email_success",
+		slog.String("email", email),
+		slog.String("user_id", resp.ID),
+	)
+
+	return SendOK(c, "user fetched successfully", resp)
+}

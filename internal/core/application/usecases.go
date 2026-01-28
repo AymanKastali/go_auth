@@ -316,7 +316,9 @@ func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAcce
 		SessionID: sid.String(),
 		Roles:     user.RoleNames(),
 	}, nil
-} // --- Logout Use Case ---
+}
+
+// --- Logout Use Case ---
 
 type logoutUseCase struct {
 	userRepo domain.IUserRepository
@@ -358,4 +360,44 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 
 	logger.Info("user_logged_out")
 	return nil
+}
+
+// --- Fetch User Use Case ---
+
+type fetchUserByEmailUseCase struct {
+	userRepo domain.IUserRepository
+}
+
+func NewFetchUserByEmailUseCase(repo domain.IUserRepository) IFetchUserByEmail {
+	return &fetchUserByEmailUseCase{userRepo: repo}
+}
+
+func (uc *fetchUserByEmailUseCase) Execute(ctx context.Context, email string) (UserResponse, error) {
+	logger := GetLogger(ctx)
+
+	logger.Info("fetching user by email", "email", email)
+
+	emailVO, err := domain.NewEmail(email)
+	if err != nil {
+		logger.Warn("invalid email format provided", "email", email, "error", err)
+		return ZeroUserResponse, ErrEmailInvalid
+	}
+
+	user, err := uc.userRepo.FindByEmail(ctx, emailVO)
+	if err != nil {
+		logger.Error("failed to retrieve user from repository", "email", email, "error", err)
+		return ZeroUserResponse, ErrUserLookupFailed
+	}
+
+	if user == nil {
+		logger.Warn("user not found", "email", email)
+		return ZeroUserResponse, ErrUserRecordNotFound
+	}
+
+	logger.Info("successfully fetched user", "user_id", user.ID().String(), "email", email)
+
+	return UserResponse{
+		ID:    user.ID().String(),
+		Email: user.Email().String(),
+	}, nil
 }
