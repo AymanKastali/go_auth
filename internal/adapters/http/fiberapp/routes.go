@@ -1,8 +1,15 @@
 package fiberapp
 
-import "github.com/gofiber/fiber/v3"
+import (
+	_ "go_auth/docs"
 
-func RegisterRoutes(app *fiber.App, handler *AuthHandler, authMiddleware fiber.Handler) {
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/swagger/v2"
+)
+
+func RegisterRoutes(app *fiber.App, handler *AuthHandler, authGuard fiber.Handler) {
+	app.Get("/swagger/*", swagger.HandlerDefault)
+
 	api := app.Group("/api/v1")
 
 	auth := api.Group("/auth")
@@ -12,6 +19,5 @@ func RegisterRoutes(app *fiber.App, handler *AuthHandler, authMiddleware fiber.H
 	auth.Post("/refresh", handler.Refresh)
 
 	// Protected
-	protected := api.Group("/auth", authMiddleware)
-	protected.Post("/logout", handler.Logout)
+	auth.Post("/logout", authGuard, handler.Logout)
 }
