@@ -2,106 +2,93 @@ package fiberapp
 
 import (
 	"context"
+	"errors"
+	"go_auth/internal/core/application"
 	"log/slog"
-	"slices"
 
 	"github.com/mssola/useragent"
 )
 
+var (
+	ErrContextNotFound = errors.New("request context not found in context")
+	ErrAppCtxNil       = errors.New("application context is not initialized")
+)
+
 type ctxKey struct{}
 
-var requestCtxKey = &ctxKey{}
+var requestCtxKey = ctxKey{}
 
-type DeviceMetadata struct {
-	OS       string
-	Platform string
-	Browser  string
-	Version  string
-	IsMobile bool
-	IsBot    bool
-	Model    string
-}
-
+// RequestContext acts as the HTTP-layer carrier for the core AppContext.
 type RequestContext struct {
-	requestID      string
-	userAgent      string // Added to keep raw UA for fingerprinting
-	ipAddress      string
-	acceptLanguage string
-
-	deviceMetadata DeviceMetadata
-
-	userID    string
-	sessionID string
-	roles     []string
-
-	logger *slog.Logger
+	requestID string
+	appCtx    *application.AppContext
 }
 
-// NewRequestContext now takes the raw UA string and parses it internally.
-func NewRequestContext(
-	requestID string,
-	ipAddress, acceptLanguage, uaRaw string,
-	logger *slog.Logger,
-) *RequestContext {
-	if logger == nil {
-		logger = slog.Default()
-	}
-
+// NewRequestContext constructs the initial AppContext.
+// It fails if the Domain validation for DeviceIdentity fails.
+func NewRequestContext(id, ip, lang, uaRaw string, logger *slog.Logger) (*RequestContext, error) {
 	ua := useragent.New(uaRaw)
-	browserName, browserVersion := ua.Browser()
+	browser, _ := ua.Browser()
+
+	// Building AppContext immediately enforces domain rules (e.g. required IP/UA)
+	appCtx, err := application.NewAppContext(
+		"", "", // Unauthenticated initially
+		uaRaw, ip, ua.OS(), browser, ua.Model(), lang, ua.Mobile(),
+		logger.With(slog.String("req_id", id)),
+	)
+	if err != nil {
+		return nil, err // Do not ignore: this is likely a validation error
+	}
 
 	return &RequestContext{
-		requestID:      requestID,
-		userAgent:      uaRaw,
-		ipAddress:      ipAddress,
-		acceptLanguage: acceptLanguage,
-		deviceMetadata: DeviceMetadata{
-			OS:       ua.OS(),
-			Platform: ua.Platform(),
-			Browser:  browserName,
-			Version:  browserVersion,
-			IsMobile: ua.Mobile(),
-			IsBot:    ua.Bot(),
-			Model:    ua.Model(),
-		},
-		logger: logger,
-		roles:  []string{},
-	}
+		requestID: id,
+		appCtx:    appCtx,
+	}, nil
 }
 
-func GetRequestContext(ctx context.Context) *RequestContext {
+// FromContext strictly extracts the RequestContext.
+// It returns an error instead of a "Null Object" to force the caller to handle failures.
+func FromContext(ctx context.Context) (*RequestContext, error) {
 	rc, ok := ctx.Value(requestCtxKey).(*RequestContext)
-	if ok && rc != nil {
-		return rc
+	if !ok {
+		return nil, ErrContextNotFound
 	}
-	return &RequestContext{
-		requestID: "unknown",
-		logger:    slog.Default(),
-		roles:     []string{},
+	if rc.appCtx == nil {
+		return nil, ErrAppCtxNil
 	}
+	return rc, nil
 }
 
-// --- Getters ---
+// UpdateUser performs a "mutation via replacement" to upgrade the AppContext with User info.
+func (rc *RequestContext) AttachUser(userID, sessionID string) error {
+	identity := rc.appCtx.Client.Identity
 
-func (rc *RequestContext) RequestID() string      { return rc.requestID }
-func (rc *RequestContext) IPAddress() string      { return rc.ipAddress }
-func (rc *RequestContext) AcceptLanguage() string { return rc.acceptLanguage }
-func (rc *RequestContext) UserAgent() string      { return rc.userAgent }
+	// Re-construct using the domain factory to ensure the UserID/SessionID are valid
+	newAppCtx, err := application.NewAppContext(
+		userID,
+		sessionID,
+		identity.UserAgent(),
+		identity.IPAddress(),
+		identity.OS(),
+		identity.Browser(),
+		identity.Model(),
+		identity.Language(),
+		identity.IsMobile(),
+		rc.appCtx.Logger,
+	)
+	if err != nil {
+		return err
+	}
 
-// Metadata Getters (Aligned with the struct)
-func (rc *RequestContext) Device() DeviceMetadata { return rc.deviceMetadata }
+	rc.appCtx = newAppCtx
+	return nil
+}
 
-// Auth Getters
-func (rc *RequestContext) UserID() string           { return rc.userID }
-func (rc *RequestContext) SessionID() string        { return rc.sessionID }
-func (rc *RequestContext) Roles() []string          { return rc.roles }
-func (rc *RequestContext) IsAuthenticated() bool    { return rc.userID != "" }
-func (rc *RequestContext) HasRole(role string) bool { return slices.Contains(rc.roles, role) }
-func (rc *RequestContext) Logger() *slog.Logger     { return rc.logger }
+// AppContext returns the core context for domain layers.
+func (rc *RequestContext) AppContext() *application.AppContext {
+	return rc.appCtx
+}
 
-// Setters
-func (rc *RequestContext) SetUser(userID, sessionID string, roles []string) {
-	rc.userID = userID
-	rc.sessionID = sessionID
-	rc.roles = roles
+func (rc *RequestContext) Logger() *slog.Logger {
+	return rc.appCtx.Logger
 }

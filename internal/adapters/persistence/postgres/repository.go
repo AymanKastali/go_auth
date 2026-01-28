@@ -88,3 +88,36 @@ func (r *postgresUserRepository) Delete(ctx context.Context, id domain.UserID) e
 	}
 	return nil
 }
+
+func (r *postgresUserRepository) FindBySessionToken(ctx context.Context, token domain.HashedToken) (*domain.User, error) {
+	var sessionModel SessionModel
+
+	// 1. Find the session.
+	// We add a check for RevokedAt to fail fast on explicitly revoked tokens.
+	err := r.db.WithContext(ctx).
+		Where("hashed_token = ?", token.String()).
+		Where("revoked_at IS NULL").
+		First(&sessionModel).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // Return nil, nil to indicate "not found" (Domain Service handles this)
+		}
+		return nil, domain.NewInternalError("database query failed during token lookup", err)
+	}
+
+	// 2. DO NOT IGNORE: Validate the UserID from the database
+	// Even though it's in our DB, the Domain VO must validate it.
+	uid, err := domain.NewUserID(sessionModel.UserID)
+	if err != nil {
+		return nil, domain.NewInternalError("corrupt data: stored session has invalid user_id", err)
+	}
+
+	// 3. Leverage FindByID for preloading (Sessions, Roles, etc.) and Mapping
+	user, err := r.FindByID(ctx, uid)
+	if err != nil {
+		return nil, err // FindByID already wraps internal errors
+	}
+
+	return user, nil
+}

@@ -68,17 +68,37 @@ type sessionPolicy struct {
 	maxActive uint8
 }
 
-func NewSessionPolicy(lifetime time.Duration, maxActive uint8) ISessionPolicy {
+func NewSessionPolicy(
+	lifetime time.Duration,
+	maxActive uint8,
+) ISessionPolicy {
 	return &sessionPolicy{
 		lifetime:  lifetime,
 		maxActive: maxActive,
 	}
 }
 
-func (p *sessionPolicy) GetExpiryDuration() time.Duration {
+func (p *sessionPolicy) GetSessionLifetime() time.Duration {
 	return p.lifetime
 }
 
 func (p *sessionPolicy) GetMaxActiveSessions() int {
 	return int(p.maxActive)
+}
+
+// Access Policy
+type accessPolicy struct {
+	lifetime time.Duration
+}
+
+func NewAccessPolicy(
+	lifetime time.Duration,
+) IAccessPolicy {
+	return &accessPolicy{
+		lifetime: lifetime,
+	}
+}
+
+func (p *accessPolicy) GetAccessLifetime() time.Duration {
+	return p.lifetime
 }

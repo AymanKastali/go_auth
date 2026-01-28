@@ -14,9 +14,6 @@ func SetupApp(handler *AuthHandler, middleware fiber.Handler, baseLogger *slog.L
 		AppName:      "AuthService v1.0",
 	})
 	app.Use(requestid.New())
-	// app.Use(logger.New(logger.Config{
-	// 	Format: logger.JSONFormat,
-	// }))
 	app.Use(logger.New(logger.Config{
 		CustomTags: map[string]logger.LogFunc{
 			// Define a custom tag "requestid" by calling Fiber's helper

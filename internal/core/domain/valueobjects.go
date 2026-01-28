@@ -180,9 +180,10 @@ func NewAccessIdentity(userID UserID, sessionID SessionID, email Email, roles []
 		return ZeroAccessIdentity, NewRequiredAttributeError("AccessIdentity", "roles")
 	}
 	return AccessIdentity{
-		userID: userID,
-		email:  email,
-		roles:  roles,
+		userID:    userID,
+		sessionID: sessionID,
+		email:     email,
+		roles:     roles,
 	}, nil
 }
 
@@ -240,9 +241,9 @@ type DeviceIdentity struct {
 	os        string
 	browser   string
 	model     string
-	isMobile  bool
 	language  string
 	userAgent string
+	isMobile  bool
 }
 
 func NewDeviceIdentity(
