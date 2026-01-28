@@ -1,8 +1,15 @@
 package fiberapp
 
-import "github.com/gofiber/fiber/v3"
+import (
+	_ "go_auth/docs"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/swagger/v2"
+)
 
 func RegisterRoutes(app *fiber.App, handler *AuthHandler, authMiddleware fiber.Handler) {
+	app.Get("/swagger/*", swagger.HandlerDefault)
+
 	api := app.Group("/api/v1")
 
 	auth := api.Group("/auth")

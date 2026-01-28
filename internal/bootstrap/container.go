@@ -27,7 +27,7 @@ func NewFiberPostgresContainer() *fiberPostgresContainer {
 
 	c.Domain = SetupDomain(c.Config, c.DB)
 	c.UC = SetupUseCases(c.Domain)
-	c.App = SetupHTTP(c.UC, c.Domain.ULIDGen, c.Logger)
+	c.App = SetupHTTP(c.Config.App, c.UC, c.Domain.ULIDGen, c.Logger)
 
 	return c
 }

@@ -1,4 +1,197 @@
+basePath: /
+definitions:
+  internal_adapters_http_fiberapp.ErrorResponse:
+    properties:
+      code:
+        example: VALIDATION
+        type: string
+      details:
+        additionalProperties: {}
+        type: object
+      message:
+        example: humanized error message
+        type: string
+      trace_id:
+        example: req-12345
+        type: string
+    type: object
+  internal_adapters_http_fiberapp.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_adapters_http_fiberapp.LoginResponse:
+    properties:
+      access_exp:
+        type: string
+      access_token:
+        type: string
+      refresh_exp:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_adapters_http_fiberapp.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_adapters_http_fiberapp.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_adapters_http_fiberapp.RegisterUserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+    type: object
+  internal_adapters_http_fiberapp.SuccessResponse:
+    properties:
+      data: {}
+      message:
+        example: humanized success message
+        type: string
+    type: object
+host: localhost:8080
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@example.com
+    name: API Support
+  description: Authentication service using Hexagonal Architecture and Fiber v3.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return tokens
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: User Login
+      tags:
+      - Auth
+  /api/v1/auth/logout:
+    post:
+      description: Revoke the current session
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Logout
+      tags:
+      - Auth
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: Refresh Access Token
+      tags:
+      - Auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a user account with email and password
+      parameters:
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterUserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

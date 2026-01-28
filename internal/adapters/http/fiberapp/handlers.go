@@ -35,7 +35,15 @@ func NewAuthHandler(
 
 }
 
-// 1. Register
+// @Summary Register a new user
+// @Description Create a user account with email and password
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Registration Details"
+// @Success 201 {object} SuccessResponse{data=RegisterUserResponse}
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c fiber.Ctx) error {
 	logger := application.GetLogger(c.Context())
 
@@ -68,7 +76,15 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 	})
 }
 
-// 2. Login
+// @Summary User Login
+// @Description Authenticate user and return tokens
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login Credentials"
+// @Success 200 {object} SuccessResponse{data=LoginResponse}
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c fiber.Ctx) error {
 	logger := application.GetLogger(c.Context())
 
@@ -111,7 +127,15 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	})
 }
 
-// 3. Refresh Token
+// @Summary Refresh Access Token
+// @Description Exchange a valid refresh token for a new access token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshRequest true "Refresh Token"
+// @Success 200 {object} SuccessResponse{data=LoginResponse}
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
@@ -146,7 +170,13 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	return SendOK(c, "token refreshed", resp)
 }
 
-// 4. Logout
+// @Summary Logout
+// @Description Revoke the current session
+// @Tags Auth
+// @Security ApiKeyAuth
+// @Success 204 "No Content"
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
