@@ -16,8 +16,7 @@ type IUserRepository interface {
 
 // Services
 type IIDGenerator interface {
-	GenerateUserID() (UserID, error)
-	GenerateSessionID() (SessionID, error)
+	Generate() (string, error)
 }
 
 type ITokenService interface {
