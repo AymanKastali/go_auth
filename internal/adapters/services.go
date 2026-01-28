@@ -202,7 +202,7 @@ func (p *jwtService) Validate(token domain.AccessToken) (domain.AccessIdentity, 
 	parsedToken, err := jwt.ParseWithClaims(
 		token.String(),
 		&CustomClaims{},
-		func(t *jwt.Token) (interface{}, error) {
+		func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
 			}

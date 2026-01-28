@@ -49,7 +49,7 @@ type ErrInvalidAttribute struct {
 }
 
 func NewInvalidAttributeError(entity EntityName, field string) ErrInvalidAttribute {
-	return ErrInvalidAttribute{}
+	return ErrInvalidAttribute{Entity: entity, Field: field}
 }
 func (e ErrInvalidAttribute) Error() string {
 	return fmt.Sprintf("%s.%s is invalid", e.Entity, e.Field)
@@ -61,12 +61,6 @@ type ErrExpirationInPast struct{}
 func NewExpirationInPastError() ErrExpirationInPast { return ErrExpirationInPast{} }
 func (e ErrExpirationInPast) Error() string         { return "expiration time cannot be in the past" }
 func (e ErrExpirationInPast) Code() ErrorCode       { return CodeValidation }
-
-type ErrInvalidCredentials struct{}
-
-func NewInvalidCredentialsError() ErrInvalidCredentials { return ErrInvalidCredentials{} }
-func (e ErrInvalidCredentials) Error() string           { return "invalid credentials" }
-func (e ErrInvalidCredentials) Code() ErrorCode         { return CodeUnauthorized }
 
 type ErrPasswordTooShort struct{ MinLength uint8 }
 
@@ -127,7 +121,9 @@ func (e ErrInvalidRole) Code() ErrorCode { return CodeValidation }
 // CodeConflict
 type ErrUserAlreadyActive struct{ UserID string }
 
-func NewUserAlreadyActiveError(userID string) ErrUserAlreadyActive { return ErrUserAlreadyActive{} }
+func NewUserAlreadyActiveError(userID string) ErrUserAlreadyActive {
+	return ErrUserAlreadyActive{UserID: userID}
+}
 
 func (e ErrUserAlreadyActive) Error() string {
 	return fmt.Sprintf("user %s is already active", e.UserID)
@@ -152,7 +148,7 @@ func (e ErrRoleAlreadyAssigned) Code() ErrorCode { return CodeConflict }
 type ErrTokenAlreadyRevoked struct{ TokenID string }
 
 func NewTokenAlreadyRevokedError(tokenID string) ErrTokenAlreadyRevoked {
-	return ErrTokenAlreadyRevoked{}
+	return ErrTokenAlreadyRevoked{TokenID: tokenID}
 }
 
 func (e ErrTokenAlreadyRevoked) Error() string {
@@ -279,3 +275,15 @@ func NewInvalidIdentityError(reason string) ErrInvalidIdentity {
 }
 func (e ErrInvalidIdentity) Error() string   { return fmt.Sprintf("identity invalid: %s", e.Reason) }
 func (e ErrInvalidIdentity) Code() ErrorCode { return CodeUnauthorized }
+
+type ErrInvalidCredentials struct{}
+
+func NewInvalidCredentialsError() ErrInvalidCredentials { return ErrInvalidCredentials{} }
+func (e ErrInvalidCredentials) Error() string           { return "invalid credentials" }
+func (e ErrInvalidCredentials) Code() ErrorCode         { return CodeUnauthorized }
+
+type ErrInvalidToken struct{}
+
+func NewInvalidTokenError() ErrInvalidToken { return ErrInvalidToken{} }
+func (e ErrInvalidToken) Error() string     { return "provided token is invalid or expired" }
+func (e ErrInvalidToken) Code() ErrorCode   { return CodeUnauthorized }

@@ -3,6 +3,7 @@ package fiberapp
 import (
 	"go_auth/internal/adapters"
 	"go_auth/internal/core/application"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -15,6 +16,7 @@ type AuthHandler struct {
 	validateAccess application.IValidateAccessUseCase
 }
 
+// ... NewAuthHandler constructor ...
 func NewAuthHandler(
 	reg application.IRegisterUseCase,
 	log application.ILoginUserUseCase,
@@ -22,6 +24,7 @@ func NewAuthHandler(
 	out application.ILogoutUseCase,
 	val application.IValidateAccessUseCase,
 ) *AuthHandler {
+
 	return &AuthHandler{
 		registerUC:     reg,
 		loginUC:        log,
@@ -29,118 +32,145 @@ func NewAuthHandler(
 		logoutUC:       out,
 		validateAccess: val,
 	}
+
 }
 
 // 1. Register
 func (h *AuthHandler) Register(c fiber.Ctx) error {
+	logger := application.GetLogger(c.Context())
+
 	var req RegisterRequest
 	if err := c.Bind().Body(&req); err != nil {
+		logger.Warn("register_binding_failed", slog.Any("error", err))
 		return adapters.ErrBadRequest(err.Error())
 	}
 
 	if err := Validate(req); err != nil {
+		logger.Warn("register_validation_failed", slog.Any("error", err))
 		return adapters.ErrBadRequest(err.Error())
 	}
 
-	// Map to Application Command
 	cmd := application.RegisterUserCommand{
 		Email:    req.Email,
 		Password: req.Password,
 	}
 
 	user, err := h.registerUC.Execute(c.Context(), cmd)
-	registerResp := RegisterUserResponse{
-		UserID: user.UserID,
-		Email:  user.Email,
-	}
-
 	if err != nil {
+		// UseCase already logged the specific reason, just return
 		return err
 	}
-	return SendCreated(c, "user registered successfully", registerResp)
+
+	logger.Info("http_register_success", slog.String("email", req.Email))
+	return SendCreated(c, "user registered successfully", RegisterUserResponse{
+		UserID: user.UserID,
+		Email:  user.Email,
+	})
 }
 
 // 2. Login
 func (h *AuthHandler) Login(c fiber.Ctx) error {
+	logger := application.GetLogger(c.Context())
+
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
+		logger.Warn("login_binding_failed", slog.Any("error", err))
 		return adapters.ErrBadRequest(err.Error())
 	}
 
-	// Validate the request fields (email, password)
 	if err := Validate(req); err != nil {
+		logger.Warn("login_validation_failed", slog.Any("error", err))
 		return adapters.ErrBadRequest(err.Error())
 	}
 
-	rc := GetRequestContext(c.Context())
-	meta := rc.Device()
+	identity := application.GetIdentity(c.Context())
 
-	// Build the LoginCommand using headers-derived fingerprint
 	cmd := application.LoginCommand{
 		Email:          req.Email,
 		Password:       req.Password,
-		IPAddress:      rc.IPAddress(),
-		OS:             meta.OS,
-		Browser:        meta.Browser,
-		Model:          meta.Model,
-		AcceptLanguage: rc.AcceptLanguage(),
-		UserAgent:      rc.UserAgent(),
-		IsMobile:       meta.IsMobile,
+		IPAddress:      identity.IPAddress(),
+		OS:             identity.OS(),
+		Browser:        identity.Browser(),
+		Model:          identity.Model(),
+		AcceptLanguage: identity.Language(),
+		UserAgent:      identity.UserAgent(),
+		IsMobile:       identity.IsMobile(),
 	}
 
 	resp, err := h.loginUC.Execute(c.Context(), cmd)
 	if err != nil {
 		return err
 	}
-	loginResp := LoginResponse{
+
+	logger.Info("http_login_success", slog.String("email", req.Email))
+	return SendOK(c, "login successful", LoginResponse{
 		AccessToken:        resp.AccessToken,
 		AccessTokenExpiry:  resp.AccessTokenExpiry,
 		RefreshToken:       resp.RefreshToken,
 		RefreshTokenExpiry: resp.RefreshTokenExpiry,
-	}
-
-	return SendOK(c, "login successful", loginResp)
+	})
 }
 
 // 3. Refresh Token
 func (h *AuthHandler) Refresh(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil {
+		logger.Warn("refresh_binding_failed", slog.Any("error", err))
 		return adapters.ErrBadRequest(err.Error())
 	}
 
+	userID := application.GetUserID(ctx)
+	fingerprint := application.GetIdentity(ctx).Fingerprint()
+
+	// Log that a refresh is being attempted for this user
+	logger.Debug("http_refresh_attempt",
+		slog.String("user_id", userID.String()),
+		slog.String("fingerprint", fingerprint.String()),
+	)
+
 	cmd := application.RefreshTokenCommand{
 		RefreshToken: req.RefreshToken,
+		UserID:       userID.String(),
+		Fingerprint:  fingerprint.String(),
 	}
 
-	resp, err := h.refreshUC.Execute(c.Context(), cmd)
+	resp, err := h.refreshUC.Execute(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
+	logger.Info("http_refresh_success", slog.String("user_id", userID.String()))
 	return SendOK(c, "token refreshed", resp)
 }
 
 // 4. Logout
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
-	// 1. Retrieve IDs injected by the Protected middleware
-	userID, okU := c.Locals("user_id").(string)
-	sessionID, okS := c.Locals("session_id").(string)
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
 
-	if !okU || !okS {
+	if !application.IsAuthenticated(ctx) {
+		logger.Warn("logout_attempt_unauthenticated")
 		return adapters.ErrBadRequest("missing identity context in request")
 	}
 
-	// 2. Build the command correctly
+	userID := application.GetUserID(ctx)
+	sessionID := application.GetSessionID(ctx)
+
 	cmd := application.LogoutCommand{
-		UserID:    userID,
-		SessionID: sessionID,
+		UserID:    userID.String(),
+		SessionID: sessionID.String(),
 	}
 
-	// 3. Execute
-	if err := h.logoutUC.Execute(c.Context(), cmd); err != nil {
+	if err := h.logoutUC.Execute(ctx, cmd); err != nil {
 		return err
 	}
 
+	logger.Info("http_logout_success",
+		slog.String("user_id", userID.String()),
+		slog.String("session_id", sessionID.String()),
+	)
 	return SendNoContent(c)
 }

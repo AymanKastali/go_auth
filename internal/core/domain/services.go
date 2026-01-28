@@ -14,7 +14,7 @@ type registerUserService struct {
 	clock          IClock
 }
 
-func NewUserRegistrationService(
+func NewRegisterUserService(
 	repo IUserRepository,
 	policy IPasswordPolicy,
 	pwdSvc IPasswordService,
@@ -180,34 +180,47 @@ func (s *establishUserSessionService) Execute(
 	return session, rawToken, nil
 }
 
-type refreshUserSessionService struct {
+type refreshSessionService struct {
+	userRepo     IUserRepository
 	tokenService ITokenService
 	clock        IClock
 }
 
-func NewRefreshUserSessionService(
-	clock IClock,
+func NewRefreshSessionService(
+	userRepo IUserRepository,
 	tokenService ITokenService,
-) IRefreshUserSession {
-	return &refreshUserSessionService{
-		clock:        clock,
+	clock IClock,
+) IRefreshSession {
+	return &refreshSessionService{
+		userRepo:     userRepo,
 		tokenService: tokenService,
+		clock:        clock,
 	}
 }
 
-func (s *refreshUserSessionService) Execute(
+func (s *refreshSessionService) Execute(
 	ctx context.Context,
-	user *User,
 	raw RawToken,
 	currentFingerprint DeviceFingerprint,
 ) (*User, Session, error) {
+	// 1. Hash the raw token provided by the client
 	hashed, err := s.tokenService.Hash(raw)
 	if err != nil {
 		return nil, ZeroSession, err
 	}
 
+	// 2. Resolve Identity: Find the User Aggregate owning this session
+	user, err := s.userRepo.FindBySessionToken(ctx, hashed)
+	if err != nil {
+		return nil, ZeroSession, err
+	}
+	if user == nil {
+		// Security: Return a generic error to prevent session probing
+		return nil, ZeroSession, NewInvalidTokenError()
+	}
+
+	// 3. Delegate logic to the Aggregate
 	now := s.clock.Now()
-	// We need the aggregate to return the session it just validated
 	session, err := user.RefreshSession(hashed, currentFingerprint, now)
 	if err != nil {
 		return nil, ZeroSession, err
@@ -219,20 +232,20 @@ func (s *refreshUserSessionService) Execute(
 // Access Session For User
 // Authentication Service
 type accessGrantor struct {
-	tokenService IAccessTokenService
-	policy       IAccessPolicy
-	clock        IClock
+	accessTokenSvc IAccessTokenService
+	policy         IAccessPolicy
+	clock          IClock
 }
 
 func NewAccessGrantor(
-	tokenService IAccessTokenService,
+	accessTokenSvc IAccessTokenService,
 	policy IAccessPolicy,
 	clock IClock,
 ) IAccessGrantor {
 	return &accessGrantor{
-		tokenService: tokenService,
-		policy:       policy,
-		clock:        clock,
+		accessTokenSvc: accessTokenSvc,
+		policy:         policy,
+		clock:          clock,
 	}
 }
 
@@ -245,7 +258,7 @@ func (s *accessGrantor) GrantImmediateAccess(
 	issuedAt := now
 	expiresAt := issuedAt.Add(s.policy.GetAccessLifetime())
 	notBefore := issuedAt
-	return s.tokenService.Issue(
+	return s.accessTokenSvc.Issue(
 		user.ID(),
 		user.Email(),
 		sessionID,

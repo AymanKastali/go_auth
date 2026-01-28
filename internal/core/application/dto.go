@@ -1,8 +1,9 @@
 package application
 
 var (
-	ZeroLoginResponse        = LoginResponse{}
-	ZeroRegisterUserResponse = RegisterUserResponse{}
+	ZeroLoginResponse          = LoginResponse{}
+	ZeroRegisterUserResponse   = RegisterUserResponse{}
+	ZeroValidateAccessResponse = ValidateAccessResponse{}
 )
 
 // RegisterUserCommand

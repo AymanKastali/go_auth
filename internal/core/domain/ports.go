@@ -11,6 +11,7 @@ type IUserRepository interface {
 	FindByEmail(ctx context.Context, email Email) (*User, error)
 	Save(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id UserID) error
+	FindBySessionToken(ctx context.Context, token HashedToken) (*User, error)
 }
 
 // Services
@@ -42,10 +43,9 @@ type IRegisterUserService interface {
 	) (*User, error)
 }
 
-type IRefreshUserSession interface {
+type IRefreshSession interface {
 	Execute(
 		ctx context.Context,
-		user *User,
 		raw RawToken,
 		currentFingerprint DeviceFingerprint,
 	) (*User, Session, error)

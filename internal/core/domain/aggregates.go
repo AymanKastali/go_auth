@@ -127,70 +127,78 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 		return NewUserInactiveError(u.id.String())
 	}
 
-	// 1. Try to find an existing active session with the same device fingerprint
-	for i := range u.sessions {
-		// If device matches and it's not revoked
-		if u.sessions[i].Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) &&
-			!u.sessions[i].IsRevoked() {
+	now := candidate.LastActiveAt()
 
-			// UPDATE logic: Re-use the existing session but update its token and timestamps
-			u.sessions[i].UpdateLogin(
+	for i := range u.sessions {
+		s := &u.sessions[i]
+		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
+			s.UpdateLogin(
 				candidate.HashedToken(),
 				candidate.ExpiresAt(),
-				candidate.LastActiveAt(),
+				now,
 			)
-
-			u.updatedAt = candidate.LastActiveAt()
+			u.updatedAt = now
 			return nil
 		}
 	}
 
-	// 2. If no matching device found, enforce the session limit (FIFO)
+	// Now the call matches the func(now Timepoint) signature
 	if len(u.sessions) >= maxSessions {
-		u.revokeOldestSession()
+		u.revokeOldestSession(now)
 	}
 
-	// 3. Add as a brand new session
 	u.sessions = append(u.sessions, candidate)
-	u.updatedAt = candidate.LastActiveAt()
+	u.updatedAt = now
 	return nil
 }
 
 // revokeOldestSession is a private helper that removes the oldest session
 // when the user logs in from too many distinct devices.
-func (u *User) revokeOldestSession() {
+func (u *User) revokeOldestSession(now Timepoint) {
 	if len(u.sessions) == 0 {
 		return
 	}
-	// Removes the first element (oldest) from the slice
-	u.sessions = u.sessions[1:]
+
+	// Step A: Find the first active (non-revoked) session and revoke it.
+	// Usually, u.sessions[0] is the oldest if you always append.
+	for i := range u.sessions {
+		if !u.sessions[i].IsRevoked() {
+			_ = u.sessions[i].Revoke(now)
+			break // We only need to revoke one to make room
+		}
+	}
+
+	// Step B: Optional - If you want to keep the slice clean of revoked sessions
+	// to respect the maxSessions count strictly in memory:
+	// u.sessions = slices.DeleteFunc(u.sessions, func(s Session) bool { return s.IsRevoked() })
+	//
+	// Note: Most GORM setups prefer you keep the session in the slice so it
+	// can issue the UPDATE command for that specific ID.
 }
 
 func (a *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerprint, now Timepoint) (Session, error) {
 	if a.IsDeleted() || !a.isActive {
 		return ZeroSession, NewUserInactiveError(a.id.String())
 	}
-	for i := range a.sessions {
-		if a.sessions[i].HashedToken().Equal(hash) {
 
-			// 1. SECURITY CHECK: Ensure the hardware/browser fingerprint matches the one stored in the session
-			if !a.sessions[i].ValidateFingerprint(currentFingerprint) {
-				// Potential hijacking! Revoke the session immediately for safety
-				_ = a.sessions[i].Revoke(now)
+	for i := range a.sessions {
+		s := &a.sessions[i] // Pointer to ensure update persists in the aggregate
+		if s.HashedToken().Equal(hash) {
+
+			if !s.ValidateFingerprint(currentFingerprint) {
+				_ = s.Revoke(now)
 				a.updatedAt = now
-				return ZeroSession, NewSessionFingerprintMismatchError(a.sessions[i].ID().String())
+				return ZeroSession, NewSessionFingerprintMismatchError(s.ID().String())
 			}
 
-			// 2. LIFECYCLE CHECK: Ensure the session hasn't expired or been revoked
-			if !a.sessions[i].IsValid(now) {
+			if !s.IsValid(now) {
 				return ZeroSession, NewSessionExpiredError()
 			}
 
-			// 3. Update Activity
-			a.sessions[i].UpdateActivity(now)
+			s.UpdateActivity(now)
 			a.updatedAt = now
 
-			return a.sessions[i], nil
+			return *s, nil // Return the updated value
 		}
 	}
 	return ZeroSession, NewSessionNotFoundError("token")
@@ -202,28 +210,24 @@ func (a *User) RevokeSession(sid SessionID, now Timepoint) error {
 	}
 
 	for i := range a.sessions {
-		if a.sessions[i].ID().Equal(sid) {
-			// 1. Tell the session entity to revoke itself
-			if err := a.sessions[i].Revoke(now); err != nil {
+		s := &a.sessions[i] // Must use pointer to modify state
+		if s.ID().Equal(sid) {
+
+			// STRICT RULE: If it's already revoked, throw an error
+			if s.IsRevoked() {
+				return NewTokenAlreadyRevokedError(sid.String())
+			}
+
+			if err := s.Revoke(now); err != nil {
 				return err
 			}
 
-			// 2. Update the Aggregate Root's timestamp
 			a.updatedAt = now
 			return nil
 		}
 	}
 
 	return NewSessionNotFoundError(sid.String())
-}
-
-func (u *User) HasActiveSession(sid SessionID, now Timepoint) bool {
-	for _, s := range u.sessions {
-		if s.ID().Equal(sid) {
-			return s.IsValid(now)
-		}
-	}
-	return false
 }
 
 func (a *User) CleanupSessions(now Timepoint) {
@@ -233,21 +237,29 @@ func (a *User) CleanupSessions(now Timepoint) {
 }
 
 func (u *User) ValidateIntegrity(sid SessionID, now Timepoint) error {
-	// 1. Check account lifecycle status
 	if u.IsDeleted() {
 		return NewUserDeletedError(u.id.String())
 	}
-
 	if !u.isActive {
 		return NewUserInactiveError(u.id.String())
 	}
 
-	// 2. Check session existence and validity
-	if !u.HasActiveSession(sid, now) {
-		return NewSessionInvalidError(sid.String())
+	// Explicitly find the session to provide a better error message
+	for _, s := range u.sessions {
+		if s.ID().Equal(sid) {
+			if s.IsRevoked() {
+				// Return 409 Conflict style error
+				return NewTokenAlreadyRevokedError(sid.String())
+			}
+			if !s.IsValid(now) {
+				return NewSessionExpiredError()
+			}
+			return nil
+		}
 	}
 
-	return nil
+	// If not found in the user's list at all
+	return NewSessionInvalidError(sid.String())
 }
 
 // User Getters
