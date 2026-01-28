@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"go_auth/internal/core/application"
+	"go_auth/internal/core/domain"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
@@ -100,23 +102,25 @@ func NewErrorHandler() fiber.ErrorHandler {
 		logger := application.GetLogger(ctx)
 
 		var traceID = "unknown"
-
-		if rc, err := FromContext(ctx); err == nil {
+		if rc, rcErr := FromContext(ctx); rcErr == nil {
 			traceID = rc.requestID
 		}
 
 		var (
 			statusCode = fiber.StatusInternalServerError
 			resp       = ErrorResponse{TraceID: traceID}
-			appErr     *application.AppError
 		)
 
+		// Handle AppError
+		var appErr *application.AppError
 		if errors.As(err, &appErr) {
+			if appErr.Code == "" {
+				appErr.Code = application.AppErrInternal
+			}
 			resp.Code = string(appErr.Code)
 			resp.Message = appErr.Message
 			statusCode = mapAppErrorToStatus(appErr.Code)
 
-			// Log Domain/Logic errors as Warnings (expected failures)
 			logger.Warn("http_request_handled_with_error",
 				slog.Int("status", statusCode),
 				slog.String("app_code", resp.Code),
@@ -124,17 +128,72 @@ func NewErrorHandler() fiber.ErrorHandler {
 				slog.String("path", c.Path()),
 				slog.Any("err_internal", appErr.Err),
 			)
-		} else {
-			// Log Unexpected/System errors as Errors
-			logger.Error("http_request_system_failure",
-				slog.Int("status", statusCode),
-				slog.String("method", c.Method()),
-				slog.String("path", c.Path()),
-				slog.Any("error", err),
-			)
-			resp.Message = "Internal server error"
+			return c.Status(statusCode).JSON(resp)
 		}
 
+		// Handle Fiber errors (like 404 for unknown route)
+		var fErr *fiber.Error
+		if errors.As(err, &fErr) {
+			resp.Code = mapFiberStatusToAppCode(fErr.Code)
+			resp.Message = fErr.Message
+			statusCode = fErr.Code
+
+			logger.Warn("http_request_fiber_error",
+				slog.Int("status", statusCode),
+				slog.String("app_code", resp.Code),
+				slog.String("method", c.Method()),
+				slog.String("path", c.Path()),
+				slog.Any("err_internal", fErr),
+			)
+			return c.Status(statusCode).JSON(resp)
+		}
+
+		// Fallback for unknown/system errors
+		resp.Code = string(application.AppErrInternal)
+		resp.Message = "Internal server error"
+		logger.Error("http_request_system_failure",
+			slog.Int("status", statusCode),
+			slog.String("method", c.Method()),
+			slog.String("path", c.Path()),
+			slog.Any("error", err),
+		)
 		return c.Status(statusCode).JSON(resp)
+	}
+}
+func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen domain.IIDGenerator) {
+	// 1. Trace ID / Request ID
+	app.Use(requestid.New(requestid.Config{
+		Generator: func() string {
+			id, _ := idGen.Generate()
+			return id
+		},
+	}))
+
+	// 2. Access Logging
+	app.Use(logger.New(logger.Config{
+		Format:     `{"time":"${time}", "ip":"${ip}", "req_id":"${respHeader:X-Request-ID}", "method":"${method}", "url":"${url}", "status":${status}}` + "\n",
+		TimeFormat: "2006-01-02T15:04:05.000Z",
+		TimeZone:   "UTC",
+	}))
+
+	// 3. Domain Context & Error Handling
+	app.Use(ContextMiddleware(baseLogger))
+	app.Use(AppErrorMiddleware())
+}
+
+func mapFiberStatusToAppCode(status int) string {
+	switch status {
+	case fiber.StatusBadRequest:
+		return string(application.AppErrUnprocessable)
+	case fiber.StatusUnauthorized:
+		return string(application.AppErrUnauthorized)
+	case fiber.StatusForbidden:
+		return string(application.AppErrForbidden)
+	case fiber.StatusNotFound:
+		return string(application.AppErrNotFound)
+	case fiber.StatusConflict:
+		return string(application.AppErrConflict)
+	default:
+		return string(application.AppErrInternal)
 	}
 }

@@ -113,7 +113,7 @@ func NewLoginUseCase(
 	authenticateUserSvc domain.IAuthenticateUser,
 	establishUserSessionSvc domain.IEstablishUserSession,
 	accessGranter domain.IAccessGrantor,
-) ILoginUserUseCase {
+) ILoginUseCase {
 	return &loginUseCase{
 		userRepo:                repo,
 		authenticateUserSvc:     authenticateUserSvc,
