@@ -307,7 +307,7 @@ func (s *changePassword) ChangePassword(
 	// 3. Transform Raw to Hashed
 	newHash, err := s.passwordSvc.Hash(newPassword)
 	if err != nil {
-		return ErrInternal // Technical failure hashing
+		return err
 	}
 
 	// 4. Update Aggregate state (this will also revoke sessions)

@@ -84,6 +84,13 @@ definitions:
     required:
     - email
     type: object
+  internal_adapters_http_fiberapp.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -205,7 +212,104 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/v1/users:
+    get:
+      consumes:
+      - application/json
+      description: Search for a specific user using their email address
+      parameters:
+      - description: User Email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Find user by email
+      tags:
+      - Users
+  /api/v1/users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a user's public profile by their unique ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
   /api/v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user
+      tags:
+      - Users
     patch:
       consumes:
       - application/json

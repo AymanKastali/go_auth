@@ -232,6 +232,17 @@ func UewUserHandler(
 
 }
 
+// @Summary Find user by email
+// @Description Search for a specific user using their email address
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param email query string true "User Email"
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users [get]
 func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	ctx := c.Context()
 	email := c.Query("email")
@@ -248,6 +259,17 @@ func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	return SendOK(c, "user found", mapToResponse(user))
 }
 
+// @Summary Get user by ID
+// @Description Retrieve a user's public profile by their unique ID
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users/{id} [get]
 func (h *UserHandler) GetByID(c fiber.Ctx) error {
 	ctx := c.Context()
 	id := c.Params("id")
@@ -263,6 +285,16 @@ func (h *UserHandler) GetByID(c fiber.Ctx) error {
 
 	return SendOK(c, "user found", mapToResponse(user))
 }
+
+// @Summary Get current user
+// @Description Retrieve the profile of the currently authenticated user
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/users/me [get]
 func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
