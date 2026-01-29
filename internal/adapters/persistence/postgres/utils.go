@@ -6,7 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
-const txKey = "tx_key"
+type ctxKey string
+
+const txKey ctxKey = "tx_key"
 
 type transactionManager struct {
 	db *gorm.DB
