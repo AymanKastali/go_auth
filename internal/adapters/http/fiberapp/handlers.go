@@ -208,48 +208,90 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 // User Handler
 
 type UserHandler struct {
-	findByEmail application.IFetchUserByEmail
+	findByEmail application.IFindUserByEmail
+	getByID     application.IGetUserByID
+	getCurrent  application.IGetCurrentUser
 }
 
 // ... NewAuthHandler constructor ...
 func UewUserHandler(
-	findByEmail application.IFetchUserByEmail,
+	findByEmail application.IFindUserByEmail,
+	getByID application.IGetUserByID,
+	getCurrent application.IGetCurrentUser,
 ) *UserHandler {
 
 	return &UserHandler{
 		findByEmail: findByEmail,
+		getByID:     getByID,
+		getCurrent:  getCurrent,
 	}
 
 }
 
 func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	ctx := c.Context()
-	logger := application.GetLogger(ctx)
-
 	email := c.Query("email")
+
 	if email == "" {
-		logger.Warn("http_find_by_email_missing_param")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "email query parameter is required",
+			"error": "query parameter 'email' is required for search",
 		})
 	}
 
-	// 2. Execute the Use Case
 	user, err := h.findByEmail.Execute(ctx, email)
+	if err != nil {
+		return err // Assuming your error handler converts domain errors to HTTP
+	}
+
+	return SendOK(c, "user found", mapToResponse(user))
+}
+
+func (h *UserHandler) GetByID(c fiber.Ctx) error {
+	ctx := c.Context()
+	id := c.Params("id")
+
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user ID is required in path",
+		})
+	}
+
+	user, err := h.getByID.Execute(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	resp := UserResponse{
+	return SendOK(c, "user found", mapToResponse(user))
+}
+func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
+	// 1. Extract User ID using the application helper
+	// This assumes your Auth middleware has already placed the ID in the context
+	userID := application.GetUserID(ctx)
+
+	if userID.IsEmpty() {
+		logger.Warn("http_get_current_unauthorized_attempt")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized: user identification missing",
+		})
+	}
+
+	// 2. Execute the Use Case
+	// We pass the validated userID to the application layer
+	user, err := h.getCurrent.Execute(ctx, userID.String())
+	if err != nil {
+		// Return the error to be handled by your Global Error Handler / Mapper
+		return err
+	}
+
+	return SendOK(c, "current user profile fetched", mapToResponse(user))
+}
+
+func mapToResponse(user application.UserResponse) UserResponse {
+	return UserResponse{
 		ID:    user.ID,
 		Email: user.Email,
 	}
-
-	// 3. Log and Return Success
-	logger.Info("http_find_by_email_success",
-		slog.String("email", email),
-		slog.String("user_id", resp.ID),
-	)
-
-	return SendOK(c, "user fetched successfully", resp)
 }

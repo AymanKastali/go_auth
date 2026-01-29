@@ -38,7 +38,14 @@ type ISeedSuperAdmin interface {
 	Execute(ctx context.Context, cmd RegisterUserCommand) error
 }
 
-// ILogoutUseCase handles the revocation of a specific session.
-type IFetchUserByEmail interface {
+type IFindUserByEmail interface {
 	Execute(ctx context.Context, email string) (UserResponse, error)
+}
+
+type IGetUserByID interface {
+	Execute(ctx context.Context, id string) (UserResponse, error)
+}
+
+type IGetCurrentUser interface {
+	Execute(ctx context.Context, id string) (UserResponse, error)
 }

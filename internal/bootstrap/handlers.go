@@ -23,6 +23,8 @@ func NewHandlers(uc UseCases) Handlers {
 		),
 		User: fiberapp.UewUserHandler(
 			uc.FindByEmail,
+			uc.GetByID,
+			uc.GetCurrent,
 		),
 		AuthGuard: fiberapp.Protected(uc.Validate),
 	}

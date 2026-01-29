@@ -12,7 +12,9 @@ type UseCases struct {
 	Validate application.IValidateAccessUseCase
 
 	// user
-	FindByEmail application.IFetchUserByEmail
+	FindByEmail application.IFindUserByEmail
+	GetByID     application.IGetUserByID
+	GetCurrent  application.IGetCurrentUser
 }
 
 func NewUseCases(d DomainServices) UseCases {
@@ -24,6 +26,8 @@ func NewUseCases(d DomainServices) UseCases {
 		Validate: application.NewValidateAccessUseCase(d.AccessSvc, d.UserRepo, d.Clock),
 		SeedSA:   application.NewSeedSuperAdminUseCase(d.UserRepo, d.RegisterSvc),
 		// user
-		FindByEmail: application.NewFetchUserByEmailUseCase(d.UserRepo),
+		FindByEmail: application.NewFindUserByEmailUseCase(d.UserRepo),
+		GetByID:     application.NewGetUserByIDUseCase(d.UserRepo),
+		GetCurrent:  application.NewGetCurrentUserUseCase(d.UserRepo),
 	}
 }
