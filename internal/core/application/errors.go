@@ -72,3 +72,10 @@ func MapToAppError(err error) error {
 		Err:     err,
 	}
 }
+
+var (
+	ErrEmailInvalid       = &AppError{Code: AppErrUnprocessable, Message: "invalid email format"}
+	ErrUserLookupFailed   = &AppError{Code: AppErrInternal, Message: "failed to retrieve user data"}
+	ErrUserRecordNotFound = &AppError{Code: AppErrNotFound, Message: "user not found"}
+	ErrInvalidID          = &AppError{Code: AppErrUnprocessable, Message: "invalid id format"}
+)

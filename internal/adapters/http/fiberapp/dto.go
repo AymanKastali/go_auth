@@ -16,11 +16,6 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
-type UserResponse struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-}
-
 type LoginResponse struct {
 	AccessToken        string `json:"access_token"`
 	AccessTokenExpiry  string `json:"access_exp"`
@@ -31,6 +26,11 @@ type LoginResponse struct {
 type RegisterUserResponse struct {
 	UserID string `json:"id"`
 	Email  string `json:"email"`
+}
+
+type UserResponse struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
 }
 
 type SuccessResponse struct {

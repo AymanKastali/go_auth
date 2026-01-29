@@ -316,7 +316,9 @@ func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAcce
 		SessionID: sid.String(),
 		Roles:     user.RoleNames(),
 	}, nil
-} // --- Logout Use Case ---
+}
+
+// --- Logout Use Case ---
 
 type logoutUseCase struct {
 	userRepo domain.IUserRepository
@@ -358,4 +360,107 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 
 	logger.Info("user_logged_out")
 	return nil
+}
+
+// --- Fetch User Use Case ---
+
+type findUserByEmailUseCase struct {
+	userRepo domain.IUserRepository
+}
+
+func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmail {
+	return &findUserByEmailUseCase{userRepo: repo}
+}
+
+func (uc *findUserByEmailUseCase) Execute(ctx context.Context, email string) (UserResponse, error) {
+	logger := GetLogger(ctx)
+
+	// 1. Convert primitive string to Domain Value Object
+	emailVO, err := domain.NewEmail(email)
+	if err != nil {
+		return ZeroUserResponse, ErrEmailInvalid
+	}
+
+	// 2. Query Repository
+	user, err := uc.userRepo.FindByEmail(ctx, emailVO)
+	if err != nil {
+		logger.Error("repo_lookup_failed", slog.String("email", email), slog.Any("error", err))
+		return ZeroUserResponse, err
+	}
+
+	if user == nil {
+		return ZeroUserResponse, ErrUserRecordNotFound
+	}
+
+	// 3. Return DTO (Not the Entity)
+	return UserResponse{
+		ID:    user.ID().String(),
+		Email: user.Email().String(),
+	}, nil
+}
+
+type getUserByIDUseCase struct {
+	userRepo domain.IUserRepository
+}
+
+func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByID {
+	return &getUserByIDUseCase{userRepo: repo}
+}
+
+func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+	logger := GetLogger(ctx)
+
+	// 1. Domain-level ID validation
+	userID, err := domain.NewUserID(id)
+	if err != nil {
+		return ZeroUserResponse, ErrInvalidID
+	}
+
+	user, err := uc.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		logger.Error("repo_id_lookup_failed", slog.String("id", id), slog.Any("error", err))
+		return ZeroUserResponse, err
+	}
+
+	if user == nil {
+		return ZeroUserResponse, ErrUserRecordNotFound
+	}
+
+	return UserResponse{
+		ID:    user.ID().String(),
+		Email: user.Email().String(),
+	}, nil
+}
+
+type getCurrentUserUseCase struct {
+	userRepo domain.IUserRepository
+}
+
+func NewGetCurrentUserUseCase(repo domain.IUserRepository) IGetCurrentUser {
+	return &getCurrentUserUseCase{userRepo: repo}
+}
+
+func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+	logger := GetLogger(ctx)
+
+	userID, err := domain.NewUserID(id)
+	if err != nil {
+		return ZeroUserResponse, ErrInvalidID
+	}
+
+	user, err := uc.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		logger.Error("me_lookup_failed", slog.String("user_id", id), slog.Any("error", err))
+		return ZeroUserResponse, err
+	}
+
+	// Specific business rule: If the user is found but "Deactivated", block this use case
+	if user == nil {
+		return ZeroUserResponse, ErrUserRecordNotFound
+	}
+
+	return UserResponse{
+		ID:    user.ID().String(),
+		Email: user.Email().String(),
+	}, nil
 }

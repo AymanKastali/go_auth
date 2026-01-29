@@ -8,6 +8,7 @@ import (
 
 type Handlers struct {
 	Auth      *fiberapp.AuthHandler
+	User      *fiberapp.UserHandler
 	AuthGuard fiber.Handler
 }
 
@@ -19,6 +20,11 @@ func NewHandlers(uc UseCases) Handlers {
 			uc.Refresh,
 			uc.Logout,
 			uc.Validate,
+		),
+		User: fiberapp.UewUserHandler(
+			uc.FindByEmail,
+			uc.GetByID,
+			uc.GetCurrent,
 		),
 		AuthGuard: fiberapp.Protected(uc.Validate),
 	}

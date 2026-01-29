@@ -21,6 +21,11 @@ func NewApp(
 	})
 
 	fiberapp.ConfigureMiddlewares(app, baseLogger, idGen)
-	fiberapp.RegisterRoutes(app, handlers.Auth, handlers.AuthGuard)
+	fiberapp.RegisterRoutes(
+		app,
+		handlers.Auth,
+		handlers.User,
+		handlers.AuthGuard,
+	)
 	return app, handlers
 }

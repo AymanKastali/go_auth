@@ -37,3 +37,15 @@ type ILogoutUseCase interface {
 type ISeedSuperAdmin interface {
 	Execute(ctx context.Context, cmd RegisterUserCommand) error
 }
+
+type IFindUserByEmail interface {
+	Execute(ctx context.Context, email string) (UserResponse, error)
+}
+
+type IGetUserByID interface {
+	Execute(ctx context.Context, id string) (UserResponse, error)
+}
+
+type IGetCurrentUser interface {
+	Execute(ctx context.Context, id string) (UserResponse, error)
+}

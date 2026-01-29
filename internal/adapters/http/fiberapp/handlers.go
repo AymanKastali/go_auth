@@ -204,3 +204,94 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	)
 	return SendNoContent(c)
 }
+
+// User Handler
+
+type UserHandler struct {
+	findByEmail application.IFindUserByEmail
+	getByID     application.IGetUserByID
+	getCurrent  application.IGetCurrentUser
+}
+
+// ... NewAuthHandler constructor ...
+func UewUserHandler(
+	findByEmail application.IFindUserByEmail,
+	getByID application.IGetUserByID,
+	getCurrent application.IGetCurrentUser,
+) *UserHandler {
+
+	return &UserHandler{
+		findByEmail: findByEmail,
+		getByID:     getByID,
+		getCurrent:  getCurrent,
+	}
+
+}
+
+func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
+	ctx := c.Context()
+	email := c.Query("email")
+
+	if email == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "query parameter 'email' is required for search",
+		})
+	}
+
+	user, err := h.findByEmail.Execute(ctx, email)
+	if err != nil {
+		return err // Assuming your error handler converts domain errors to HTTP
+	}
+
+	return SendOK(c, "user found", mapToResponse(user))
+}
+
+func (h *UserHandler) GetByID(c fiber.Ctx) error {
+	ctx := c.Context()
+	id := c.Params("id")
+
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user ID is required in path",
+		})
+	}
+
+	user, err := h.getByID.Execute(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return SendOK(c, "user found", mapToResponse(user))
+}
+func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
+	// 1. Extract User ID using the application helper
+	// This assumes your Auth middleware has already placed the ID in the context
+	userID := application.GetUserID(ctx)
+
+	if userID.IsEmpty() {
+		logger.Warn("http_get_current_unauthorized_attempt")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized: user identification missing",
+		})
+	}
+
+	// 2. Execute the Use Case
+	// We pass the validated userID to the application layer
+	user, err := h.getCurrent.Execute(ctx, userID.String())
+	if err != nil {
+		// Return the error to be handled by your Global Error Handler / Mapper
+		return err
+	}
+
+	return SendOK(c, "current user profile fetched", mapToResponse(user))
+}
+
+func mapToResponse(user application.UserResponse) UserResponse {
+	return UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+	}
+}

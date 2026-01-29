@@ -1,9 +1,12 @@
 package application
 
+import "time"
+
 var (
 	ZeroLoginResponse          = LoginResponse{}
 	ZeroRegisterUserResponse   = RegisterUserResponse{}
 	ZeroValidateAccessResponse = ValidateAccessResponse{}
+	ZeroUserResponse           = UserResponse{}
 )
 
 // RegisterUserCommand
@@ -61,4 +64,14 @@ type LoginResponse struct {
 type RegisterUserResponse struct {
 	UserID string
 	Email  string
+}
+
+type FindUserByEmailQuery struct {
+	Email string
+}
+
+type UserResponse struct {
+	ID        string
+	Email     string
+	CreatedAT time.Time
 }
