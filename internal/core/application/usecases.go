@@ -9,17 +9,29 @@ import (
 // --- Seed Super Admin Use Case ---
 
 type seedSuperAdminUseCase struct {
-	userRepo        domain.IUserRepository
-	registerUserSvc domain.IRegisterUserService
+	userRepo       domain.IUserRepository
+	passwordPolicy domain.IPasswordPolicy
+	passwordSvc    domain.IPasswordService
+	userFactory    domain.IUserFactory
+	idGen          domain.IIDGenerator
+	clock          domain.IClock
 }
 
 func NewSeedSuperAdminUseCase(
-	repo domain.IUserRepository,
-	registerUserSvc domain.IRegisterUserService,
+	userRepo domain.IUserRepository,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
+	userFactory domain.IUserFactory,
+	idGen domain.IIDGenerator,
+	clock domain.IClock,
 ) ISeedSuperAdminUseCase {
 	return &seedSuperAdminUseCase{
-		userRepo:        repo,
-		registerUserSvc: registerUserSvc,
+		userRepo:       userRepo,
+		passwordPolicy: passwordPolicy,
+		passwordSvc:    passwordSvc,
+		userFactory:    userFactory,
+		idGen:          idGen,
+		clock:          clock,
 	}
 }
 
@@ -36,9 +48,43 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 		return err
 	}
 
-	user, err := uc.registerUserSvc.Execute(ctx, email, rawPassword)
+	if err := uc.passwordPolicy.Validate(rawPassword); err != nil {
+		return err
+	}
+
+	existing, err := uc.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		logger.Error("seeding_registration_skipped, user already exist")
+		return domain.ErrUserEmailTaken
+	}
+
+	hashedPassword, err := uc.passwordSvc.Hash(rawPassword)
+	if err != nil {
+		return err
+	}
+
+	uidVO, err := uc.idGen.GenerateUserID()
+	if err != nil {
+		return err
+	}
+
+	now := uc.clock.Now()
+
+	user, err := uc.userFactory.Build(uidVO, email, hashedPassword, now)
+
 	if err != nil {
 		logger.Error("seeding_registration_failed", slog.Any("error", err))
+		return err
+	}
+
+	if err := user.AssignRole(domain.RoleMember, now); err != nil {
+		return err
+	}
+
+	if err := user.Activate(now); err != nil {
 		return err
 	}
 
@@ -48,23 +94,38 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 	}
 
 	logger.Info("super_admin_seeded_successfully")
+
 	return nil
 }
 
 // --- Register Use Case ---
-
 type registerUseCase struct {
-	userRepo        domain.IUserRepository
-	registerUserSvc domain.IRegisterUserService
+	userRepo       domain.IUserRepository
+	registerPolicy domain.IRegisterPolicy
+	passwordPolicy domain.IPasswordPolicy
+	passwordSvc    domain.IPasswordService
+	userFactory    domain.IUserFactory
+	idGen          domain.IIDGenerator
+	clock          domain.IClock
 }
 
 func NewRegisterUseCase(
 	userRepo domain.IUserRepository,
-	registerUserSvc domain.IRegisterUserService,
+	registerPolicy domain.IRegisterPolicy,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
+	userFactory domain.IUserFactory,
+	idGen domain.IIDGenerator,
+	clock domain.IClock,
 ) IRegisterUseCase {
 	return &registerUseCase{
-		userRepo:        userRepo,
-		registerUserSvc: registerUserSvc,
+		userRepo:       userRepo,
+		registerPolicy: registerPolicy,
+		passwordPolicy: passwordPolicy,
+		passwordSvc:    passwordSvc,
+		userFactory:    userFactory,
+		idGen:          idGen,
+		clock:          clock,
 	}
 }
 
@@ -76,20 +137,55 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 		return ZeroRegisterUserResponse, err
 	}
 
+	if err := uc.registerPolicy.Validate(email); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
 	rawPassword, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
 		return ZeroRegisterUserResponse, err
 	}
 
-	user, err := uc.registerUserSvc.Execute(ctx, email, rawPassword)
+	if err := uc.passwordPolicy.Validate(rawPassword); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	existing, err := uc.userRepo.FindByEmail(ctx, email)
 	if err != nil {
-		logger.Warn("user_registration_aborted", slog.Any("error", err))
+		return ZeroRegisterUserResponse, err
+	}
+	if existing != nil {
+		return ZeroRegisterUserResponse, domain.ErrUserEmailTaken
+	}
+
+	hashedPassword, err := uc.passwordSvc.Hash(rawPassword)
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	uidVO, err := uc.idGen.GenerateUserID()
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	now := uc.clock.Now()
+
+	user, err := uc.userFactory.Build(uidVO, email, hashedPassword, now)
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	if err := user.AssignRole(domain.RoleMember, now); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	if err := user.Activate(now); err != nil {
 		return ZeroRegisterUserResponse, err
 	}
 
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		logger.Error("user_registration_save_failed", slog.Any("error", err))
-		return ZeroRegisterUserResponse, ErrInternal
+		return ZeroRegisterUserResponse, err
 	}
 
 	logger.Info("user_registration_completed", slog.String("user_id", user.ID().String()))

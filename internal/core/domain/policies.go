@@ -2,6 +2,7 @@ package domain
 
 import (
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -10,6 +11,36 @@ var (
 	numberRegex  = regexp.MustCompile(`[0-9]`)
 	specialRegex = regexp.MustCompile(`[!@#\$%\^&\*]`)
 )
+
+// Register Policy
+type registerPolicy struct {
+	allowPublicSignUp bool
+	blockedDomains    []string
+}
+
+func NewRegisterPolicy(allowPublic bool, blockedDomains []string) IRegisterPolicy {
+	return &registerPolicy{
+		allowPublicSignUp: allowPublic,
+		blockedDomains:    blockedDomains,
+	}
+}
+
+func (p *registerPolicy) Validate(email Email) error {
+	// 1. Check if the "Open for Business" sign is up
+	if !p.allowPublicSignUp {
+		return ErrRegistrationDisabled
+	}
+
+	// 2. Domain Blacklisting (e.g., prevent burner emails)
+	emailStr := strings.ToLower(email.String())
+	for _, domain := range p.blockedDomains {
+		if strings.HasSuffix(emailStr, "@"+strings.ToLower(domain)) {
+			return ErrEmailDomainBlocked
+		}
+	}
+
+	return nil
+}
 
 // Password Policy
 type passwordPolicy struct {

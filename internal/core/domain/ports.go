@@ -5,7 +5,20 @@ import (
 	"time"
 )
 
+// Policies
+type IPasswordPolicy interface {
+	Validate(rawPassword RawPassword) error
+}
+type IRegisterPolicy interface {
+	Validate(email Email) error
+}
+
 // Services
+type IPasswordService interface {
+	Hash(raw RawPassword) (HashedPassword, error)
+	Compare(raw RawPassword, hashed HashedPassword) bool
+}
+
 type IIDGenerator interface {
 	GenerateUserID() (UserID, error)
 	GenerateSessionID() (SessionID, error)
@@ -35,19 +48,6 @@ type ITokenService interface {
 
 type IClock interface {
 	Now() Timepoint
-}
-
-type IPasswordService interface {
-	Hash(plain RawPassword) (HashedPassword, error)
-	Compare(plain RawPassword, hashed HashedPassword) bool
-}
-
-type IRegisterUserService interface {
-	Execute(
-		ctx context.Context,
-		email Email,
-		password RawPassword,
-	) (*User, error)
 }
 
 type IRefreshSession interface {
@@ -110,10 +110,6 @@ type ISessionFactory interface {
 }
 
 // Policies
-type IPasswordPolicy interface {
-	// Validate checks if a RawPassword meets complexity requirements.
-	Validate(rawPassword RawPassword) error
-}
 
 type IRecoveryPolicy interface {
 	GetRecoveryTokenLifetime() time.Duration

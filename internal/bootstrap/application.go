@@ -26,12 +26,28 @@ type UseCases struct {
 
 func NewUseCases(d DomainServices) UseCases {
 	return UseCases{
-		Register: application.NewRegisterUseCase(d.UserRepo, d.RegisterSvc),
+		Register: application.NewRegisterUseCase(
+			d.UserRepo,
+			d.RegisterPolicy,
+			d.PasswordPolicy,
+			d.PasswordSvc,
+			d.UserFactory,
+			d.IDGen,
+			d.Clock,
+		),
+		SeedSA: application.NewSeedSuperAdminUseCase(
+			d.UserRepo,
+			d.PasswordPolicy,
+			d.PasswordSvc,
+			d.UserFactory,
+			d.IDGen,
+			d.Clock,
+		),
+
 		Login:    application.NewLoginUseCase(d.UserRepo, d.AuthSvc, d.SessionSvc, d.AccessGrantor),
 		Refresh:  application.NewRefreshTokenUseCase(d.UserRepo, d.RefreshSvc, d.AccessGrantor),
 		Logout:   application.NewLogoutUseCase(d.UserRepo, d.Clock),
 		Validate: application.NewValidateAccessUseCase(d.AccessSvc, d.UserRepo, d.Clock),
-		SeedSA:   application.NewSeedSuperAdminUseCase(d.UserRepo, d.RegisterSvc),
 		// user
 		FindByEmail: application.NewFindUserByEmailUseCase(d.UserRepo),
 		GetByID:     application.NewGetUserByIDUseCase(d.UserRepo),
