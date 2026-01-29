@@ -265,3 +265,51 @@ func (s *accessGrantor) GrantImmediateAccess(
 		notBefore,
 	)
 }
+
+// Access Granter
+type changePassword struct {
+	userRepo    IUserRepository
+	passwordSvc IPasswordService
+	policy      IPasswordPolicy
+	clock       IClock
+}
+
+func NewChangePassword(
+	userRepo IUserRepository,
+	passwordSvc IPasswordService,
+	policy IPasswordPolicy,
+	clock IClock,
+) IChangePassword {
+	return &changePassword{
+		userRepo:    userRepo,
+		passwordSvc: passwordSvc,
+		policy:      policy,
+		clock:       clock,
+	}
+}
+
+func (s *changePassword) ChangePassword(
+	ctx context.Context,
+	user *User,
+	oldPassword RawPassword,
+	newPassword RawPassword,
+) error {
+	// 1. Verify Ownership/Knowledge of existing credential
+	if !s.passwordSvc.Compare(oldPassword, user.HashedPassword()) {
+		return ErrAuthenticationFailed
+	}
+
+	// 2. Enforce complexity/policy invariants
+	if err := s.policy.Validate(newPassword); err != nil {
+		return err
+	}
+
+	// 3. Transform Raw to Hashed
+	newHash, err := s.passwordSvc.Hash(newPassword)
+	if err != nil {
+		return ErrInternal // Technical failure hashing
+	}
+
+	// 4. Update Aggregate state (this will also revoke sessions)
+	return user.UpdatePassword(newHash, s.clock.Now())
+}

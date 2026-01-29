@@ -205,24 +205,29 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 }
 
 // User Handler
-
 type UserHandler struct {
-	findByEmail application.IFindUserByEmail
-	getByID     application.IGetUserByID
-	getCurrent  application.IGetCurrentUser
+	findByEmail    application.IFindUserByEmail
+	getByID        application.IGetUserByID
+	getMe          application.IGetMe
+	updateMe       application.IUpdateMe
+	changePassword application.IChangePassword
 }
 
 // ... NewAuthHandler constructor ...
 func UewUserHandler(
 	findByEmail application.IFindUserByEmail,
 	getByID application.IGetUserByID,
-	getCurrent application.IGetCurrentUser,
+	getMe application.IGetMe,
+	updateMe application.IUpdateMe,
+	changePassword application.IChangePassword,
 ) *UserHandler {
 
 	return &UserHandler{
-		findByEmail: findByEmail,
-		getByID:     getByID,
-		getCurrent:  getCurrent,
+		findByEmail:    findByEmail,
+		getByID:        getByID,
+		getMe:          getMe,
+		updateMe:       updateMe,
+		changePassword: changePassword,
 	}
 
 }
@@ -258,7 +263,7 @@ func (h *UserHandler) GetByID(c fiber.Ctx) error {
 
 	return SendOK(c, "user found", mapToResponse(user))
 }
-func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
+func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
 
@@ -273,7 +278,7 @@ func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
 
 	// 2. Execute the Use Case
 	// We pass the validated userID to the application layer
-	user, err := h.getCurrent.Execute(ctx, userID.String())
+	user, err := h.getMe.Execute(ctx, userID.String())
 	if err != nil {
 		// Return the error to be handled by your Global Error Handler / Mapper
 		return err
@@ -282,9 +287,78 @@ func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
 	return SendOK(c, "current user profile fetched", mapToResponse(user))
 }
 
+// @Summary Update Current User Profile
+// @Description Update the authenticated user's email
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateMeRequest true "Update Details"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/users/me [patch]
+func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
+	var req UpdateMeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	// Execute Use Case
+	cmd := application.UpdateMeCommand{Email: req.Email}
+	err := h.updateMe.Execute(ctx, cmd)
+	if err != nil {
+		// NewErrorHandler will handle domain errors like ErrUserEmailTaken
+		return err
+	}
+
+	logger.Info("user_profile_updated")
+	return SendNoContent(c)
+}
+
 func mapToResponse(user application.UserResponse) UserResponse {
 	return UserResponse{
 		ID:    user.ID,
 		Email: user.Email,
 	}
+}
+
+// @Summary Change Password
+// @Description Update the authenticated user's password
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body ChangePasswordRequest true "Password Details"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/users/me/password [put]
+func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
+	ctx := c.Context()
+	var req ChangePasswordRequest
+
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ChangePasswordCommand{
+		OldPassword: req.OldPassword,
+		NewPassword: req.NewPassword,
+	}
+
+	if err := h.changePassword.Execute(ctx, cmd); err != nil {
+		return err
+	}
+
+	return SendNoContent(c)
 }

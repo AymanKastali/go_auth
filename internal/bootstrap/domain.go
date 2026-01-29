@@ -9,15 +9,16 @@ import (
 )
 
 type DomainServices struct {
-	UserRepo      domain.IUserRepository
-	RegisterSvc   domain.IRegisterUserService
-	AuthSvc       domain.IAuthenticateUser
-	SessionSvc    domain.IEstablishUserSession
-	RefreshSvc    domain.IRefreshSession
-	AccessGrantor domain.IAccessGrantor
-	AccessSvc     domain.IAccessTokenService
-	Clock         domain.IClock
-	ULIDGen       domain.IIDGenerator
+	UserRepo          domain.IUserRepository
+	RegisterSvc       domain.IRegisterUserService
+	AuthSvc           domain.IAuthenticateUser
+	SessionSvc        domain.IEstablishUserSession
+	RefreshSvc        domain.IRefreshSession
+	AccessGrantor     domain.IAccessGrantor
+	AccessSvc         domain.IAccessTokenService
+	Clock             domain.IClock
+	ULIDGen           domain.IIDGenerator
+	ChangePasswordSvc domain.IChangePassword
 }
 
 func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
@@ -49,16 +50,18 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 	sessionSvc := domain.NewEstablishUserSessionService(sessionFactory, sessionPolicy, clock, uuidGen, tokenSvc)
 	refreshSvc := domain.NewRefreshSessionService(userRepo, tokenSvc, clock)
 	accessGrantor := domain.NewAccessGrantor(jwtSvc, accessPolicy, clock)
+	changePasswordSvc := domain.NewChangePassword(userRepo, passwordSvc, passPolicy, clock)
 
 	return DomainServices{
-		UserRepo:      userRepo,
-		RegisterSvc:   registerSvc,
-		AuthSvc:       authSvc,
-		SessionSvc:    sessionSvc,
-		RefreshSvc:    refreshSvc,
-		AccessGrantor: accessGrantor,
-		AccessSvc:     jwtSvc,
-		Clock:         clock,
-		ULIDGen:       ulidGen,
+		UserRepo:          userRepo,
+		RegisterSvc:       registerSvc,
+		AuthSvc:           authSvc,
+		SessionSvc:        sessionSvc,
+		RefreshSvc:        refreshSvc,
+		AccessGrantor:     accessGrantor,
+		AccessSvc:         jwtSvc,
+		Clock:             clock,
+		ULIDGen:           ulidGen,
+		ChangePasswordSvc: changePasswordSvc,
 	}
 }

@@ -432,15 +432,15 @@ func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserRespo
 	}, nil
 }
 
-type getCurrentUserUseCase struct {
+type getMeUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewGetCurrentUserUseCase(repo domain.IUserRepository) IGetCurrentUser {
-	return &getCurrentUserUseCase{userRepo: repo}
+func NewGetMeUseCase(repo domain.IUserRepository) IGetMe {
+	return &getMeUseCase{userRepo: repo}
 }
 
-func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+func (uc *getMeUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
 	logger := GetLogger(ctx)
 
 	userID, err := domain.NewUserID(id)
@@ -463,4 +463,110 @@ func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserRe
 		ID:    user.ID().String(),
 		Email: user.Email().String(),
 	}, nil
+}
+
+type updateMeUseCase struct {
+	userRepo domain.IUserRepository
+	clock    domain.IClock
+}
+
+func NewUpdateMeUseCase(
+	repo domain.IUserRepository,
+	clock domain.IClock,
+) IUpdateMe {
+	return &updateMeUseCase{
+		userRepo: repo,
+		clock:    clock,
+	}
+}
+
+func (uc *updateMeUseCase) Execute(ctx context.Context, cmd UpdateMeCommand) error {
+	// 1. Validate Input as Domain Value Objects
+	uid := GetUserID(ctx)
+	if uid.IsEmpty() {
+		return ErrUnauthorized
+	}
+
+	emailVO, err := domain.NewEmail(cmd.Email)
+	if err != nil {
+		return err
+	}
+
+	// 2. Fetch Entity
+	user, err := uc.userRepo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrResourceNotFound
+	}
+
+	// 3. Check Email Uniqueness (Business Rule)
+	if !user.Email().Equal(emailVO) {
+		existing, err := uc.userRepo.FindByEmail(ctx, emailVO)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			return domain.ErrUserEmailTaken
+		}
+	}
+
+	// 4. Update and Persist
+	if err := user.UpdateEmail(emailVO, uc.clock.Now()); err != nil {
+		return err
+	}
+
+	return uc.userRepo.Save(ctx, user)
+}
+
+type changePasswordUseCase struct {
+	userRepo          domain.IUserRepository
+	changePasswordSvc domain.IChangePassword
+}
+
+func NewChangePasswordUseCase(
+	userRepo domain.IUserRepository,
+	changePasswordSvc domain.IChangePassword,
+) IChangePassword {
+	return &changePasswordUseCase{
+		userRepo:          userRepo,
+		changePasswordSvc: changePasswordSvc,
+	}
+}
+
+func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePasswordCommand) error {
+	// 1. Security Guard
+	uid := GetUserID(ctx)
+	if uid.IsEmpty() {
+		return ErrUnauthorized
+	}
+
+	// 2. Primitive to Value Object Mapping (Input Validation)
+	oldPw, err := domain.NewRawPassword(cmd.OldPassword)
+	if err != nil {
+		return err // Likely domain.ErrUserPasswordRequired
+	}
+
+	newPw, err := domain.NewRawPassword(cmd.NewPassword)
+	if err != nil {
+		return err // Likely domain.ErrUserPasswordRequired
+	}
+
+	// 3. Persistence Retrieval
+	user, err := uc.userRepo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrResourceNotFound
+	}
+
+	// 4. Coordinate Domain Service
+	if err := uc.changePasswordSvc.ChangePassword(ctx, user, oldPw, newPw); err != nil {
+		return err
+	}
+
+	// 5. Atomic Persistence
+	return uc.userRepo.Save(ctx, user)
 }

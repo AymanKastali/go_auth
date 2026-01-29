@@ -30,11 +30,11 @@ func RegisterRoutes(
 	// Users
 	users := api.Group("/users")
 	users.Use(authGuard)
-	users.Get("/me", userHandler.GetCurrent) // Get own profile
+	users.Get("/me", userHandler.GetMe)      // Get own profile
+	users.Patch("/me", userHandler.UpdateMe) // Update own profile
+	users.Put("/me/password", userHandler.ChangePassword)
 	users.Get("", userHandler.FindByEmail)
 	users.Get("/:id", userHandler.GetByID)
-	// users.Patch("/me", userHandler.UpdateMe)      // Update own profile
-	// users.Put("/me/password", userHandler.ChangePassword)
 
 	// Recovery Flow
 	// auth.Post("/forgot-password", authHandler.ForgotPassword)

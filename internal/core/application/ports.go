@@ -46,6 +46,13 @@ type IGetUserByID interface {
 	Execute(ctx context.Context, id string) (UserResponse, error)
 }
 
-type IGetCurrentUser interface {
+type IGetMe interface {
 	Execute(ctx context.Context, id string) (UserResponse, error)
+}
+type IUpdateMe interface {
+	Execute(ctx context.Context, cmd UpdateMeCommand) error
+}
+
+type IChangePassword interface {
+	Execute(ctx context.Context, cmd ChangePasswordCommand) error
 }

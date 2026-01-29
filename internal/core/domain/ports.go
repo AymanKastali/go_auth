@@ -126,3 +126,12 @@ type IAccessGrantor interface {
 		sessionID SessionID,
 	) (AccessToken, Timepoint, error)
 }
+
+type IChangePassword interface {
+	ChangePassword(
+		ctx context.Context,
+		user *User,
+		oldPassword RawPassword,
+		newPassword RawPassword,
+	) error
+}

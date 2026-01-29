@@ -210,6 +210,40 @@ func (u *User) revokeOldestSession(now Timepoint) {
 	}
 }
 
+func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
+	// If the email is the same, do nothing (idempotent)
+	if u.email.Equal(newEmail) {
+		return nil
+	}
+
+	u.email = newEmail
+	u.updatedAt = now
+
+	// Note: In many systems, changing an email would also set u.isActive = false
+	// to trigger a new email verification flow.
+	return nil
+}
+
+func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
+	u.passwordHash = newHash
+	u.updatedAt = now
+
+	// Security Invariant: Revoke all existing sessions on password change
+	for i := range u.sessions {
+		_ = u.sessions[i].Revoke(now)
+	}
+
+	return nil
+}
+
 // --- Getters ---
 
 func (u *User) ID() UserID                     { return u.id }
