@@ -4,6 +4,10 @@ import (
 	"context"
 )
 
+type ITransactionManager interface {
+	WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
+}
+
 // IRegisterUseCase defines the boundary for creating a new user.
 type IRegisterUseCase interface {
 	// Execute orchestrates the registration process.
@@ -55,4 +59,8 @@ type IUpdateMe interface {
 
 type IChangePassword interface {
 	Execute(ctx context.Context, cmd ChangePasswordCommand) error
+}
+
+type IResetPassword interface {
+	Execute(ctx context.Context, cmd ResetPasswordCommand) error
 }

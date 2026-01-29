@@ -13,6 +13,7 @@ type AuthHandler struct {
 	refreshUC      application.IRefreshTokenUseCase
 	logoutUC       application.ILogoutUseCase
 	validateAccess application.IValidateAccessUseCase
+	resetPassword  application.IResetPassword
 }
 
 // ... NewAuthHandler constructor ...
@@ -22,6 +23,7 @@ func NewAuthHandler(
 	ref application.IRefreshTokenUseCase,
 	out application.ILogoutUseCase,
 	val application.IValidateAccessUseCase,
+	resetPassword application.IResetPassword,
 ) *AuthHandler {
 
 	return &AuthHandler{
@@ -30,6 +32,7 @@ func NewAuthHandler(
 		refreshUC:      ref,
 		logoutUC:       out,
 		validateAccess: val,
+		resetPassword:  resetPassword,
 	}
 
 }
@@ -393,4 +396,32 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	}
 
 	return SendNoContent(c)
+}
+
+func (h *AuthHandler) ResetPassword(c fiber.Ctx) error {
+	ctx := c.Context()
+	var req ResetPasswordRequest
+
+	// 1. Bind and Validate JSON
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	// 2. Map HTTP Request to Application Command
+	cmd := application.ResetPasswordCommand{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	}
+
+	// 3. Execute Use Case
+	if err := h.resetPassword.Execute(ctx, cmd); err != nil {
+		// Centralized error mapping handles domain errors (e.g., ErrRecoveryTokenExpired)
+		return err
+	}
+
+	return SendOK(c, "Password has been reset successfully. You can now log in with your new credentials.", nil)
 }

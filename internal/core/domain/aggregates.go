@@ -232,11 +232,13 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
+	if !u.isActive {
+		return ErrUserInactive
+	}
 
 	u.passwordHash = newHash
 	u.updatedAt = now
 
-	// Security Invariant: Revoke all existing sessions on password change
 	for i := range u.sessions {
 		_ = u.sessions[i].Revoke(now)
 	}

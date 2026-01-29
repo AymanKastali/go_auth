@@ -64,6 +64,12 @@ type ChangePasswordCommand struct {
 	NewPassword string
 }
 
+// ResetPassword
+type ResetPasswordCommand struct {
+	Token       string
+	NewPassword string
+}
+
 // LoginResponse (The Dual-Token DTO)
 type LoginResponse struct {
 	AccessToken        string

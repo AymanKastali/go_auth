@@ -17,6 +17,7 @@ type UseCases struct {
 	GetMe          application.IGetMe
 	UpdateMe       application.IUpdateMe
 	ChangePassword application.IChangePassword
+	ResetPassword  application.IResetPassword
 }
 
 func NewUseCases(d DomainServices) UseCases {

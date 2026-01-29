@@ -9,6 +9,7 @@ import "go_auth/internal/core/pkg/err"
 var (
 	// --- Identity Context ---
 	// Errors related to the User aggregate state and registration invariants.
+	ErrUserNotFound      = err.New(err.CodeNotFound, "user was not found")
 	ErrUserIDRequired    = err.New(err.CodeValidation, "user identifier is required")
 	ErrUserEmailRequired = err.New(err.CodeValidation, "user email address is required")
 	ErrUserEmailInvalid  = err.New(err.CodeValidation, "user email format is invalid")
@@ -29,7 +30,7 @@ var (
 	// Security violations and token state.
 	ErrAuthenticationFailed = err.New(err.CodeUnauthorized, "invalid email or password")
 	ErrTokenInvalid         = err.New(err.CodeUnauthorized, "provided token is invalid or expired")
-	ErrTokenRevoked         = err.New(err.CodeConflict, "token has been revoked and cannot be used")
+	ErrTokenRevoked         = err.New(err.CodeConflict, "token has been revoked")
 	ErrRoleNotRecognized    = err.New(err.CodeValidation, "provided user role is not supported")
 
 	// --- Session Context ---
@@ -49,4 +50,10 @@ var (
 
 	// Internal Domain Error
 	ErrInternal = err.New(err.CodeInternal, "internal domain failure")
+
+	// Recovery Token
+	ErrRecoveryTokenIDRequired = err.New(err.CodeValidation, "recovery token identifier is required")
+	ErrRecoveryTokenRevoked    = err.New(err.CodeConflict, "recovery token has been revoked")
+	ErrRecoveryTokenInvalid    = err.New(err.CodeUnauthorized, "recovery token is invalid")
+	ErrRecoveryTokenExpired    = err.New(err.CodeForbidden, "recovery token has expired")
 )

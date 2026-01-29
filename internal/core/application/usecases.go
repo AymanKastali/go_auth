@@ -570,3 +570,34 @@ func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePassword
 	// 5. Atomic Persistence
 	return uc.userRepo.Save(ctx, user)
 }
+
+// Reset Password
+type ResetPasswordUseCase struct {
+	resetSvc  domain.IPasswordResetService
+	txManager ITransactionManager
+	clock     domain.IClock
+}
+
+func (uc *ResetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCommand) error {
+	now := uc.clock.Now()
+
+	// 1. Create Value Objects (Check errors!)
+	rawToken, err := domain.NewRawToken(cmd.Token)
+	if err != nil {
+		return err
+	}
+
+	rawPassword, err := domain.NewRawPassword(cmd.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	// 2. Atomic Execution: The Service now handles the "Fetching" logic
+	return uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// The service finds the token, finds the user, hashes everything, and validates rules
+		if err := uc.resetSvc.Reset(txCtx, rawToken, rawPassword, now); err != nil {
+			return err
+		}
+		return nil
+	})
+}

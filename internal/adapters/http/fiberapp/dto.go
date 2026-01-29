@@ -42,6 +42,11 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required"`
 }
 
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required"`
+}
+
 type SuccessResponse struct {
 	Message string `json:"message,omitempty" example:"humanized success message"`
 	Data    any    `json:"data,omitempty"`

@@ -26,6 +26,7 @@ func RegisterRoutes(
 
 	// Protected
 	auth.Post("/logout", authGuard, authHandler.Logout)
+	auth.Post("/reset-password", authHandler.ResetPassword)
 
 	// Users
 	users := api.Group("/users")
@@ -38,6 +39,5 @@ func RegisterRoutes(
 
 	// Recovery Flow
 	// auth.Post("/forgot-password", authHandler.ForgotPassword)
-	// auth.Post("/reset-password", authHandler.ResetPassword)
 	// auth.Post("/verify-email", authHandler.VerifyEmail) // Usually a GET or POST with token
 }

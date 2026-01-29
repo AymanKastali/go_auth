@@ -14,6 +14,12 @@ type IUserRepository interface {
 	FindBySessionToken(ctx context.Context, token HashedToken) (*User, error)
 }
 
+type IRecoveryTokenRepository interface {
+	FindByHash(ctx context.Context, hash RecoveryTokenHash) (*RecoveryToken, error)
+	Save(ctx context.Context, token *RecoveryToken) error
+	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+}
+
 // Services
 type IIDGenerator interface {
 	Generate() (string, error)
@@ -133,5 +139,14 @@ type IChangePassword interface {
 		user *User,
 		oldPassword RawPassword,
 		newPassword RawPassword,
+	) error
+}
+
+type IPasswordResetService interface {
+	Reset(
+		ctx context.Context,
+		rawToken RawToken,
+		newPassword RawPassword,
+		now Timepoint,
 	) error
 }
