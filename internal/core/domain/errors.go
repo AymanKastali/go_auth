@@ -1,289 +1,52 @@
 package domain
 
-import "fmt"
+import "go_auth/internal/core/pkg/err"
 
-type EntityName string
+// ---------------------------------------------------------
+// Sentinel Registry
+// ---------------------------------------------------------
 
-const (
-	EntityUser    EntityName = "User"
-	EntitySession EntityName = "Session"
+var (
+	// --- Identity Context ---
+	// Errors related to the User aggregate state and registration invariants.
+	ErrUserIDRequired    = err.New(err.CodeValidation, "user identifier is required")
+	ErrUserEmailRequired = err.New(err.CodeValidation, "user email address is required")
+	ErrUserEmailInvalid  = err.New(err.CodeValidation, "user email format is invalid")
+	ErrUserEmailTaken    = err.New(err.CodeConflict, "user email address is already in use")
+	ErrUserDeleted       = err.New(err.CodeBusinessRule, "user was deleted")
+	ErrUserInactive      = err.New(err.CodeBusinessRule, "user account is currently inactive")
+
+	// --- Credential Context ---
+	// Errors related to password policy and verification.
+	ErrUserPasswordRequired = err.New(err.CodeValidation, "user password is required")
+	ErrPasswordTooShort     = err.New(err.CodeValidation, "password length is below the minimum requirement")
+	ErrPasswordTooLong      = err.New(err.CodeValidation, "password length exceeds the maximum limit")
+	ErrPasswordNoUpper      = err.New(err.CodeValidation, "password must contain at least one uppercase letter")
+	ErrPasswordNoNumber     = err.New(err.CodeValidation, "password must contain at least one numerical digit")
+	ErrPasswordNoSpecial    = err.New(err.CodeValidation, "password must contain at least one special character")
+
+	// --- Authentication & Authorization Context ---
+	// Security violations and token state.
+	ErrAuthenticationFailed = err.New(err.CodeUnauthorized, "invalid email or password")
+	ErrTokenInvalid         = err.New(err.CodeUnauthorized, "provided token is invalid or expired")
+	ErrTokenRevoked         = err.New(err.CodeConflict, "token has been revoked and cannot be used")
+	ErrRoleNotRecognized    = err.New(err.CodeValidation, "provided user role is not supported")
+
+	// --- Session Context ---
+	// Errors governing the lifecycle and integrity of a User Session.
+	ErrSessionIDRequired      = err.New(err.CodeValidation, "session identifier is required")
+	ErrSessionExpired         = err.New(err.CodeForbidden, "session has expired")
+	ErrSessionAlreadyRevoked  = err.New(err.CodeConflict, "session is already in a revoked state")
+	ErrSessionExpiryInPast    = err.New(err.CodeValidation, "session expiration cannot be set in the past")
+	ErrSessionFingerprintMiss = err.New(err.CodeForbidden, "device fingerprint does not match the session")
+
+	// --- Device & Metadata Context ---
+	// Input validation for device telemetry.
+	ErrDeviceIPRequired          = err.New(err.CodeValidation, "device IP address is required")
+	ErrDeviceUARequired          = err.New(err.CodeValidation, "device user agent is required")
+	ErrDeviceFingerprintRequired = err.New(err.CodeValidation, "device fingerprint is required")
+	ErrAccessIdentityIncomplete  = err.New(err.CodeValidation, "access identity is missing required fields")
+
+	// Internal Domain Error
+	ErrInternal = err.New(err.CodeInternal, "internal domain failure")
 )
-
-type ErrorCode string
-
-const (
-	CodeValidation   ErrorCode = "VALIDATION_FAILED"
-	CodeBusinessRule ErrorCode = "BUSINESS_RULE_VIOLATION"
-	CodeConflict     ErrorCode = "CONFLICT"
-	CodeNotFound     ErrorCode = "NOT_FOUND"
-	CodeForbidden    ErrorCode = "FORBIDDEN"
-	CodeUnauthorized ErrorCode = "UNAUTHORIZED"
-	CodeInternal     ErrorCode = "INTERNAL"
-)
-
-type DomainError interface {
-	error
-	Code() ErrorCode
-}
-
-// CodeValidation
-type ErrRequiredAttribute struct {
-	Entity EntityName
-	Field  string
-}
-
-func NewRequiredAttributeError(entity EntityName, field string) ErrRequiredAttribute {
-	return ErrRequiredAttribute{
-		Entity: entity,
-		Field:  field,
-	}
-}
-func (e ErrRequiredAttribute) Error() string {
-	return fmt.Sprintf("%s.%s is required", e.Entity, e.Field)
-}
-func (e ErrRequiredAttribute) Code() ErrorCode { return CodeValidation }
-
-type ErrInvalidAttribute struct {
-	Entity EntityName
-	Field  string
-}
-
-func NewInvalidAttributeError(entity EntityName, field string) ErrInvalidAttribute {
-	return ErrInvalidAttribute{Entity: entity, Field: field}
-}
-func (e ErrInvalidAttribute) Error() string {
-	return fmt.Sprintf("%s.%s is invalid", e.Entity, e.Field)
-}
-func (e ErrInvalidAttribute) Code() ErrorCode { return CodeValidation }
-
-type ErrExpirationInPast struct{}
-
-func NewExpirationInPastError() ErrExpirationInPast { return ErrExpirationInPast{} }
-func (e ErrExpirationInPast) Error() string         { return "expiration time cannot be in the past" }
-func (e ErrExpirationInPast) Code() ErrorCode       { return CodeValidation }
-
-type ErrPasswordTooShort struct{ MinLength uint8 }
-
-func NewPasswordTooShortError(min uint8) ErrPasswordTooShort {
-	return ErrPasswordTooShort{MinLength: min}
-}
-func (e ErrPasswordTooShort) Error() string {
-	return fmt.Sprintf("password too short, minimum length %d", e.MinLength)
-}
-func (e ErrPasswordTooShort) Code() ErrorCode { return CodeValidation }
-
-type ErrPasswordTooLong struct{ MaxLength uint8 }
-
-func NewPasswordTooLongError(min uint8) ErrPasswordTooLong {
-	return ErrPasswordTooLong{MaxLength: min}
-}
-func (e ErrPasswordTooLong) Error() string {
-	return fmt.Sprintf("password too long, minimum length %d", e.MaxLength)
-}
-func (e ErrPasswordTooLong) Code() ErrorCode { return CodeValidation }
-
-type ErrPasswordMissingUppercase struct{}
-
-func NewPasswordMissingUppercaseError() ErrPasswordMissingUppercase {
-	return ErrPasswordMissingUppercase{}
-}
-func (e ErrPasswordMissingUppercase) Error() string {
-	return "password must contain at least one uppercase letter"
-}
-func (e ErrPasswordMissingUppercase) Code() ErrorCode { return CodeValidation }
-
-type ErrPasswordMissingNumber struct{}
-
-func NewPasswordMissingNumberError() ErrPasswordMissingNumber { return ErrPasswordMissingNumber{} }
-func (e ErrPasswordMissingNumber) Error() string              { return "password must contain at least one number" }
-func (e ErrPasswordMissingNumber) Code() ErrorCode            { return CodeValidation }
-
-type ErrPasswordMissingSpecialChar struct{}
-
-func NewPasswordMissingSpecialCharError() ErrPasswordMissingSpecialChar {
-	return ErrPasswordMissingSpecialChar{}
-}
-func (e ErrPasswordMissingSpecialChar) Error() string {
-	return "password must contain at least one special character (!@#$%^&*)"
-}
-func (e ErrPasswordMissingSpecialChar) Code() ErrorCode { return CodeValidation }
-
-type ErrInvalidRole struct{ RoleName string }
-
-func NewInvalidRoleError(name string) ErrInvalidRole {
-	return ErrInvalidRole{RoleName: name}
-}
-func (e ErrInvalidRole) Error() string {
-	return fmt.Sprintf("invalid role: %s", e.RoleName)
-}
-func (e ErrInvalidRole) Code() ErrorCode { return CodeValidation }
-
-// CodeConflict
-type ErrUserAlreadyActive struct{ UserID string }
-
-func NewUserAlreadyActiveError(userID string) ErrUserAlreadyActive {
-	return ErrUserAlreadyActive{UserID: userID}
-}
-
-func (e ErrUserAlreadyActive) Error() string {
-	return fmt.Sprintf("user %s is already active", e.UserID)
-}
-func (e ErrUserAlreadyActive) Code() ErrorCode { return CodeConflict }
-
-type ErrRoleAlreadyAssigned struct {
-	RoleID string
-	UserID string
-}
-
-func NewRoleAlreadyAssignedError(roleID, userID string) ErrRoleAlreadyAssigned {
-	return ErrRoleAlreadyAssigned{RoleID: roleID, UserID: userID}
-}
-
-func (e ErrRoleAlreadyAssigned) Error() string {
-	return fmt.Sprintf("role '%s' has already been assigned to user '%s'", e.RoleID, e.UserID)
-}
-
-func (e ErrRoleAlreadyAssigned) Code() ErrorCode { return CodeConflict }
-
-type ErrTokenAlreadyRevoked struct{ TokenID string }
-
-func NewTokenAlreadyRevokedError(tokenID string) ErrTokenAlreadyRevoked {
-	return ErrTokenAlreadyRevoked{TokenID: tokenID}
-}
-
-func (e ErrTokenAlreadyRevoked) Error() string {
-	return fmt.Sprintf("token %s is already revoked", e.TokenID)
-}
-func (e ErrTokenAlreadyRevoked) Code() ErrorCode { return CodeConflict }
-
-type ErrEmailAlreadyTaken struct{ Email string }
-
-func NewEmailAlreadyTakenError(email string) ErrEmailAlreadyTaken {
-	return ErrEmailAlreadyTaken{Email: email}
-}
-
-func (e ErrEmailAlreadyTaken) Error() string {
-	return fmt.Sprintf("email '%s' is already taken", e.Email)
-}
-func (e ErrEmailAlreadyTaken) Code() ErrorCode { return CodeConflict }
-
-// CodeBusinessRule
-type ErrUserDeleted struct{ UserID string }
-
-func NewUserDeletedError(userID string) ErrUserDeleted { return ErrUserDeleted{UserID: userID} }
-
-func (e ErrUserDeleted) Error() string   { return fmt.Sprintf("user %s is deleted", e.UserID) }
-func (e ErrUserDeleted) Code() ErrorCode { return CodeBusinessRule }
-
-type ErrUserInactive struct{ UserID string }
-
-func NewUserInactiveError(userID string) ErrUserInactive { return ErrUserInactive{UserID: userID} }
-
-func (e ErrUserInactive) Error() string { return fmt.Sprintf("user '%s' is inactive", e.UserID) }
-
-func (e ErrUserInactive) Code() ErrorCode { return CodeBusinessRule }
-
-type ErrMinimumRolesRequired struct{ MinCount uint8 }
-
-func NewMinimumRolesRequiredError() ErrMinimumRolesRequired {
-	return ErrMinimumRolesRequired{MinCount: 1}
-}
-
-func (e ErrMinimumRolesRequired) Error() string {
-	return fmt.Sprintf("user must have at least %d role(s)", e.MinCount)
-}
-func (e ErrMinimumRolesRequired) Code() ErrorCode { return CodeBusinessRule }
-
-// CodeForbidden
-type ErrSessionInvalid struct{ SessionID string }
-
-func NewSessionInvalidError(sessionID string) ErrSessionInvalid {
-	return ErrSessionInvalid{SessionID: sessionID}
-}
-
-func (e ErrSessionInvalid) Error() string {
-	return fmt.Sprintf("session %s is invalid", e.SessionID)
-}
-func (e ErrSessionInvalid) Code() ErrorCode { return CodeForbidden }
-
-type ErrSessionFingerprintMismatch struct{ SessionID string }
-
-func NewSessionFingerprintMismatchError(sessionID string) ErrSessionFingerprintMismatch {
-	return ErrSessionFingerprintMismatch{SessionID: sessionID}
-}
-
-func (e ErrSessionFingerprintMismatch) Error() string {
-	return fmt.Sprintf("session '%s' fingerprint mismatch", e.SessionID)
-}
-func (e ErrSessionFingerprintMismatch) Code() ErrorCode { return CodeForbidden }
-
-type ErrSessionExpired struct{}
-
-func NewSessionExpiredError() ErrSessionExpired { return ErrSessionExpired{} }
-func (e ErrSessionExpired) Error() string       { return "session has expired" }
-func (e ErrSessionExpired) Code() ErrorCode     { return CodeForbidden }
-
-// CodeNotFound
-type ErrResourceNotFound struct{ Identifier string }
-
-func NewResourceNotFoundError(identifier string) error {
-	return ErrResourceNotFound{Identifier: identifier}
-}
-
-func (e ErrResourceNotFound) Error() string {
-	return fmt.Sprintf("resource with identifier '%s' was not found", e.Identifier)
-}
-func (e ErrResourceNotFound) Code() ErrorCode { return CodeNotFound }
-
-type ErrSessionNotFound struct{ SessionID string }
-
-func NewSessionNotFoundError(sessionID string) error {
-	return ErrSessionNotFound{SessionID: sessionID}
-}
-
-func (e ErrSessionNotFound) Error() string {
-	return fmt.Sprintf("session with id %s was not found for this user", e.SessionID)
-}
-func (e ErrSessionNotFound) Code() ErrorCode { return CodeNotFound }
-
-type ErrUserNotFound struct{ UserID string }
-
-func NewUserNotFoundError(userID string) error { return ErrUserNotFound{UserID: userID} }
-
-func (e ErrUserNotFound) Error() string {
-	return fmt.Sprintf("user with id %s was not found", e.UserID)
-}
-func (e ErrUserNotFound) Code() ErrorCode { return CodeNotFound }
-
-// CodeInternal
-type ErrInternal struct {
-	Message string
-	Cause   error
-}
-
-func NewInternalError(msg string, cause error) ErrInternal {
-	return ErrInternal{Message: msg, Cause: cause}
-}
-func (e ErrInternal) Error() string   { return fmt.Sprintf("internal system error: %s", e.Message) }
-func (e ErrInternal) Code() ErrorCode { return CodeInternal }
-
-// CodeUnauthorized
-type ErrInvalidIdentity struct{ Reason string }
-
-func NewInvalidIdentityError(reason string) ErrInvalidIdentity {
-	return ErrInvalidIdentity{Reason: reason}
-}
-func (e ErrInvalidIdentity) Error() string   { return fmt.Sprintf("identity invalid: %s", e.Reason) }
-func (e ErrInvalidIdentity) Code() ErrorCode { return CodeUnauthorized }
-
-type ErrInvalidCredentials struct{}
-
-func NewInvalidCredentialsError() ErrInvalidCredentials { return ErrInvalidCredentials{} }
-func (e ErrInvalidCredentials) Error() string           { return "invalid credentials" }
-func (e ErrInvalidCredentials) Code() ErrorCode         { return CodeUnauthorized }
-
-type ErrInvalidToken struct{}
-
-func NewInvalidTokenError() ErrInvalidToken { return ErrInvalidToken{} }
-func (e ErrInvalidToken) Error() string     { return "provided token is invalid or expired" }
-func (e ErrInvalidToken) Code() ErrorCode   { return CodeUnauthorized }

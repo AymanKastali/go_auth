@@ -89,7 +89,7 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		logger.Error("user_registration_save_failed", slog.Any("error", err))
-		return ZeroRegisterUserResponse, err
+		return ZeroRegisterUserResponse, ErrInternal
 	}
 
 	logger.Info("user_registration_completed", slog.String("user_id", user.ID().String()))
@@ -231,7 +231,7 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 	if err != nil {
 		// This is an internal logic or signing failure
 		logger.Error("refresh_grant_failed", slog.Any("error", err))
-		return ZeroLoginResponse, domain.NewInternalError("failed to generate access token", err)
+		return ZeroLoginResponse, err
 	}
 
 	// 5. Persist Aggregate changes
@@ -290,13 +290,13 @@ func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAcce
 	sid := identity.SessionID()
 	if sid.IsEmpty() {
 		logger.Error("token_missing_session_id_claim")
-		return ZeroValidateAccessResponse, domain.NewInvalidTokenError()
+		return ZeroValidateAccessResponse, err
 	}
 
 	user, err := uc.userRepo.FindByID(ctx, identity.UserID())
 	if err != nil || user == nil {
 		logger.Warn("token_valid_but_user_missing", slog.String("user_id", identity.UserID().String()))
-		return ZeroValidateAccessResponse, domain.NewUserNotFoundError(identity.UserID().String())
+		return ZeroValidateAccessResponse, err
 	}
 
 	now := uc.clock.Now()
@@ -378,7 +378,7 @@ func (uc *findUserByEmailUseCase) Execute(ctx context.Context, email string) (Us
 	// 1. Convert primitive string to Domain Value Object
 	emailVO, err := domain.NewEmail(email)
 	if err != nil {
-		return ZeroUserResponse, ErrEmailInvalid
+		return ZeroUserResponse, err
 	}
 
 	// 2. Query Repository
@@ -389,7 +389,7 @@ func (uc *findUserByEmailUseCase) Execute(ctx context.Context, email string) (Us
 	}
 
 	if user == nil {
-		return ZeroUserResponse, ErrUserRecordNotFound
+		return ZeroUserResponse, ErrResourceNotFound
 	}
 
 	// 3. Return DTO (Not the Entity)
@@ -413,7 +413,7 @@ func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserRespo
 	// 1. Domain-level ID validation
 	userID, err := domain.NewUserID(id)
 	if err != nil {
-		return ZeroUserResponse, ErrInvalidID
+		return ZeroUserResponse, err
 	}
 
 	user, err := uc.userRepo.FindByID(ctx, userID)
@@ -423,7 +423,7 @@ func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserRespo
 	}
 
 	if user == nil {
-		return ZeroUserResponse, ErrUserRecordNotFound
+		return ZeroUserResponse, ErrResourceNotFound
 	}
 
 	return UserResponse{
@@ -445,7 +445,7 @@ func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserRe
 
 	userID, err := domain.NewUserID(id)
 	if err != nil {
-		return ZeroUserResponse, ErrInvalidID
+		return ZeroUserResponse, err
 	}
 
 	user, err := uc.userRepo.FindByID(ctx, userID)
@@ -456,7 +456,7 @@ func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserRe
 
 	// Specific business rule: If the user is found but "Deactivated", block this use case
 	if user == nil {
-		return ZeroUserResponse, ErrUserRecordNotFound
+		return ZeroUserResponse, ErrResourceNotFound
 	}
 
 	return UserResponse{

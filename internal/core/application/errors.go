@@ -1,81 +1,33 @@
 package application
 
-import (
-	"errors"
-	"go_auth/internal/core/domain"
-)
+import "go_auth/internal/core/pkg/err"
 
-type AppErrorCode string
-
-const (
-	AppErrInternal      AppErrorCode = "INTERNAL_ERROR"
-	AppErrUnauthorized  AppErrorCode = "UNAUTHORIZED"
-	AppErrForbidden     AppErrorCode = "FORBIDDEN"
-	AppErrUnprocessable AppErrorCode = "UNPROCESSABLE"
-	AppErrNotFound      AppErrorCode = "NOT_FOUND"
-	AppErrConflict      AppErrorCode = "CONFLICT"
-)
-
-type AppError struct {
-	Code    AppErrorCode
-	Message string
-	Err     error
-}
-
-func (e *AppError) Error() string {
-	if e == nil {
-		return "unknown application error"
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return string(e.Code)
-}
-
-func (e *AppError) Unwrap() error { return e.Err }
-
-func MapToAppError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var appErr *AppError
-	if errors.As(err, &appErr) {
-		return appErr
-	}
-
-	var domainErr domain.DomainError
-	if errors.As(err, &domainErr) {
-		switch domainErr.Code() {
-		case domain.CodeValidation, domain.CodeBusinessRule:
-			return &AppError{Code: AppErrUnprocessable, Message: domainErr.Error(), Err: err}
-		case domain.CodeConflict:
-			return &AppError{Code: AppErrConflict, Message: domainErr.Error(), Err: err}
-		case domain.CodeNotFound:
-			return &AppError{Code: AppErrNotFound, Message: domainErr.Error(), Err: err}
-		case domain.CodeUnauthorized:
-			return &AppError{Code: AppErrUnauthorized, Message: domainErr.Error(), Err: err}
-		case domain.CodeForbidden:
-			return &AppError{Code: AppErrForbidden, Message: domainErr.Error(), Err: err}
-		default:
-			return &AppError{Code: AppErrInternal, Message: domainErr.Error(), Err: err}
-		}
-	}
-
-	// Fallback for unexpected errors (like DB connection failures)
-	return &AppError{
-		Code:    AppErrInternal,
-		Message: "an unexpected error occurred",
-		Err:     err,
-	}
-}
+// ---------------------------------------------------------
+// Application Sentinel Registry
+// ---------------------------------------------------------
 
 var (
-	ErrEmailInvalid       = &AppError{Code: AppErrUnprocessable, Message: "invalid email format"}
-	ErrUserLookupFailed   = &AppError{Code: AppErrInternal, Message: "failed to retrieve user data"}
-	ErrUserRecordNotFound = &AppError{Code: AppErrNotFound, Message: "user not found"}
-	ErrInvalidID          = &AppError{Code: AppErrUnprocessable, Message: "invalid id format"}
+	// --- Infrastructure Shielding ---
+	// This is the "Safety Net". Use this to wrap database crashes,
+	// network timeouts, or library panics to avoid leaking technical details.
+	ErrInternal = err.New(err.CodeInternal, "an unexpected internal error occurred")
+
+	// --- Process & Orchestration ---
+	// Use this when a repository lookup returns nil but the
+	// use case requires that resource to proceed with the next step.
+	ErrResourceNotFound = err.New(err.CodeNotFound, "the requested resource could not be found")
+
+	// Use this when the request payload is syntactically valid (JSON is ok)
+	// but is missing orchestration metadata (e.g., missing a required Context ID).
+	ErrMalformedRequest = err.New(err.CodeValidation, "the request is missing required orchestration data")
+
+	// --- Security Boundaries ---
+	// Use this when the user is authenticated, but the application orchestrator
+	// refuses to execute the flow for this specific identity/context.
+	ErrAccessDenied = err.New(err.CodeForbidden, "access to this operation is denied")
+
+	// --- Concurrency & System State ---
+	// Use this when a race condition is detected at the orchestration level
+	// (e.g., a "late duplicate" caught by a database constraint).
+	ErrConflict = err.New(err.CodeConflict, "the operation conflicted with the current state of the system")
 )

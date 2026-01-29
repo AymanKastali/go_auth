@@ -18,9 +18,7 @@ import (
 // Clock Service
 type clock struct{}
 
-func NewClock() domain.IClock {
-	return &clock{}
-}
+func NewClock() domain.IClock { return &clock{} }
 
 // Now returns the current time wrapped in the Domain Value Object.
 func (c *clock) Now() domain.Timepoint {
@@ -40,7 +38,7 @@ func (g *uuidV7Generator) Generate() (string, error) {
 	// NewV7 uses the current time internally
 	id, err := uuid.NewV7()
 	if err != nil {
-		return "", domain.NewInternalError("failed to generate uuid v7", err)
+		return "", domain.ErrInternal
 	}
 
 	return id.String(), nil
@@ -54,14 +52,7 @@ func NewULIDGenerator() domain.IIDGenerator {
 }
 
 func (g *ulidGenerator) Generate() (string, error) {
-	// ulid.Make() is the recommended, thread-safe way to create a ULID
-	// using the current time and a monotonic entropy source.
 	id := ulid.Make()
-
-	if id.IsZero() {
-		return "", domain.NewInternalError("failed to generate ulid", nil)
-	}
-
 	return id.String(), nil
 }
 
@@ -75,33 +66,20 @@ func NewTokenService() domain.ITokenService {
 func (s *tokenService) Generate() (domain.RawToken, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		return domain.ZeroRawToken,
-			domain.NewInternalError("token generation failed", ErrTokenGeneration)
+		return domain.ZeroRawToken, domain.ErrInternal
 	}
-
-	rawStr := hex.EncodeToString(b)
-	rawToken, err := domain.NewRawToken(rawStr)
-	if err != nil {
-		return domain.ZeroRawToken, errors.Join(ErrTokenMapping, err)
-	}
-
-	return rawToken, nil
+	return domain.NewRawToken(hex.EncodeToString(b))
 }
 
 func (s *tokenService) Hash(rawToken domain.RawToken) (domain.HashedToken, error) {
 	// Use SHA-256 for opaque token hashing (fast and collision-resistant)
 	hash := sha256.Sum256([]byte(rawToken.String()))
-	hashedStr := hex.EncodeToString(hash[:])
-
-	return domain.NewHashedToken(hashedStr)
+	return domain.NewHashedToken(hex.EncodeToString(hash[:]))
 }
 
 func (s *tokenService) Compare(raw domain.RawToken, hashed domain.HashedToken) bool {
-	// Re-hash the provided raw token
 	actualHash := sha256.Sum256([]byte(raw.String()))
 	actualHashStr := hex.EncodeToString(actualHash[:])
-
-	// Use ConstantTimeCompare to prevent timing attacks
 	return subtle.ConstantTimeCompare([]byte(actualHashStr), []byte(hashed.String())) == 1
 }
 
@@ -119,15 +97,14 @@ func (s *passwordService) Hash(password domain.RawPassword) (domain.HashedPasswo
 	// Bcrypt handles generating a unique salt automatically
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password.String()), s.cost)
 	if err != nil {
-		return domain.ZeroHashedPassword, domain.NewInternalError("password hashing failed", err)
+		return domain.ZeroHashedPassword, domain.ErrInternal
 	}
 
 	return domain.NewHashedPassword(string(bytes))
 }
 
 func (s *passwordService) Compare(raw domain.RawPassword, hashed domain.HashedPassword) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashed.String()), []byte(raw.String()))
-	return err == nil
+	return bcrypt.CompareHashAndPassword([]byte(hashed.String()), []byte(raw.String())) == nil
 }
 
 // JWT Service
@@ -187,8 +164,7 @@ func (p *jwtService) Issue(
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedStr, err := token.SignedString(p.secretKey)
 	if err != nil {
-		return domain.ZeroAccessToken, domain.ZeroTimepoint,
-			domain.NewInternalError("failed to sign access token", err)
+		return domain.ZeroAccessToken, domain.ZeroTimepoint, domain.ErrInternal
 	}
 
 	accessToken, err := domain.NewAccessToken(signedStr)
@@ -215,44 +191,38 @@ func (p *jwtService) Validate(token domain.AccessToken) (domain.AccessIdentity, 
 	)
 
 	// 2. Map Infrastructure Errors
-	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("token expired")
-		}
-		if errors.Is(err, jwt.ErrTokenInvalidIssuer) || errors.Is(err, jwt.ErrTokenInvalidAudience) {
-			return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("untrusted token source")
-		}
-		return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid token")
+	if err != nil || !parsedToken.Valid {
+		return domain.ZeroAccessIdentity, domain.ErrTokenInvalid
 	}
 
 	// 3. Technical Extraction
 	claims, ok := parsedToken.Claims.(*CustomClaims)
-	if !ok || !parsedToken.Valid {
-		return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid claims")
+	if !ok {
+		return domain.ZeroAccessIdentity, domain.ErrTokenInvalid
 	}
 
 	// 4. Reconstitute Domain VOs
 	uid, err := domain.NewUserID(claims.Subject)
 	if err != nil {
-		return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid uid in token")
+		return domain.ZeroAccessIdentity, err
 	}
 
 	// Use the Custom SID claim, NOT the JTI
 	sid, err := domain.NewSessionID(claims.SID)
 	if err != nil {
-		return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid sid in token")
+		return domain.ZeroAccessIdentity, err
 	}
 
 	email, err := domain.NewEmail(claims.Email)
 	if err != nil {
-		return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid email in token")
+		return domain.ZeroAccessIdentity, err
 	}
 
 	var roles []domain.Role
 	for _, rName := range claims.Roles {
 		role, err := domain.NewRole(rName)
 		if err != nil {
-			return domain.ZeroAccessIdentity, domain.NewInvalidIdentityError("invalid role in token")
+			return domain.ZeroAccessIdentity, err
 		}
 		roles = append(roles, role)
 	}

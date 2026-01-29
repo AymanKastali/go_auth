@@ -11,7 +11,8 @@ type Session struct {
 	revokedAt    *Timepoint
 }
 
-// Session Constructors
+// NewSession is the primary constructor for new domain objects.
+// It enforces business invariants strictly using sentinels.
 func NewSession(
 	id SessionID,
 	hashedToken HashedToken,
@@ -20,10 +21,12 @@ func NewSession(
 	now Timepoint,
 ) (*Session, error) {
 	if id.IsEmpty() {
-		return nil, NewRequiredAttributeError(EntitySession, "id")
+		return nil, ErrSessionIDRequired // Explicit
 	}
+
+	// Invariant: A session cannot be born expired
 	if expiresAt.IsBefore(now) {
-		return nil, NewExpirationInPastError()
+		return nil, ErrSessionExpiryInPast // Explicit
 	}
 
 	return &Session{
@@ -36,6 +39,7 @@ func NewSession(
 	}, nil
 }
 
+// ReconstituteSession bypasses business rules for persistence/loading.
 func ReconstituteSession(
 	id SessionID,
 	hashedToken HashedToken,
@@ -54,7 +58,8 @@ func ReconstituteSession(
 	}
 }
 
-// Session Behavior
+// --- Behavior ---
+
 func (s Session) IsValid(now Timepoint) bool {
 	if s.IsRevoked() {
 		return false
@@ -63,7 +68,8 @@ func (s Session) IsValid(now Timepoint) bool {
 }
 
 func (s Session) ValidateFingerprint(currentFingerprint DeviceFingerprint) bool {
-	return s.identity.Fingerprint() == currentFingerprint
+	// VO comparison is explicit and deep
+	return s.identity.Fingerprint().Equal(currentFingerprint)
 }
 
 func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
@@ -74,16 +80,19 @@ func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
 
 func (s *Session) Revoke(now Timepoint) error {
 	if s.IsRevoked() {
-		return NewTokenAlreadyRevokedError(s.id.String())
+		return ErrSessionAlreadyRevoked // Explicit sentinel from registry
 	}
 
 	s.revokedAt = &now
 	return nil
 }
 
-func (s *Session) UpdateActivity(now Timepoint) { s.lastActiveAt = now }
+func (s *Session) UpdateActivity(now Timepoint) {
+	s.lastActiveAt = now
+}
 
-// Session Getters
+// --- Getters ---
+
 func (s Session) ID() SessionID            { return s.id }
 func (s Session) HashedToken() HashedToken { return s.hashedToken }
 func (s Session) ExpiresAt() Timepoint     { return s.expiresAt }

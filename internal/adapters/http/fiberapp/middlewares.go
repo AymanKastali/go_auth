@@ -5,30 +5,13 @@ import (
 	"errors"
 	"go_auth/internal/core/application"
 	"go_auth/internal/core/domain"
+	"go_auth/internal/core/pkg/err"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
-
-func AppErrorMiddleware() fiber.Handler {
-	return func(c fiber.Ctx) error {
-		err := c.Next()
-		if err == nil {
-			return nil
-		}
-
-		var fErr *fiber.Error
-		if errors.As(err, &fErr) {
-			return fErr
-		}
-
-		// Logging is handled in the global ErrorHandler,
-		// so we just transform the error here.
-		return application.MapToAppError(err)
-	}
-}
 
 func ContextMiddleware(baseLogger *slog.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
@@ -96,70 +79,6 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 	}
 }
 
-func NewErrorHandler() fiber.ErrorHandler {
-	return func(c fiber.Ctx, err error) error {
-		ctx := c.Context()
-		logger := application.GetLogger(ctx)
-
-		var traceID = "unknown"
-		if rc, rcErr := FromContext(ctx); rcErr == nil {
-			traceID = rc.requestID
-		}
-
-		var (
-			statusCode = fiber.StatusInternalServerError
-			resp       = ErrorResponse{TraceID: traceID}
-		)
-
-		// Handle AppError
-		var appErr *application.AppError
-		if errors.As(err, &appErr) {
-			if appErr.Code == "" {
-				appErr.Code = application.AppErrInternal
-			}
-			resp.Code = string(appErr.Code)
-			resp.Message = appErr.Message
-			statusCode = mapAppErrorToStatus(appErr.Code)
-
-			logger.Warn("http_request_handled_with_error",
-				slog.Int("status", statusCode),
-				slog.String("app_code", resp.Code),
-				slog.String("method", c.Method()),
-				slog.String("path", c.Path()),
-				slog.Any("err_internal", appErr.Err),
-			)
-			return c.Status(statusCode).JSON(resp)
-		}
-
-		// Handle Fiber errors (like 404 for unknown route)
-		var fErr *fiber.Error
-		if errors.As(err, &fErr) {
-			resp.Code = mapFiberStatusToAppCode(fErr.Code)
-			resp.Message = fErr.Message
-			statusCode = fErr.Code
-
-			logger.Warn("http_request_fiber_error",
-				slog.Int("status", statusCode),
-				slog.String("app_code", resp.Code),
-				slog.String("method", c.Method()),
-				slog.String("path", c.Path()),
-				slog.Any("err_internal", fErr),
-			)
-			return c.Status(statusCode).JSON(resp)
-		}
-
-		// Fallback for unknown/system errors
-		resp.Code = string(application.AppErrInternal)
-		resp.Message = "Internal server error"
-		logger.Error("http_request_system_failure",
-			slog.Int("status", statusCode),
-			slog.String("method", c.Method()),
-			slog.String("path", c.Path()),
-			slog.Any("error", err),
-		)
-		return c.Status(statusCode).JSON(resp)
-	}
-}
 func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen domain.IIDGenerator) {
 	// 1. Trace ID / Request ID
 	app.Use(requestid.New(requestid.Config{
@@ -178,22 +97,44 @@ func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen domain.
 
 	// 3. Domain Context & Error Handling
 	app.Use(ContextMiddleware(baseLogger))
-	app.Use(AppErrorMiddleware())
 }
 
-func mapFiberStatusToAppCode(status int) string {
-	switch status {
-	case fiber.StatusBadRequest:
-		return string(application.AppErrUnprocessable)
-	case fiber.StatusUnauthorized:
-		return string(application.AppErrUnauthorized)
-	case fiber.StatusForbidden:
-		return string(application.AppErrForbidden)
-	case fiber.StatusNotFound:
-		return string(application.AppErrNotFound)
-	case fiber.StatusConflict:
-		return string(application.AppErrConflict)
-	default:
-		return string(application.AppErrInternal)
+// Error Handler
+func NewErrorHandler() fiber.ErrorHandler {
+	return func(c fiber.Ctx, e error) error {
+		// Use the helper here as the primary source of truth
+		traceID := requestid.FromContext(c)
+		if traceID == "" {
+			traceID = "unknown"
+		}
+
+		resp := ErrorResponse{
+			TraceID: traceID,
+			Code:    string(err.CodeInternal),
+			Message: "Internal server error",
+		}
+		statusCode := fiber.StatusInternalServerError
+
+		var appErr *err.Error
+		if errors.As(e, &appErr) {
+			resp.Code = string(appErr.Code())
+			resp.Message = appErr.Message()
+			statusCode = mapCodeToHTTPStatus(appErr.Code())
+
+			logRequestError(c, statusCode, e)
+			return c.Status(statusCode).JSON(resp)
+		}
+
+		var fErr *fiber.Error
+		if errors.As(e, &fErr) {
+			statusCode = fErr.Code
+			resp.Code = "TRANSPORT_ERROR"
+			resp.Message = fErr.Message
+			logRequestError(c, statusCode, e)
+			return c.Status(statusCode).JSON(resp)
+		}
+
+		logRequestError(c, statusCode, e)
+		return c.Status(statusCode).JSON(resp)
 	}
 }

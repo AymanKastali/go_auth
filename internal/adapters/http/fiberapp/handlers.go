@@ -1,7 +1,6 @@
 package fiberapp
 
 import (
-	"go_auth/internal/adapters"
 	"go_auth/internal/core/application"
 	"log/slog"
 
@@ -50,12 +49,12 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 	var req RegisterRequest
 	if err := c.Bind().Body(&req); err != nil {
 		logger.Warn("register_binding_failed", slog.Any("error", err))
-		return adapters.ErrBadRequest(err.Error())
+		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	if err := Validate(req); err != nil {
 		logger.Warn("register_validation_failed", slog.Any("error", err))
-		return adapters.ErrBadRequest(err.Error())
+		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	cmd := application.RegisterUserCommand{
@@ -91,12 +90,12 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
 		logger.Warn("login_binding_failed", slog.Any("error", err))
-		return adapters.ErrBadRequest(err.Error())
+		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	if err := Validate(req); err != nil {
 		logger.Warn("login_validation_failed", slog.Any("error", err))
-		return adapters.ErrBadRequest(err.Error())
+		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	identity := application.GetIdentity(c.Context())
@@ -143,7 +142,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil {
 		logger.Warn("refresh_binding_failed", slog.Any("error", err))
-		return adapters.ErrBadRequest(err.Error())
+		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	userID := application.GetUserID(ctx)
@@ -183,7 +182,7 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 
 	if !application.IsAuthenticated(ctx) {
 		logger.Warn("logout_attempt_unauthenticated")
-		return adapters.ErrBadRequest("missing identity context in request")
+		return SendBadRequest(c, "missing identity context in request", nil)
 	}
 
 	userID := application.GetUserID(ctx)
@@ -233,9 +232,7 @@ func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	email := c.Query("email")
 
 	if email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "query parameter 'email' is required for search",
-		})
+		return SendBadRequest(c, "query parameter 'email' is required for search", nil)
 	}
 
 	user, err := h.findByEmail.Execute(ctx, email)
@@ -251,9 +248,7 @@ func (h *UserHandler) GetByID(c fiber.Ctx) error {
 	id := c.Params("id")
 
 	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "user ID is required in path",
-		})
+		return SendBadRequest(c, "user ID is required in path", nil)
 	}
 
 	user, err := h.getByID.Execute(ctx, id)
@@ -273,9 +268,7 @@ func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
 
 	if userID.IsEmpty() {
 		logger.Warn("http_get_current_unauthorized_attempt")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "unauthorized: user identification missing",
-		})
+		return SendUnauthorized(c, "user identification missing")
 	}
 
 	// 2. Execute the Use Case

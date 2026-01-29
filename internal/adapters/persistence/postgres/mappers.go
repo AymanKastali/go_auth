@@ -38,27 +38,15 @@ func toUserModel(u *domain.User) UserModel {
 }
 
 func toUserDomain(m UserModel) (*domain.User, error) {
-	uid, err := domain.NewUserID(m.ID)
-	if err != nil {
-		return nil, domain.NewInternalError("failed to reconstitute user id from database", err)
-	}
+	uid := domain.ReconstituteUserID(m.ID)
 
-	email, err := domain.NewEmail(m.Email)
-	if err != nil {
-		return nil, domain.NewInternalError("failed to reconstitute email from database", err)
-	}
+	email := domain.ReconstituteEmail(m.Email)
 
-	passwordHash, err := domain.NewHashedPassword(m.PasswordHash)
-	if err != nil {
-		return nil, domain.NewInternalError("failed to reconstitute password hash from database", err)
-	}
+	passwordHash := domain.ReconstituteHashedPassword(m.PasswordHash)
 
 	roles := make([]domain.Role, len(m.Roles))
 	for i, rName := range m.Roles {
-		role, err := domain.NewRole(rName)
-		if err != nil {
-			return nil, domain.NewInternalError("failed to reconstitute role from database", err)
-		}
+		role := domain.ReconstituteRole(rName)
 		roles[i] = role
 	}
 
@@ -123,15 +111,9 @@ func toSessionModel(userID string, s domain.Session) SessionModel {
 }
 
 func toSessionDomain(m SessionModel) (domain.Session, error) {
-	sid, err := domain.NewSessionID(m.ID)
-	if err != nil {
-		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute session id", err)
-	}
+	sid := domain.ReconstituteSessionID(m.ID)
 
-	token, err := domain.NewHashedToken(m.HashedToken)
-	if err != nil {
-		return domain.ZeroSession, domain.NewInternalError("failed to reconstitute hashed token", err)
-	}
+	token := domain.ReconstituteHashedToken(m.HashedToken)
 
 	// 1. Reconstitute the Value Object first
 	identity := domain.ReconstituteDeviceIdentity(

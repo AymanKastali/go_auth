@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"go_auth/internal/core/domain" // Import your domain for the internal error type
+	// Import your domain for the internal error type
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -17,14 +17,13 @@ func NewPostgresConnection(url string) (*gorm.DB, error) {
 	})
 
 	if err != nil {
-		// Wrap as a Domain Internal Error
-		return nil, domain.NewInternalError("failed to open database connection", err)
+		return nil, err
 	}
 
 	// 2. Access Underlying SQL Driver
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, domain.NewInternalError("failed to access underlying sql driver", err)
+		return nil, err
 	}
 
 	// 3. Health Check (Ping)
@@ -32,7 +31,7 @@ func NewPostgresConnection(url string) (*gorm.DB, error) {
 	defer cancel()
 
 	if err := sqlDB.PingContext(ctx); err != nil {
-		return nil, domain.NewInternalError("database is unreachable", err)
+		return nil, err
 	}
 
 	// 4. Connection Pool Settings
@@ -46,12 +45,11 @@ func NewPostgresConnection(url string) (*gorm.DB, error) {
 func Close(db *gorm.DB) error {
 	sqlDB, err := db.DB()
 	if err != nil {
-		// Even during close, we should report the technical failure clearly
-		return domain.NewInternalError("failed to retrieve sql driver during close", err)
+		return err
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		return domain.NewInternalError("failed to close database connection", err)
+		return err
 	}
 
 	return nil
