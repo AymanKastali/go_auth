@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-// Registration Service
+// --- Registration Service ---
 type registerUserService struct {
 	userRepo       IUserRepository
 	passwordPolicy IPasswordPolicy
@@ -17,7 +17,7 @@ type registerUserService struct {
 func NewRegisterUserService(
 	repo IUserRepository,
 	policy IPasswordPolicy,
-	pwdSvc IPasswordService,
+	pwSvc IPasswordService,
 	factory IUserFactory,
 	idGen IIDGenerator,
 	clock IClock,
@@ -25,21 +25,17 @@ func NewRegisterUserService(
 	return &registerUserService{
 		userRepo:       repo,
 		passwordPolicy: policy,
-		passwordSvc:    pwdSvc,
+		passwordSvc:    pwSvc,
 		userFactory:    factory,
 		idGen:          idGen,
 		clock:          clock,
 	}
 }
 
-func (s *registerUserService) Execute(
-	ctx context.Context,
-	email Email,
-	password RawPassword,
-) (*User, error) {
+func (s *registerUserService) Execute(ctx context.Context, email Email, password RawPassword) (*User, error) {
 	now := s.clock.Now()
 
-	// 1. Policy check
+	// 1. Policy check (returns explicit ErrPassword... sentinels)
 	if err := s.passwordPolicy.Validate(password); err != nil {
 		return nil, err
 	}
@@ -49,18 +45,16 @@ func (s *registerUserService) Execute(
 	if err != nil {
 		return nil, err
 	}
-
 	if existing != nil {
-		return nil, NewEmailAlreadyTakenError(email.String())
+		return nil, ErrUserEmailTaken // Explicit
 	}
 
-	// 3. Use the internal service to hash
+	// 3. Logic: Hash and Build
 	hashed, err := s.passwordSvc.Hash(password)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. Build the user
 	id, err := s.idGen.Generate()
 	if err != nil {
 		return nil, err
@@ -68,20 +62,18 @@ func (s *registerUserService) Execute(
 
 	uid, err := NewUserID(id)
 	if err != nil {
-		return nil, err
+		return nil, err // Returns ErrUserIDRequired
 	}
 
-	user, err := s.userFactory.Build(uid, email, hashed, s.clock.Now())
+	user, err := s.userFactory.Build(uid, email, hashed, now)
 	if err != nil {
 		return nil, err
 	}
 
-	// Assign the static VO role
 	if err := user.AssignRole(RoleMember, now); err != nil {
 		return nil, err
 	}
 
-	// Pass the required Timepoint
 	if err := user.Activate(now); err != nil {
 		return nil, err
 	}
@@ -89,45 +81,38 @@ func (s *registerUserService) Execute(
 	return user, nil
 }
 
-// Authenticate User Service
+// --- Authenticate User Service ---
 type authenticateUserService struct {
 	userRepo    IUserRepository
 	passwordSvc IPasswordService
 }
 
-func NewAuthenticateUserService(
-	userRepo IUserRepository,
-	passwordSvc IPasswordService,
-) IAuthenticateUser {
+func NewAuthenticateUserService(repo IUserRepository, pwSvc IPasswordService) IAuthenticateUser {
 	return &authenticateUserService{
-		userRepo:    userRepo,
-		passwordSvc: passwordSvc,
+		userRepo:    repo,
+		passwordSvc: pwSvc,
 	}
 }
 
-func (s *authenticateUserService) Execute(
-	ctx context.Context,
-	email Email,
-	password RawPassword,
-) (*User, error) {
+func (s *authenticateUserService) Execute(ctx context.Context, email Email, password RawPassword) (*User, error) {
 	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
+
+	// Security: Generic "Authentication Failed" to prevent enumeration
 	if user == nil {
-		return nil, NewInvalidCredentialsError()
+		return nil, ErrAuthenticationFailed
 	}
 
-	// 2. Business Logic: Verify Password
 	if !s.passwordSvc.Compare(password, user.HashedPassword()) {
-		return nil, NewInvalidCredentialsError()
+		return nil, ErrAuthenticationFailed
 	}
 
 	return user, nil
 }
 
-// Establish User Session
-
+// --- Establish User Session Service ---
 type establishUserSessionService struct {
 	sessionFactory ISessionFactory
 	sessionPolicy  ISessionPolicy
@@ -137,29 +122,25 @@ type establishUserSessionService struct {
 }
 
 func NewEstablishUserSessionService(
-	sessionFactory ISessionFactory,
-	sessionPolicy ISessionPolicy,
+	factory ISessionFactory,
+	policy ISessionPolicy,
 	clock IClock,
 	idGen IIDGenerator,
-	tokenService ITokenService,
+	tokenSvc ITokenService,
 ) IEstablishUserSession {
 	return &establishUserSessionService{
-		sessionFactory: sessionFactory,
-		sessionPolicy:  sessionPolicy,
+		sessionFactory: factory,
+		sessionPolicy:  policy,
 		clock:          clock,
 		idGen:          idGen,
-		tokenService:   tokenService,
+		tokenService:   tokenSvc,
 	}
 }
 
-func (s *establishUserSessionService) Execute(
-	ctx context.Context,
-	user *User,
-	deviceIdentity DeviceIdentity,
-) (*Session, RawToken, error) {
+func (s *establishUserSessionService) Execute(ctx context.Context, user *User, deviceIdentity DeviceIdentity) (*Session, RawToken, error) {
 	now := s.clock.Now()
 
-	// 1. Identify the Session ID: Check if the user already has an active session for this device
+	// 1. Identify Existing Session
 	var sid SessionID
 	for _, existing := range user.Sessions() {
 		if existing.Identity().Fingerprint().Equal(deviceIdentity.Fingerprint()) && !existing.IsRevoked() {
@@ -168,20 +149,19 @@ func (s *establishUserSessionService) Execute(
 		}
 	}
 
-	// 2. If no existing session was found, generate a brand new ID
+	// 2. ID Generation
 	if sid.IsEmpty() {
 		id, err := s.idGen.Generate()
 		if err != nil {
 			return nil, ZeroRawToken, err
 		}
-
 		sid, err = NewSessionID(id)
 		if err != nil {
-			return nil, ZeroRawToken, err
+			return nil, ZeroRawToken, err // Returns ErrSessionIDRequired
 		}
 	}
 
-	// 3. Generate new security materials
+	// 3. Security Materials
 	rawToken, err := s.tokenService.Generate()
 	if err != nil {
 		return nil, ZeroRawToken, err
@@ -192,14 +172,14 @@ func (s *establishUserSessionService) Execute(
 		return nil, ZeroRawToken, err
 	}
 
-	// 4. Build the session candidate
+	// 4. Build Session
 	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
 	session, err := s.sessionFactory.Build(sid, hashedToken, deviceIdentity, expiresAt, now)
 	if err != nil {
-		return nil, ZeroRawToken, err
+		return nil, ZeroRawToken, err // Returns ErrSessionExpiryInPast etc.
 	}
 
-	// 5. Delegate state transition to the Aggregate
+	// 5. Delegate to Aggregate
 	if err := user.EstablishSession(*session, s.sessionPolicy.GetMaxActiveSessions()); err != nil {
 		return nil, ZeroRawToken, err
 	}
@@ -207,47 +187,38 @@ func (s *establishUserSessionService) Execute(
 	return session, rawToken, nil
 }
 
+// --- Refresh Session Service ---
 type refreshSessionService struct {
 	userRepo     IUserRepository
 	tokenService ITokenService
 	clock        IClock
 }
 
-func NewRefreshSessionService(
-	userRepo IUserRepository,
-	tokenService ITokenService,
-	clock IClock,
-) IRefreshSession {
+func NewRefreshSessionService(repo IUserRepository, tokenSvc ITokenService, clock IClock) IRefreshSession {
 	return &refreshSessionService{
-		userRepo:     userRepo,
-		tokenService: tokenService,
+		userRepo:     repo,
+		tokenService: tokenSvc,
 		clock:        clock,
 	}
 }
 
-func (s *refreshSessionService) Execute(
-	ctx context.Context,
-	raw RawToken,
-	currentFingerprint DeviceFingerprint,
-) (*User, Session, error) {
-	// 1. Hash the raw token provided by the client
+func (s *refreshSessionService) Execute(ctx context.Context, raw RawToken, currentFingerprint DeviceFingerprint) (*User, Session, error) {
 	hashed, err := s.tokenService.Hash(raw)
 	if err != nil {
 		return nil, ZeroSession, err
 	}
 
-	// 2. Resolve Identity: Find the User Aggregate owning this session
 	user, err := s.userRepo.FindBySessionToken(ctx, hashed)
 	if err != nil {
 		return nil, ZeroSession, err
 	}
+
 	if user == nil {
-		// Security: Return a generic error to prevent session probing
-		return nil, ZeroSession, NewInvalidTokenError()
+		return nil, ZeroSession, ErrTokenInvalid // Explicit
 	}
 
-	// 3. Delegate logic to the Aggregate
 	now := s.clock.Now()
+	// Returns ErrSessionFingerprintMiss or ErrTokenRevoked
 	session, err := user.RefreshSession(hashed, currentFingerprint, now)
 	if err != nil {
 		return nil, ZeroSession, err
@@ -256,8 +227,7 @@ func (s *refreshSessionService) Execute(
 	return user, session, nil
 }
 
-// Access Session For User
-// Authentication Service
+// Access Granter
 type accessGrantor struct {
 	accessTokenSvc IAccessTokenService
 	policy         IAccessPolicy

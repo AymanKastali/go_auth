@@ -4,7 +4,7 @@ import (
 	"slices"
 )
 
-// User
+// User is the Aggregate Root for the Identity context.
 type User struct {
 	id           UserID
 	email        Email
@@ -17,7 +17,7 @@ type User struct {
 	deletedAt    *Timepoint
 }
 
-// User Constructors
+// NewUser enforces business invariants during initial creation.
 func NewUser(
 	userID UserID,
 	email Email,
@@ -25,23 +25,20 @@ func NewUser(
 	now Timepoint,
 ) (*User, error) {
 	if userID.IsEmpty() {
-		return nil, NewRequiredAttributeError(EntityUser, "id")
+		return nil, ErrUserIDRequired
 	}
 	if email.IsEmpty() {
-		return nil, NewRequiredAttributeError(EntityUser, "email")
+		return nil, ErrUserEmailRequired
 	}
 	if passwordHash.IsEmpty() {
-		return nil, NewRequiredAttributeError(EntityUser, "passwordHash")
-	}
-	if now.IsZero() {
-		return nil, NewRequiredAttributeError(EntityUser, "now")
+		return nil, ErrUserPasswordRequired
 	}
 
 	return &User{
 		id:           userID,
 		email:        email,
 		passwordHash: passwordHash,
-		isActive:     false,
+		isActive:     false, // Users start inactive (awaiting activation)
 		roles:        []Role{},
 		sessions:     []Session{},
 		createdAt:    now,
@@ -50,11 +47,12 @@ func NewUser(
 	}, nil
 }
 
+// ReconstituteUser is for Repository use only.
 func ReconstituteUser(
 	id UserID,
 	email Email,
 	passwordHash HashedPassword,
-	IsActive bool,
+	isActive bool,
 	roles []Role,
 	sessions []Session,
 	createdAt, updatedAt Timepoint,
@@ -64,7 +62,7 @@ func ReconstituteUser(
 		id:           id,
 		email:        email,
 		passwordHash: passwordHash,
-		isActive:     IsActive,
+		isActive:     isActive,
 		roles:        slices.Clone(roles),
 		sessions:     slices.Clone(sessions),
 		createdAt:    createdAt,
@@ -73,210 +71,162 @@ func ReconstituteUser(
 	}
 }
 
-// User Behavior
-func (a *User) Activate(now Timepoint) error {
-	if a.IsDeleted() {
-		return NewUserDeletedError(a.ID().String())
+// --- Business Behavior ---
+
+func (u *User) Activate(now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted // Or ErrUserDeleted if you have it
+	}
+	if u.isActive {
+		return nil // Idempotent
 	}
 
-	if a.isActive {
-		return NewUserAlreadyActiveError(a.ID().String())
-	}
-
-	a.isActive = true
-	a.updatedAt = now
+	u.isActive = true
+	u.updatedAt = now
 	return nil
 }
 
 func (u *User) AssignRole(role Role, now Timepoint) error {
-	// 1. Guard against modifications to deleted entities
 	if u.IsDeleted() {
-		return NewUserDeletedError(u.id.String())
+		return ErrUserDeleted
 	}
 
-	// 2. Prevent logical duplicates
 	for _, r := range u.roles {
 		if r.Equal(role) {
-			return nil // Already assigned, no action needed
+			return nil
 		}
 	}
 
-	// 3. Apply state change
 	u.roles = append(u.roles, role)
-
-	// 4. Update the aggregate's version/timestamp
 	u.updatedAt = now
-
 	return nil
-}
-
-func (u *User) HasRole(name string) bool {
-	for _, r := range u.roles {
-		if r.Name() == name {
-			return true
-		}
-	}
-	return false
 }
 
 func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 	if u.IsDeleted() {
-		return NewUserDeletedError(u.id.String())
+		return ErrUserDeleted
 	}
 	if !u.isActive {
-		return NewUserInactiveError(u.id.String())
+		return ErrUserInactive
 	}
 
 	now := candidate.LastActiveAt()
 
-	// 1. Logic: Update existing session if it matches the device fingerprint
+	// Logic: If device matches an active session, refresh it instead of creating new
 	for i := range u.sessions {
 		s := &u.sessions[i]
 		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
-			// Re-use existing session state, update tokens and timestamps
-			s.UpdateLogin(
-				candidate.HashedToken(),
-				candidate.ExpiresAt(),
-				now,
-			)
+			s.UpdateLogin(candidate.HashedToken(), candidate.ExpiresAt(), now)
 			u.updatedAt = now
 			return nil
 		}
 	}
 
-	// 2. Logic: Handle capacity for a brand new session
+	// Logic: Enforce session limit invariant
 	if len(u.sessions) >= maxSessions {
 		u.revokeOldestSession(now)
 	}
 
-	// 3. State Change: Append the new session
 	u.sessions = append(u.sessions, candidate)
 	u.updatedAt = now
 	return nil
 }
 
-// revokeOldestSession is a private helper that removes the oldest session
-// when the user logs in from too many distinct devices.
-func (u *User) revokeOldestSession(now Timepoint) {
-	if len(u.sessions) == 0 {
-		return
+func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerprint, now Timepoint) (Session, error) {
+	if u.IsDeleted() || !u.isActive {
+		return ZeroSession, ErrUserInactive
 	}
 
-	// Step A: Find the first active (non-revoked) session and revoke it.
-	// Usually, u.sessions[0] is the oldest if you always append.
 	for i := range u.sessions {
-		if !u.sessions[i].IsRevoked() {
-			_ = u.sessions[i].Revoke(now)
-			break // We only need to revoke one to make room
-		}
-	}
-
-	// Step B: Optional - If you want to keep the slice clean of revoked sessions
-	// to respect the maxSessions count strictly in memory:
-	// u.sessions = slices.DeleteFunc(u.sessions, func(s Session) bool { return s.IsRevoked() })
-	//
-	// Note: Most GORM setups prefer you keep the session in the slice so it
-	// can issue the UPDATE command for that specific ID.
-}
-
-func (a *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerprint, now Timepoint) (Session, error) {
-	if a.IsDeleted() || !a.isActive {
-		return ZeroSession, NewUserInactiveError(a.id.String())
-	}
-
-	for i := range a.sessions {
-		s := &a.sessions[i] // Pointer to ensure update persists in the aggregate
+		s := &u.sessions[i]
 		if s.HashedToken().Equal(hash) {
-
+			// Security Invariant: Detect session hijacking via fingerprint mismatch
 			if !s.ValidateFingerprint(currentFingerprint) {
 				_ = s.Revoke(now)
-				a.updatedAt = now
-				return ZeroSession, NewSessionFingerprintMismatchError(s.ID().String())
+				u.updatedAt = now
+				return ZeroSession, ErrSessionFingerprintMiss
 			}
 
 			if !s.IsValid(now) {
-				return ZeroSession, NewSessionExpiredError()
+				return ZeroSession, ErrSessionExpired
 			}
 
 			s.UpdateActivity(now)
-			a.updatedAt = now
-
-			return *s, nil // Return the updated value
+			u.updatedAt = now
+			return *s, nil
 		}
 	}
-	return ZeroSession, NewSessionNotFoundError("token")
+	return ZeroSession, ErrTokenInvalid
 }
 
-func (a *User) RevokeSession(sid SessionID, now Timepoint) error {
-	if a.IsDeleted() {
-		return NewUserDeletedError(a.id.String())
+func (u *User) RevokeSession(sid SessionID, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
 	}
 
-	for i := range a.sessions {
-		s := &a.sessions[i] // Must use pointer to modify state
+	for i := range u.sessions {
+		s := &u.sessions[i]
 		if s.ID().Equal(sid) {
-
-			// STRICT RULE: If it's already revoked, throw an error
 			if s.IsRevoked() {
-				return NewTokenAlreadyRevokedError(sid.String())
+				return ErrSessionAlreadyRevoked
 			}
-
 			if err := s.Revoke(now); err != nil {
 				return err
 			}
-
-			a.updatedAt = now
+			u.updatedAt = now
 			return nil
 		}
 	}
-
-	return NewSessionNotFoundError(sid.String())
-}
-
-func (a *User) CleanupSessions(now Timepoint) {
-	a.sessions = slices.DeleteFunc(a.sessions, func(s Session) bool {
-		return !s.IsValid(now)
-	})
+	return ErrSessionIDRequired
 }
 
 func (u *User) ValidateIntegrity(sid SessionID, now Timepoint) error {
-	if u.IsDeleted() {
-		return NewUserDeletedError(u.id.String())
-	}
-	if !u.isActive {
-		return NewUserInactiveError(u.id.String())
+	if u.IsDeleted() || !u.isActive {
+		return ErrUserInactive
 	}
 
-	// Explicitly find the session to provide a better error message
 	for _, s := range u.sessions {
 		if s.ID().Equal(sid) {
 			if s.IsRevoked() {
-				// Return 409 Conflict style error
-				return NewTokenAlreadyRevokedError(sid.String())
+				return ErrSessionAlreadyRevoked
 			}
 			if !s.IsValid(now) {
-				return NewSessionExpiredError()
+				return ErrSessionExpired
 			}
 			return nil
 		}
 	}
-
-	// If not found in the user's list at all
-	return NewSessionInvalidError(sid.String())
+	return ErrSessionIDRequired
 }
 
-// User Getters
-func (a *User) ID() UserID                     { return a.id }
-func (a *User) Email() Email                   { return a.email }
-func (a *User) HashedPassword() HashedPassword { return a.passwordHash }
-func (a *User) Roles() []Role                  { return slices.Clone(a.roles) }
-func (a *User) Sessions() []Session            { return slices.Clone(a.sessions) }
-func (a *User) CreatedAt() Timepoint           { return a.createdAt }
-func (a *User) UpdatedAt() Timepoint           { return a.updatedAt }
-func (a *User) DeletedAt() *Timepoint          { return a.deletedAt }
-func (a *User) IsDeleted() bool                { return a.deletedAt != nil }
-func (a *User) IsActive() bool                 { return a.isActive }
+// --- Private Helpers ---
+
+func (u *User) revokeOldestSession(now Timepoint) {
+	for i := range u.sessions {
+		if !u.sessions[i].IsRevoked() {
+			_ = u.sessions[i].Revoke(now)
+			break
+		}
+	}
+}
+
+// --- Getters ---
+
+func (u *User) ID() UserID                     { return u.id }
+func (u *User) Email() Email                   { return u.email }
+func (u *User) HashedPassword() HashedPassword { return u.passwordHash }
+func (u *User) Roles() []Role                  { return slices.Clone(u.roles) }
+func (u *User) Sessions() []Session            { return slices.Clone(u.sessions) }
+func (u *User) IsDeleted() bool                { return u.deletedAt != nil }
+func (u *User) IsActive() bool                 { return u.isActive }
+func (u *User) CreatedAt() Timepoint           { return u.createdAt }
+func (u *User) UpdatedAt() Timepoint           { return u.updatedAt }
+func (u *User) DeletedAt() *Timepoint          { return u.deletedAt }
 func (u *User) RoleNames() []string {
+	if len(u.roles) == 0 {
+		return []string{}
+	}
+
 	names := make([]string, len(u.roles))
 	for i, r := range u.roles {
 		names[i] = r.Name()

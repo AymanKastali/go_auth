@@ -42,21 +42,21 @@ func (p *passwordPolicy) Validate(password RawPassword) error {
 
 	// 1. Length Checks
 	if length < int(p.minLength) {
-		return NewPasswordTooShortError(p.minLength)
+		return ErrPasswordTooShort
 	}
 	if length > int(p.maxLength) {
-		return NewPasswordTooLongError(p.maxLength)
+		return ErrPasswordTooLong
 	}
 
-	// 2. Complexity Checks using pre-compiled regex
+	// 2. Complexity Checks
 	if p.requireUpper && !upperRegex.MatchString(pwdStr) {
-		return NewPasswordMissingUppercaseError()
+		return ErrPasswordNoUpper
 	}
 	if p.requireNumber && !numberRegex.MatchString(pwdStr) {
-		return NewPasswordMissingNumberError()
+		return ErrPasswordNoNumber
 	}
 	if p.requireSpecial && !specialRegex.MatchString(pwdStr) {
-		return NewPasswordMissingSpecialCharError()
+		return ErrPasswordNoSpecial
 	}
 
 	return nil

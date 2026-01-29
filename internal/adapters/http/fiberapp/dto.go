@@ -45,6 +45,7 @@ type ErrorResponse struct {
 	Details map[string]any `json:"details,omitempty"`
 }
 
+// Success
 func SendOK(c fiber.Ctx, message string, data any) error {
 	return c.Status(fiber.StatusOK).JSON(SuccessResponse{
 		Message: message,
@@ -59,4 +60,28 @@ func SendCreated(c fiber.Ctx, message string, data any) error {
 }
 func SendNoContent(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// Error
+func SendError(c fiber.Ctx, status int, code, message string, details map[string]any) error {
+	return c.Status(status).JSON(ErrorResponse{
+		Code:    code,
+		Message: message,
+		TraceID: c.GetRespHeader("X-Request-ID"), // Assumes you use RequestID middleware
+		Details: details,
+	})
+}
+
+func SendBadRequest(c fiber.Ctx, message string, details map[string]any) error {
+	return SendError(c, fiber.StatusBadRequest, "BAD_REQUEST", message, details)
+}
+
+// SendUnauthorized handles 401 errors (e.g., invalid credentials or expired tokens)
+func SendUnauthorized(c fiber.Ctx, message string) error {
+	return SendError(c, fiber.StatusUnauthorized, "UNAUTHORIZED", message, nil)
+}
+
+// SendInternalError handles 500 errors (e.g., database failure)
+func SendInternalError(c fiber.Ctx, message string) error {
+	return SendError(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message, nil)
 }
