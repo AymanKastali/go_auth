@@ -246,6 +246,15 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	return nil
 }
 
+func (u *User) FindActiveSessionByFingerprint(fp DeviceFingerprint) (SessionID, bool) {
+	for _, s := range u.sessions {
+		if !s.IsRevoked() && s.Identity().Fingerprint().Equal(fp) {
+			return s.ID(), true
+		}
+	}
+	return ZeroSessionID, false
+}
+
 // --- Getters ---
 
 func (u *User) ID() UserID                     { return u.id }

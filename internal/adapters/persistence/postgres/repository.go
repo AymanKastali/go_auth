@@ -78,7 +78,6 @@ func (r *postgresUserRepository) FindBySessionToken(ctx context.Context, token d
 	// We use getDB even for reads to ensure read-your-writes consistency in transactions
 	err := getDB(r.db, ctx).
 		Where("hashed_token = ?", token.String()).
-		Where("revoked_at IS NULL").
 		First(&sessionModel).Error
 
 	if err != nil {

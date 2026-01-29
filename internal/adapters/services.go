@@ -146,7 +146,7 @@ func NewJWTService(
 	secret string,
 	issuer string,
 	audience string,
-) domain.IAccessTokenService {
+) domain.IAccessService {
 	return &jwtService{
 		secretKey: []byte(secret),
 		issuer:    issuer,
