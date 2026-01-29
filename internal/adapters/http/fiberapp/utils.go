@@ -66,7 +66,7 @@ func logRequestError(c fiber.Ctx, status int, e error) {
 func mapCodeToHTTPStatus(code err.Code) int {
 	switch code {
 	case err.CodeValidation:
-		return fiber.StatusBadRequest
+		return fiber.StatusUnprocessableEntity
 	case err.CodeUnauthorized:
 		return fiber.StatusUnauthorized
 	case err.CodeForbidden:

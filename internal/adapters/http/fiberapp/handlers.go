@@ -8,11 +8,13 @@ import (
 )
 
 type AuthHandler struct {
-	registerUC     application.IRegisterUseCase
-	loginUC        application.ILoginUseCase
-	refreshUC      application.IRefreshTokenUseCase
-	logoutUC       application.ILogoutUseCase
-	validateAccess application.IValidateAccessUseCase
+	registerUC       application.IRegisterUseCase
+	loginUC          application.ILoginUseCase
+	refreshUC        application.IRefreshTokenUseCase
+	logoutUC         application.ILogoutUseCase
+	validateAccess   application.IValidateAccessUseCase
+	forgotPasswordUC application.IForgotPasswordUseCase
+	resetPassword    application.IResetPasswordUseCase
 }
 
 // ... NewAuthHandler constructor ...
@@ -22,14 +24,18 @@ func NewAuthHandler(
 	ref application.IRefreshTokenUseCase,
 	out application.ILogoutUseCase,
 	val application.IValidateAccessUseCase,
+	forgotPasswordUC application.IForgotPasswordUseCase,
+	resetPassword application.IResetPasswordUseCase,
 ) *AuthHandler {
 
 	return &AuthHandler{
-		registerUC:     reg,
-		loginUC:        log,
-		refreshUC:      ref,
-		logoutUC:       out,
-		validateAccess: val,
+		registerUC:       reg,
+		loginUC:          log,
+		refreshUC:        ref,
+		logoutUC:         out,
+		validateAccess:   val,
+		forgotPasswordUC: forgotPasswordUC,
+		resetPassword:    resetPassword,
 	}
 
 }
@@ -205,28 +211,44 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 }
 
 // User Handler
-
 type UserHandler struct {
-	findByEmail application.IFindUserByEmail
-	getByID     application.IGetUserByID
-	getCurrent  application.IGetCurrentUser
+	findByEmail    application.IFindUserByEmailUseCase
+	getByID        application.IGetUserByIDUseCase
+	getMe          application.IGetMeUseCase
+	updateMe       application.IUpdateMeUseCase
+	changePassword application.IChangePasswordUseCase
 }
 
 // ... NewAuthHandler constructor ...
 func UewUserHandler(
-	findByEmail application.IFindUserByEmail,
-	getByID application.IGetUserByID,
-	getCurrent application.IGetCurrentUser,
+	findByEmail application.IFindUserByEmailUseCase,
+	getByID application.IGetUserByIDUseCase,
+	getMe application.IGetMeUseCase,
+	updateMe application.IUpdateMeUseCase,
+	changePassword application.IChangePasswordUseCase,
 ) *UserHandler {
 
 	return &UserHandler{
-		findByEmail: findByEmail,
-		getByID:     getByID,
-		getCurrent:  getCurrent,
+		findByEmail:    findByEmail,
+		getByID:        getByID,
+		getMe:          getMe,
+		updateMe:       updateMe,
+		changePassword: changePassword,
 	}
 
 }
 
+// @Summary Find user by email
+// @Description Search for a specific user using their email address
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param email query string true "User Email"
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users [get]
 func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	ctx := c.Context()
 	email := c.Query("email")
@@ -243,6 +265,17 @@ func (h *UserHandler) FindByEmail(c fiber.Ctx) error {
 	return SendOK(c, "user found", mapToResponse(user))
 }
 
+// @Summary Get user by ID
+// @Description Retrieve a user's public profile by their unique ID
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users/{id} [get]
 func (h *UserHandler) GetByID(c fiber.Ctx) error {
 	ctx := c.Context()
 	id := c.Params("id")
@@ -258,7 +291,17 @@ func (h *UserHandler) GetByID(c fiber.Ctx) error {
 
 	return SendOK(c, "user found", mapToResponse(user))
 }
-func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
+
+// @Summary Get current user
+// @Description Retrieve the profile of the currently authenticated user
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/users/me [get]
+func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
 
@@ -273,7 +316,7 @@ func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
 
 	// 2. Execute the Use Case
 	// We pass the validated userID to the application layer
-	user, err := h.getCurrent.Execute(ctx, userID.String())
+	user, err := h.getMe.Execute(ctx, userID.String())
 	if err != nil {
 		// Return the error to be handled by your Global Error Handler / Mapper
 		return err
@@ -282,9 +325,126 @@ func (h *UserHandler) GetCurrent(c fiber.Ctx) error {
 	return SendOK(c, "current user profile fetched", mapToResponse(user))
 }
 
+// @Summary Update Current User Profile
+// @Description Update the authenticated user's email
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateMeRequest true "Update Details"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/users/me [patch]
+func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
+	ctx := c.Context()
+	logger := application.GetLogger(ctx)
+
+	var req UpdateMeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	// Execute Use Case
+	cmd := application.UpdateMeCommand{Email: req.Email}
+	err := h.updateMe.Execute(ctx, cmd)
+	if err != nil {
+		// NewErrorHandler will handle domain errors like ErrUserEmailTaken
+		return err
+	}
+
+	logger.Info("user_profile_updated")
+	return SendNoContent(c)
+}
+
 func mapToResponse(user application.UserResponse) UserResponse {
 	return UserResponse{
 		ID:    user.ID,
 		Email: user.Email,
 	}
+}
+
+// @Summary Change Password
+// @Description Update the authenticated user's password
+// @Tags Users
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body ChangePasswordRequest true "Password Details"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/users/me/password [put]
+func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
+	ctx := c.Context()
+	var req ChangePasswordRequest
+
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ChangePasswordCommand{
+		OldPassword: req.OldPassword,
+		NewPassword: req.NewPassword,
+	}
+
+	if err := h.changePassword.Execute(ctx, cmd); err != nil {
+		return err
+	}
+
+	return SendNoContent(c)
+}
+
+func (h *AuthHandler) ResetPassword(c fiber.Ctx) error {
+	ctx := c.Context()
+	var req ResetPasswordRequest
+
+	// 1. Bind and Validate JSON
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	// 2. Map HTTP Request to Application Command
+	cmd := application.ResetPasswordCommand{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	}
+
+	// 3. Execute Use Case
+	if err := h.resetPassword.Execute(ctx, cmd); err != nil {
+		// Centralized error mapping handles domain errors (e.g., ErrRecoveryTokenExpired)
+		return err
+	}
+
+	return SendOK(c, "Password has been reset successfully. You can now log in with your new credentials.", nil)
+}
+
+func (h *AuthHandler) ForgotPassword(c fiber.Ctx) error {
+	var req ForgotPasswordRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ForgotPasswordCommand{Email: req.Email}
+
+	// We don't return an error if user not found (security best practice)
+	if err := h.forgotPasswordUC.Execute(c.Context(), cmd); err != nil {
+		return err
+	}
+
+	return SendOK(c, "If an account exists with that email, a reset link has been sent.", nil)
 }

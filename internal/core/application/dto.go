@@ -53,6 +53,27 @@ type ValidateAccessResponse struct {
 	Roles     []string
 }
 
+// UpdateMeCommand
+type UpdateMeCommand struct {
+	Email string
+}
+
+// ChangePassword
+type ChangePasswordCommand struct {
+	OldPassword string
+	NewPassword string
+}
+
+type ForgotPasswordCommand struct {
+	Email string
+}
+
+// ResetPassword
+type ResetPasswordCommand struct {
+	Token       string
+	NewPassword string
+}
+
 // LoginResponse (The Dual-Token DTO)
 type LoginResponse struct {
 	AccessToken        string

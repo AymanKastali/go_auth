@@ -84,26 +84,35 @@ func FromContext(ctx context.Context) (*AppContext, bool) {
 
 // Getters
 func GetUserID(ctx context.Context) domain.UserID {
-	if appCtx, ok := FromContext(ctx); ok && appCtx.User != nil {
+	if ctx == nil {
+		return domain.ZeroUserID
+	}
+	if appCtx, ok := FromContext(ctx); ok && appCtx != nil && appCtx.User != nil {
 		return appCtx.User.UserID
 	}
-	return domain.UserID{} // Or a predefined "Null" UserID
+	return domain.ZeroUserID
 }
 
-// GetSessionID returns the SessionID if authenticated.
+// GetSessionID returns the SessionID if authenticated, otherwise ZeroSessionID.
 func GetSessionID(ctx context.Context) domain.SessionID {
-	if appCtx, ok := FromContext(ctx); ok && appCtx.User != nil {
+	if ctx == nil {
+		return domain.ZeroSessionID
+	}
+	if appCtx, ok := FromContext(ctx); ok && appCtx != nil && appCtx.User != nil {
 		return appCtx.User.SessionID
 	}
-	return domain.SessionID{}
+	return domain.ZeroSessionID
 }
 
-// GetIdentity returns the DeviceIdentity.
+// GetIdentity returns the DeviceIdentity or ZeroDeviceIdentity if missing.
 func GetIdentity(ctx context.Context) domain.DeviceIdentity {
-	if appCtx, ok := FromContext(ctx); ok {
+	if ctx == nil {
+		return domain.ZeroDeviceIdentity
+	}
+	if appCtx, ok := FromContext(ctx); ok && appCtx != nil {
 		return appCtx.Client.Identity
 	}
-	return domain.DeviceIdentity{}
+	return domain.ZeroDeviceIdentity
 }
 
 // GetLogger returns the contextual logger or a default one if missing.

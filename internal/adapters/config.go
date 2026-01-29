@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // The prefix is centralized here for easy maintenance
 const envPrefix = "GA_"
+
+var (
+	ZeroRegisterPolicyConfig = RegisterPolicyConfig{}
+)
 
 type Config struct {
 	App            AppConfig
@@ -17,8 +22,11 @@ type Config struct {
 	Password       PasswordConfig
 	PasswordPolicy PasswordPolicyConfig
 	SessionPolicy  SessionPolicyConfig
+	RegisterPolicy RegisterPolicyConfig
 	Database       DatabaseConfig
 	Seed           SeedConfig
+	Email          EmailConfig
+	RecoveryPolicy RecoveryPolicyConfig
 }
 
 type PasswordPolicyConfig struct {
@@ -32,6 +40,11 @@ type PasswordPolicyConfig struct {
 type SessionPolicyConfig struct {
 	Lifetime  time.Duration
 	MaxActive uint8
+}
+
+type RegisterPolicyConfig struct {
+	AllowPublic    bool
+	BlockedDomains []string
 }
 
 type AppConfig struct {
@@ -59,6 +72,18 @@ type JWTConfig struct {
 
 type PasswordConfig struct {
 	BcryptCost int
+}
+
+type RecoveryPolicyConfig struct {
+	Lifetime time.Duration
+}
+
+type EmailConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
 }
 
 type DatabaseConfig struct {
@@ -96,6 +121,11 @@ func Load() (*Config, error) {
 	db := loadDatabase()
 	seed := loadSeed()
 
+	registerPolicy, err := loadRegisterPolicy()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		App:            app,
 		HTTP:           http,
@@ -105,6 +135,7 @@ func Load() (*Config, error) {
 		SessionPolicy:  sessionPolicy,
 		Database:       db,
 		Seed:           seed,
+		RegisterPolicy: registerPolicy,
 	}, nil
 }
 
@@ -198,6 +229,27 @@ func loadSessionPolicy() (SessionPolicyConfig, error) {
 	return SessionPolicyConfig{
 		Lifetime:  life,
 		MaxActive: uint8(max),
+	}, nil
+}
+
+func loadRegisterPolicy() (RegisterPolicyConfig, error) {
+	allowPublic, err := strconv.ParseBool(getEnv("REGISTER_ALLOW_PUBLIC", "true"))
+	if err != nil {
+		return ZeroRegisterPolicyConfig, fmt.Errorf("config: invalid GA_REGISTER_ALLOW_PUBLIC: %w", err)
+	}
+
+	rawDomains := getEnv("REGISTER_BLOCKED_DOMAINS", "")
+	var blocked []string
+	if rawDomains != "" {
+		blocked = strings.Split(rawDomains, ",")
+		for i := range blocked {
+			blocked[i] = strings.TrimSpace(blocked[i])
+		}
+	}
+
+	return RegisterPolicyConfig{
+		AllowPublic:    allowPublic,
+		BlockedDomains: blocked,
 	}, nil
 }
 

@@ -4,6 +4,19 @@ import (
 	"context"
 )
 
+type IIDGenerator interface {
+	Generate() (string, error)
+}
+
+type ITransactionManager interface {
+	WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
+}
+
+type IEmailService interface {
+	// SendResetLink sends the raw recovery token to the user's email
+	SendResetLink(toEmail string, rawToken string) error
+}
+
 // IRegisterUseCase defines the boundary for creating a new user.
 type IRegisterUseCase interface {
 	// Execute orchestrates the registration process.
@@ -34,18 +47,33 @@ type ILogoutUseCase interface {
 }
 
 // ISeedSuperAdmin handles the creation of the super admin user when bootstrap the app.
-type ISeedSuperAdmin interface {
+type ISeedSuperAdminUseCase interface {
 	Execute(ctx context.Context, cmd RegisterUserCommand) error
 }
 
-type IFindUserByEmail interface {
+type IFindUserByEmailUseCase interface {
 	Execute(ctx context.Context, email string) (UserResponse, error)
 }
 
-type IGetUserByID interface {
+type IGetUserByIDUseCase interface {
 	Execute(ctx context.Context, id string) (UserResponse, error)
 }
 
-type IGetCurrentUser interface {
+type IGetMeUseCase interface {
 	Execute(ctx context.Context, id string) (UserResponse, error)
+}
+type IUpdateMeUseCase interface {
+	Execute(ctx context.Context, cmd UpdateMeCommand) error
+}
+
+type IChangePasswordUseCase interface {
+	Execute(ctx context.Context, cmd ChangePasswordCommand) error
+}
+
+type IResetPasswordUseCase interface {
+	Execute(ctx context.Context, cmd ResetPasswordCommand) error
+}
+
+type IForgotPasswordUseCase interface {
+	Execute(ctx context.Context, cmd ForgotPasswordCommand) error
 }

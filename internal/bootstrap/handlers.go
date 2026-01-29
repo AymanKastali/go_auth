@@ -20,11 +20,15 @@ func NewHandlers(uc UseCases) Handlers {
 			uc.Refresh,
 			uc.Logout,
 			uc.Validate,
+			uc.ForgotPassword,
+			uc.ResetPassword,
 		),
 		User: fiberapp.UewUserHandler(
 			uc.FindByEmail,
 			uc.GetByID,
-			uc.GetCurrent,
+			uc.GetMe,
+			uc.UpdateMe,
+			uc.ChangePassword,
 		),
 		AuthGuard: fiberapp.Protected(uc.Validate),
 	}

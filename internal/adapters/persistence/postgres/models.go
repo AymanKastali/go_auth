@@ -36,3 +36,14 @@ type SessionModel struct {
 }
 
 func (SessionModel) TableName() string { return "sessions" }
+
+type RecoveryTokenModel struct {
+	ID          string     `gorm:"primaryKey;column:id"`
+	UserID      string     `gorm:"index;column:user_id;not null"`
+	HashedToken string     `gorm:"uniqueIndex;column:hashed_token;not null"`
+	ExpiresAt   time.Time  `gorm:"column:expires_at;not null"`
+	CreatedAt   time.Time  `gorm:"column:created_at"`
+	UsedAt      *time.Time `gorm:"column:used_at"` // Nullable: if set, token is spent
+}
+
+func (RecoveryTokenModel) TableName() string { return "recovery_tokens" }

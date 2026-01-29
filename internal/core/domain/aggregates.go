@@ -210,6 +210,51 @@ func (u *User) revokeOldestSession(now Timepoint) {
 	}
 }
 
+func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
+	// If the email is the same, do nothing (idempotent)
+	if u.email.Equal(newEmail) {
+		return nil
+	}
+
+	u.email = newEmail
+	u.updatedAt = now
+
+	// Note: In many systems, changing an email would also set u.isActive = false
+	// to trigger a new email verification flow.
+	return nil
+}
+
+func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+	if !u.isActive {
+		return ErrUserInactive
+	}
+
+	u.passwordHash = newHash
+	u.updatedAt = now
+
+	for i := range u.sessions {
+		_ = u.sessions[i].Revoke(now)
+	}
+
+	return nil
+}
+
+func (u *User) FindActiveSessionByFingerprint(fp DeviceFingerprint) (SessionID, bool) {
+	for _, s := range u.sessions {
+		if !s.IsRevoked() && s.Identity().Fingerprint().Equal(fp) {
+			return s.ID(), true
+		}
+	}
+	return ZeroSessionID, false
+}
+
 // --- Getters ---
 
 func (u *User) ID() UserID                     { return u.id }

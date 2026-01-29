@@ -7,19 +7,30 @@ import (
 )
 
 // --- Seed Super Admin Use Case ---
-
 type seedSuperAdminUseCase struct {
-	userRepo        domain.IUserRepository
-	registerUserSvc domain.IRegisterUserService
+	userRepo       domain.IUserRepository
+	passwordPolicy domain.IPasswordPolicy
+	passwordSvc    domain.IPasswordService
+	userFactory    domain.IUserFactory
+	idGen          domain.IIDGenerator
+	clock          domain.IClock
 }
 
 func NewSeedSuperAdminUseCase(
-	repo domain.IUserRepository,
-	registerUserSvc domain.IRegisterUserService,
-) ISeedSuperAdmin {
+	userRepo domain.IUserRepository,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
+	userFactory domain.IUserFactory,
+	idGen domain.IIDGenerator,
+	clock domain.IClock,
+) ISeedSuperAdminUseCase {
 	return &seedSuperAdminUseCase{
-		userRepo:        repo,
-		registerUserSvc: registerUserSvc,
+		userRepo:       userRepo,
+		passwordPolicy: passwordPolicy,
+		passwordSvc:    passwordSvc,
+		userFactory:    userFactory,
+		idGen:          idGen,
+		clock:          clock,
 	}
 }
 
@@ -36,9 +47,43 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 		return err
 	}
 
-	user, err := uc.registerUserSvc.Execute(ctx, email, rawPassword)
+	if err := uc.passwordPolicy.Validate(rawPassword); err != nil {
+		return err
+	}
+
+	existing, err := uc.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		logger.Error("seeding_registration_skipped, user already exist")
+		return domain.ErrUserEmailTaken
+	}
+
+	hashedPassword, err := uc.passwordSvc.Hash(rawPassword)
+	if err != nil {
+		return err
+	}
+
+	uidVO, err := uc.idGen.GenerateUserID()
+	if err != nil {
+		return err
+	}
+
+	now := uc.clock.Now()
+
+	user, err := uc.userFactory.Build(uidVO, email, hashedPassword, now)
+
 	if err != nil {
 		logger.Error("seeding_registration_failed", slog.Any("error", err))
+		return err
+	}
+
+	if err := user.AssignRole(domain.RoleMember, now); err != nil {
+		return err
+	}
+
+	if err := user.Activate(now); err != nil {
 		return err
 	}
 
@@ -48,23 +93,38 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 	}
 
 	logger.Info("super_admin_seeded_successfully")
+
 	return nil
 }
 
 // --- Register Use Case ---
-
 type registerUseCase struct {
-	userRepo        domain.IUserRepository
-	registerUserSvc domain.IRegisterUserService
+	userRepo       domain.IUserRepository
+	registerPolicy domain.IRegisterPolicy
+	passwordPolicy domain.IPasswordPolicy
+	passwordSvc    domain.IPasswordService
+	userFactory    domain.IUserFactory
+	idGen          domain.IIDGenerator
+	clock          domain.IClock
 }
 
 func NewRegisterUseCase(
 	userRepo domain.IUserRepository,
-	registerUserSvc domain.IRegisterUserService,
+	registerPolicy domain.IRegisterPolicy,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
+	userFactory domain.IUserFactory,
+	idGen domain.IIDGenerator,
+	clock domain.IClock,
 ) IRegisterUseCase {
 	return &registerUseCase{
-		userRepo:        userRepo,
-		registerUserSvc: registerUserSvc,
+		userRepo:       userRepo,
+		registerPolicy: registerPolicy,
+		passwordPolicy: passwordPolicy,
+		passwordSvc:    passwordSvc,
+		userFactory:    userFactory,
+		idGen:          idGen,
+		clock:          clock,
 	}
 }
 
@@ -76,20 +136,55 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 		return ZeroRegisterUserResponse, err
 	}
 
+	if err := uc.registerPolicy.Validate(email); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
 	rawPassword, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
 		return ZeroRegisterUserResponse, err
 	}
 
-	user, err := uc.registerUserSvc.Execute(ctx, email, rawPassword)
+	if err := uc.passwordPolicy.Validate(rawPassword); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	existing, err := uc.userRepo.FindByEmail(ctx, email)
 	if err != nil {
-		logger.Warn("user_registration_aborted", slog.Any("error", err))
+		return ZeroRegisterUserResponse, err
+	}
+	if existing != nil {
+		return ZeroRegisterUserResponse, domain.ErrUserEmailTaken
+	}
+
+	hashedPassword, err := uc.passwordSvc.Hash(rawPassword)
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	uidVO, err := uc.idGen.GenerateUserID()
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	now := uc.clock.Now()
+
+	user, err := uc.userFactory.Build(uidVO, email, hashedPassword, now)
+	if err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	if err := user.AssignRole(domain.RoleMember, now); err != nil {
+		return ZeroRegisterUserResponse, err
+	}
+
+	if err := user.Activate(now); err != nil {
 		return ZeroRegisterUserResponse, err
 	}
 
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		logger.Error("user_registration_save_failed", slog.Any("error", err))
-		return ZeroRegisterUserResponse, ErrInternal
+		return ZeroRegisterUserResponse, err
 	}
 
 	logger.Info("user_registration_completed", slog.String("user_id", user.ID().String()))
@@ -100,30 +195,43 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 }
 
 // --- Login Use Case ---
-
 type loginUseCase struct {
-	userRepo                domain.IUserRepository
-	authenticateUserSvc     domain.IAuthenticateUser
-	establishUserSessionSvc domain.IEstablishUserSession
-	accessGranter           domain.IAccessGrantor
+	userRepo       domain.IUserRepository
+	passwordSvc    domain.IPasswordService
+	idGen          domain.IIDGenerator
+	tokenSvc       domain.ITokenService
+	sessionFactory domain.ISessionFactory
+	sessionPolicy  domain.ISessionPolicy
+	clock          domain.IClock
+	accessSvc      domain.IAccessService
+	accessPolicy   domain.IAccessPolicy
 }
 
 func NewLoginUseCase(
-	repo domain.IUserRepository,
-	authenticateUserSvc domain.IAuthenticateUser,
-	establishUserSessionSvc domain.IEstablishUserSession,
-	accessGranter domain.IAccessGrantor,
+	userRepo domain.IUserRepository,
+	passwordSvc domain.IPasswordService,
+	idGen domain.IIDGenerator,
+	tokenSvc domain.ITokenService,
+	sessionFactory domain.ISessionFactory,
+	sessionPolicy domain.ISessionPolicy,
+	clock domain.IClock,
+	accessSvc domain.IAccessService,
+	accessPolicy domain.IAccessPolicy,
 ) ILoginUseCase {
 	return &loginUseCase{
-		userRepo:                repo,
-		authenticateUserSvc:     authenticateUserSvc,
-		establishUserSessionSvc: establishUserSessionSvc,
-		accessGranter:           accessGranter,
+		userRepo:       userRepo,
+		passwordSvc:    passwordSvc,
+		idGen:          idGen,
+		tokenSvc:       tokenSvc,
+		sessionFactory: sessionFactory,
+		sessionPolicy:  sessionPolicy,
+		clock:          clock,
+		accessSvc:      accessSvc,
+		accessPolicy:   accessPolicy,
 	}
 }
 
 func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginResponse, error) {
-	// GetLogger(ctx) provides the logger with the unified 'req_id' attached
 	logger := GetLogger(ctx).With(slog.String("email", cmd.Email))
 
 	email, err := domain.NewEmail(cmd.Email)
@@ -131,29 +239,71 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 		return ZeroLoginResponse, err
 	}
 
-	password, err := domain.NewRawPassword(cmd.Password)
+	user, err := uc.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return ZeroLoginResponse, err
 	}
 
-	// 1. Authenticate (Verify email/password)
-	user, err := uc.authenticateUserSvc.Execute(ctx, email, password)
+	if user == nil {
+		return ZeroLoginResponse, ErrResourceNotFound
+	}
+
+	rawPassword, err := domain.NewRawPassword(cmd.Password)
 	if err != nil {
-		logger.Warn("login_denied_invalid_credentials", slog.Any("error", err))
 		return ZeroLoginResponse, err
+	}
+
+	if !uc.passwordSvc.Compare(rawPassword, user.HashedPassword()) {
+		logger.Warn("login_denied_invalid_credentials", slog.Any("error", err))
+		return ZeroLoginResponse, domain.ErrAuthenticationFailed
 	}
 
 	// 2. Establish Session (Device Fingerprinting & Aggregate State Mutation)
 	identity := GetIdentity(ctx)
-	session, rawRefreshToken, err := uc.establishUserSessionSvc.Execute(ctx, user, identity)
+	var sid domain.SessionID
+	var found bool
+
+	sid, found = user.FindActiveSessionByFingerprint(identity.Fingerprint())
+	if !found {
+		sid, err = uc.idGen.GenerateSessionID()
+		if err != nil {
+			return ZeroLoginResponse, err
+		}
+	}
+
+	rawToken, err := uc.tokenSvc.Generate()
 	if err != nil {
-		logger.Error("login_failed_session_establishment", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	// 3. Grant Access (JWT Generation)
-	// FIX: Pass the actual session.ID() generated in step 2 to ensure the 'sid' claim is populated
-	accessToken, expiresAt, err := uc.accessGranter.GrantImmediateAccess(ctx, user, session.ID())
+	hashedToken, err := uc.tokenSvc.Hash(rawToken)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+	now := uc.clock.Now()
+	sessionExpiresAt := now.Add(uc.sessionPolicy.GetSessionLifetime())
+	session, err := uc.sessionFactory.Build(sid, hashedToken, identity, sessionExpiresAt, now)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+
+	if err := user.EstablishSession(*session, uc.sessionPolicy.GetMaxActiveSessions()); err != nil {
+		return ZeroLoginResponse, err
+	}
+
+	issuedAt := now
+	accessExpiresAt := issuedAt.Add(uc.accessPolicy.GetAccessLifetime())
+	notBefore := issuedAt
+
+	accessToken, accessExpiresAt, err := uc.accessSvc.Issue(
+		user.ID(),
+		user.Email(),
+		sid,
+		user.Roles(),
+		issuedAt,
+		accessExpiresAt,
+		notBefore,
+	)
 	if err != nil {
 		logger.Error("login_failed_token_generation", slog.Any("error", err))
 		return ZeroLoginResponse, err
@@ -172,8 +322,8 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 
 	return LoginResponse{
 		AccessToken:        accessToken.String(),
-		AccessTokenExpiry:  expiresAt.String(),
-		RefreshToken:       rawRefreshToken.String(),
+		AccessTokenExpiry:  accessExpiresAt.String(),
+		RefreshToken:       rawToken.String(),
 		RefreshTokenExpiry: session.ExpiresAt().String(),
 	}, nil
 }
@@ -181,28 +331,33 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 // --- Refresh Token Use Case ---
 
 type refreshTokenUseCase struct {
-	userRepo                  domain.IUserRepository
-	refreshUserSessionService domain.IRefreshSession
-	accessGranter             domain.IAccessGrantor
+	userRepo     domain.IUserRepository
+	tokenSvc     domain.ITokenService
+	clock        domain.IClock
+	accessSvc    domain.IAccessService
+	accessPolicy domain.IAccessPolicy
 }
 
 func NewRefreshTokenUseCase(
-	repo domain.IUserRepository,
-	refreshUserSessionService domain.IRefreshSession,
-	accessGranter domain.IAccessGrantor,
+	userRepo domain.IUserRepository,
+	tokenSvc domain.ITokenService,
+	clock domain.IClock,
+	accessSvc domain.IAccessService,
+	accessPolicy domain.IAccessPolicy,
+
 ) IRefreshTokenUseCase {
 	return &refreshTokenUseCase{
-		userRepo:                  repo,
-		refreshUserSessionService: refreshUserSessionService,
-		accessGranter:             accessGranter,
+		userRepo:     userRepo,
+		tokenSvc:     tokenSvc,
+		clock:        clock,
+		accessSvc:    accessSvc,
+		accessPolicy: accessPolicy,
 	}
 }
 
 func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenCommand) (LoginResponse, error) {
 	logger := GetLogger(ctx).With(slog.String("use_case", "refresh_token"))
 
-	// 1. Map Primitives to Domain VOs
-	// Note: If NewRawToken fails, it likely returns an ErrRequiredAttribute or ErrInvalidAttribute
 	raw, err := domain.NewRawToken(cmd.RefreshToken)
 	if err != nil {
 		logger.Warn("invalid_token_format", slog.Any("error", err))
@@ -215,52 +370,71 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 		return ZeroLoginResponse, err
 	}
 
-	// 2. Execute Domain Service (Identity resolution happens here)
-	user, session, err := uc.refreshUserSessionService.Execute(ctx, raw, fp)
+	hashedToken, err := uc.tokenSvc.Hash(raw)
 	if err != nil {
-		// We log it here because we have the context-aware logger
-		logger.Warn("refresh_denied", slog.Any("error", err))
-		return ZeroLoginResponse, err // err is already a DomainError (e.g., ErrInvalidToken)
+		return ZeroLoginResponse, err
 	}
 
-	// 3. Update Logger now that we know the UserID
+	user, err := uc.userRepo.FindBySessionToken(ctx, hashedToken)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+
+	if user == nil {
+		return ZeroLoginResponse, ErrResourceNotFound
+	}
+
+	now := uc.clock.Now()
+	session, err := user.RefreshSession(hashedToken, fp, now)
+	if err != nil {
+		return ZeroLoginResponse, err
+	}
+
 	logger = logger.With(slog.String("user_id", user.ID().String()))
 
-	// 4. Grant New Access
-	accessToken, expiresAt, err := uc.accessGranter.GrantImmediateAccess(ctx, user, session.ID())
+	issuedAt := now
+	accessExpiresAt := issuedAt.Add(uc.accessPolicy.GetAccessLifetime())
+	notBefore := issuedAt
+
+	accessToken, accessExpiresAt, err := uc.accessSvc.Issue(
+		user.ID(),
+		user.Email(),
+		session.ID(),
+		user.Roles(),
+		issuedAt,
+		accessExpiresAt,
+		notBefore,
+	)
+
 	if err != nil {
-		// This is an internal logic or signing failure
 		logger.Error("refresh_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	// 5. Persist Aggregate changes
 	if err := uc.userRepo.Save(ctx, user); err != nil {
-		// Database failure is always a CodeInternal
 		logger.Error("refresh_persistence_failed", slog.Any("error", err))
-		return ZeroLoginResponse, err // userRepo.Save should already return ErrInternal
+		return ZeroLoginResponse, err
 	}
 
 	logger.Info("token_refresh_success", slog.String("session_id", session.ID().String()))
 
 	return LoginResponse{
 		AccessToken:        accessToken.String(),
-		AccessTokenExpiry:  expiresAt.String(),
+		AccessTokenExpiry:  accessExpiresAt.String(),
 		RefreshToken:       cmd.RefreshToken,
 		RefreshTokenExpiry: session.ExpiresAt().String(),
 	}, nil
 }
 
 // --- Validate Access Use Case ---
-
 type validateAccessUseCase struct {
-	tokenService domain.IAccessTokenService
+	tokenService domain.IAccessService
 	userRepo     domain.IUserRepository
 	clock        domain.IClock
 }
 
 func NewValidateAccessUseCase(
-	provider domain.IAccessTokenService,
+	provider domain.IAccessService,
 	repo domain.IUserRepository,
 	clock domain.IClock,
 ) IValidateAccessUseCase {
@@ -272,7 +446,6 @@ func NewValidateAccessUseCase(
 }
 
 func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAccessQuery) (ValidateAccessResponse, error) {
-	// 1. Fix the Logger label to be generic
 	logger := GetLogger(ctx).With(slog.String("use_case", "ValidateAccess"))
 
 	token, err := domain.NewAccessToken(query.AccessToken)
@@ -319,14 +492,19 @@ func (uc *validateAccessUseCase) Execute(ctx context.Context, query ValidateAcce
 }
 
 // --- Logout Use Case ---
-
 type logoutUseCase struct {
 	userRepo domain.IUserRepository
 	clock    domain.IClock
 }
 
-func NewLogoutUseCase(repo domain.IUserRepository, clock domain.IClock) ILogoutUseCase {
-	return &logoutUseCase{userRepo: repo, clock: clock}
+func NewLogoutUseCase(
+	repo domain.IUserRepository,
+	clock domain.IClock,
+) ILogoutUseCase {
+	return &logoutUseCase{
+		userRepo: repo,
+		clock:    clock,
+	}
 }
 
 func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
@@ -363,12 +541,11 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 }
 
 // --- Fetch User Use Case ---
-
 type findUserByEmailUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmail {
+func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmailUseCase {
 	return &findUserByEmailUseCase{userRepo: repo}
 }
 
@@ -403,7 +580,7 @@ type getUserByIDUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByID {
+func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByIDUseCase {
 	return &getUserByIDUseCase{userRepo: repo}
 }
 
@@ -432,15 +609,15 @@ func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserRespo
 	}, nil
 }
 
-type getCurrentUserUseCase struct {
+type getMeUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewGetCurrentUserUseCase(repo domain.IUserRepository) IGetCurrentUser {
-	return &getCurrentUserUseCase{userRepo: repo}
+func NewGetMeUseCase(repo domain.IUserRepository) IGetMeUseCase {
+	return &getMeUseCase{userRepo: repo}
 }
 
-func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+func (uc *getMeUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
 	logger := GetLogger(ctx)
 
 	userID, err := domain.NewUserID(id)
@@ -463,4 +640,206 @@ func (uc *getCurrentUserUseCase) Execute(ctx context.Context, id string) (UserRe
 		ID:    user.ID().String(),
 		Email: user.Email().String(),
 	}, nil
+}
+
+type updateMeUseCase struct {
+	userRepo domain.IUserRepository
+	clock    domain.IClock
+}
+
+func NewUpdateMeUseCase(
+	repo domain.IUserRepository,
+	clock domain.IClock,
+) IUpdateMeUseCase {
+	return &updateMeUseCase{
+		userRepo: repo,
+		clock:    clock,
+	}
+}
+
+func (uc *updateMeUseCase) Execute(ctx context.Context, cmd UpdateMeCommand) error {
+	// 1. Validate Input as Domain Value Objects
+	uid := GetUserID(ctx)
+	if uid.IsEmpty() {
+		return ErrUnauthorized
+	}
+
+	emailVO, err := domain.NewEmail(cmd.Email)
+	if err != nil {
+		return err
+	}
+
+	// 2. Fetch Entity
+	user, err := uc.userRepo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrResourceNotFound
+	}
+
+	// 3. Check Email Uniqueness (Business Rule)
+	if !user.Email().Equal(emailVO) {
+		existing, err := uc.userRepo.FindByEmail(ctx, emailVO)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			return domain.ErrUserEmailTaken
+		}
+	}
+
+	// 4. Update and Persist
+	if err := user.UpdateEmail(emailVO, uc.clock.Now()); err != nil {
+		return err
+	}
+
+	return uc.userRepo.Save(ctx, user)
+}
+
+type changePasswordUseCase struct {
+	userRepo          domain.IUserRepository
+	changePasswordSvc domain.IChangePassword
+}
+
+func NewChangePasswordUseCase(
+	userRepo domain.IUserRepository,
+	changePasswordSvc domain.IChangePassword,
+) IChangePasswordUseCase {
+	return &changePasswordUseCase{
+		userRepo:          userRepo,
+		changePasswordSvc: changePasswordSvc,
+	}
+}
+
+func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePasswordCommand) error {
+	// 1. Security Guard
+	uid := GetUserID(ctx)
+	if uid.IsEmpty() {
+		return ErrUnauthorized
+	}
+
+	// 2. Primitive to Value Object Mapping (Input Validation)
+	oldPw, err := domain.NewRawPassword(cmd.OldPassword)
+	if err != nil {
+		return err // Likely domain.ErrUserPasswordRequired
+	}
+
+	newPw, err := domain.NewRawPassword(cmd.NewPassword)
+	if err != nil {
+		return err // Likely domain.ErrUserPasswordRequired
+	}
+
+	// 3. Persistence Retrieval
+	user, err := uc.userRepo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrResourceNotFound
+	}
+
+	// 4. Coordinate Domain Service
+	if err := uc.changePasswordSvc.ChangePassword(ctx, user, oldPw, newPw); err != nil {
+		return err
+	}
+
+	// 5. Atomic Persistence
+	return uc.userRepo.Save(ctx, user)
+}
+
+// Reset Password
+type ResetPasswordUseCase struct {
+	resetSvc  domain.IPasswordResetService
+	txManager ITransactionManager
+	clock     domain.IClock
+}
+
+func (uc *ResetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCommand) error {
+	now := uc.clock.Now()
+
+	// 1. Create Value Objects (Check errors!)
+	rawToken, err := domain.NewRawToken(cmd.Token)
+	if err != nil {
+		return err
+	}
+
+	rawPassword, err := domain.NewRawPassword(cmd.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	// 2. Atomic Execution: The Service now handles the "Fetching" logic
+	return uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// The service finds the token, finds the user, hashes everything, and validates rules
+		if err := uc.resetSvc.Reset(txCtx, rawToken, rawPassword, now); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// Forget Password
+type forgotPasswordUseCase struct {
+	userRepo  domain.IUserRepository
+	forgotSvc domain.IForgotPasswordService
+	emailSvc  IEmailService // Infrastructure interface for sending emails
+	txManager ITransactionManager
+	clock     domain.IClock
+}
+
+func NewForgotPasswordUseCase(
+	ur domain.IUserRepository,
+	fs domain.IForgotPasswordService,
+	es IEmailService,
+	tm ITransactionManager,
+	cl domain.IClock,
+) IForgotPasswordUseCase {
+	return &forgotPasswordUseCase{
+		userRepo:  ur,
+		forgotSvc: fs,
+		emailSvc:  es,
+		txManager: tm,
+		clock:     cl,
+	}
+}
+
+func (uc *forgotPasswordUseCase) Execute(ctx context.Context, cmd ForgotPasswordCommand) error {
+	now := uc.clock.Now()
+
+	// 1. Validate Email format using Domain VO
+	email, err := domain.NewEmail(cmd.Email)
+	if err != nil {
+		return err
+	}
+
+	// 2. Lookup User
+	user, err := uc.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	// Security: If user doesn't exist, return nil to prevent account enumeration.
+	// The handler will still show a "Success" message to the requester.
+	if user == nil {
+		return nil
+	}
+
+	var rawToken domain.RawToken
+
+	// 3. Atomic Transaction: Domain Service handles Token Generation & Persistence
+	err = uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		var innerErr error
+		// The Domain Service generates the Raw/Hashed pair and saves to DB
+		rawToken, innerErr = uc.forgotSvc.Execute(txCtx, user, now)
+		return innerErr
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// 4. Send the Email with the Raw Token (Infrastructure)
+	// We do this outside the DB transaction to avoid holding locks during network I/O
+	return uc.emailSvc.SendResetLink(user.Email().String(), rawToken.String())
 }

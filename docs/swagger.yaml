@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  internal_adapters_http_fiberapp.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
   internal_adapters_http_fiberapp.ErrorResponse:
     properties:
       code:
@@ -48,7 +58,6 @@ definitions:
       email:
         type: string
       password:
-        minLength: 8
         type: string
     required:
     - email
@@ -66,6 +75,20 @@ definitions:
       data: {}
       message:
         example: humanized success message
+        type: string
+    type: object
+  internal_adapters_http_fiberapp.UpdateMeRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  internal_adapters_http_fiberapp.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
         type: string
     type: object
 host: localhost:8080
@@ -189,6 +212,157 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/v1/users:
+    get:
+      consumes:
+      - application/json
+      description: Search for a specific user using their email address
+      parameters:
+      - description: User Email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Find user by email
+      tags:
+      - Users
+  /api/v1/users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a user's public profile by their unique ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+  /api/v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user
+      tags:
+      - Users
+    patch:
+      consumes:
+      - application/json
+      description: Update the authenticated user's email
+      parameters:
+      - description: Update Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.UpdateMeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Current User Profile
+      tags:
+      - Users
+  /api/v1/users/me/password:
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's password
+      parameters:
+      - description: Password Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Change Password
+      tags:
+      - Users
 securityDefinitions:
   ApiKeyAuth:
     in: header

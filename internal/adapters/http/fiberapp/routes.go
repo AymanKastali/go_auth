@@ -26,18 +26,18 @@ func RegisterRoutes(
 
 	// Protected
 	auth.Post("/logout", authGuard, authHandler.Logout)
+	auth.Post("/reset-password", authHandler.ResetPassword)
+	auth.Post("/forgot-password", authHandler.ForgotPassword)
 
 	// Users
 	users := api.Group("/users")
 	users.Use(authGuard)
-	users.Get("/me", userHandler.GetCurrent) // Get own profile
+	users.Get("/me", userHandler.GetMe)      // Get own profile
+	users.Patch("/me", userHandler.UpdateMe) // Update own profile
+	users.Put("/me/password", userHandler.ChangePassword)
 	users.Get("", userHandler.FindByEmail)
 	users.Get("/:id", userHandler.GetByID)
-	// users.Patch("/me", userHandler.UpdateMe)      // Update own profile
-	// users.Put("/me/password", userHandler.ChangePassword)
 
 	// Recovery Flow
-	// auth.Post("/forgot-password", authHandler.ForgotPassword)
-	// auth.Post("/reset-password", authHandler.ResetPassword)
 	// auth.Post("/verify-email", authHandler.VerifyEmail) // Usually a GET or POST with token
 }
