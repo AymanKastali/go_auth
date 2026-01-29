@@ -113,6 +113,10 @@ type IPasswordPolicy interface {
 	Validate(rawPassword RawPassword) error
 }
 
+type IRecoveryPolicy interface {
+	GetRecoveryTokenLifetime() time.Duration
+}
+
 type ISessionPolicy interface {
 	// GetExpiryDuration returns how long a session should remain valid.
 	GetSessionLifetime() time.Duration
@@ -149,4 +153,14 @@ type IPasswordResetService interface {
 		newPassword RawPassword,
 		now Timepoint,
 	) error
+}
+
+type IForgotPasswordService interface {
+	// Execute generates a RawToken/Hash pair, revokes old tokens, and saves the new one.
+	// It returns the RawToken to be sent to the user via email.
+	Execute(
+		ctx context.Context,
+		user *User,
+		now Timepoint,
+	) (RawToken, error)
 }

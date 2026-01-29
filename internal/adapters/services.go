@@ -6,6 +6,8 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"go_auth/internal/core/application"
 	"go_auth/internal/core/domain"
 	"time"
 
@@ -229,4 +231,19 @@ func (p *jwtService) Validate(token domain.AccessToken) (domain.AccessIdentity, 
 
 	// 5. Build Identity VO (UserID, SessionID, Email, Roles)
 	return domain.NewAccessIdentity(uid, sid, email, roles)
+}
+
+// Email
+type emailService struct {
+	config EmailConfig
+}
+
+func NewEmailService(cfg EmailConfig) application.IEmailService {
+	return &emailService{config: cfg}
+}
+
+func (s *emailService) SendResetLink(toEmail string, rawToken string) error {
+	// For now, we log it. In production, use net/smtp or an API.
+	fmt.Printf("Sending reset link to %s: http://yourapp.com/reset?token=%s\n", toEmail, rawToken)
+	return nil
 }

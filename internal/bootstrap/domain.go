@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"go_auth/internal/adapters"
 	"go_auth/internal/adapters/persistence/postgres"
+	"go_auth/internal/core/application"
 	"go_auth/internal/core/domain"
 
 	"gorm.io/gorm"
@@ -19,10 +20,15 @@ type DomainServices struct {
 	Clock             domain.IClock
 	ULIDGen           domain.IIDGenerator
 	ChangePasswordSvc domain.IChangePassword
+	ForgotPasswordSvc domain.IForgotPasswordService
+	ResetPasswordSvc  domain.IPasswordResetService
+	EmailSvc          application.IEmailService
+	TxManager         application.ITransactionManager
 }
 
 func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 	userRepo := postgres.NewPostgresUserRepository(db)
+	recoveryRepo := postgres.NewPostgresRecoveryTokenRepository(db)
 
 	clock := adapters.NewClock()
 	uuidGen := adapters.NewUUIDV7Generator()
@@ -30,6 +36,9 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 	jwtSvc := adapters.NewJWTService(cfg.JWT.Secret, cfg.JWT.Issuer, cfg.JWT.Audience)
 	tokenSvc := adapters.NewTokenService()
+
+	emailSvc := adapters.NewEmailService(cfg.Email) // Assuming you have a config for this
+	txManager := postgres.NewTransactionManager(db)
 
 	passPolicy := domain.NewPasswordPolicy(
 		cfg.PasswordPolicy.MinLength,
@@ -41,6 +50,7 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 
 	sessionPolicy := domain.NewSessionPolicy(cfg.SessionPolicy.Lifetime, cfg.SessionPolicy.MaxActive)
 	accessPolicy := domain.NewAccessPolicy(cfg.JWT.AccessTTL)
+	recoveryPolicy := domain.NewRecoveryPolicy(cfg.RecoveryPolicy.Lifetime)
 
 	userFactory := domain.NewUserFactory()
 	sessionFactory := domain.NewSessionFactory()
@@ -51,6 +61,8 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 	refreshSvc := domain.NewRefreshSessionService(userRepo, tokenSvc, clock)
 	accessGrantor := domain.NewAccessGrantor(jwtSvc, accessPolicy, clock)
 	changePasswordSvc := domain.NewChangePassword(userRepo, passwordSvc, passPolicy, clock)
+	forgotPasswordSvc := domain.NewForgotPasswordService(recoveryRepo, tokenSvc, uuidGen, recoveryPolicy)
+	resetPasswordSvc := domain.NewPasswordResetService(userRepo, recoveryRepo, tokenSvc, passwordSvc, passPolicy)
 
 	return DomainServices{
 		UserRepo:          userRepo,
@@ -63,5 +75,9 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 		Clock:             clock,
 		ULIDGen:           ulidGen,
 		ChangePasswordSvc: changePasswordSvc,
+		ForgotPasswordSvc: forgotPasswordSvc,
+		ResetPasswordSvc:  resetPasswordSvc,
+		EmailSvc:          emailSvc,
+		TxManager:         txManager,
 	}
 }

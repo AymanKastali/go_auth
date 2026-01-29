@@ -64,6 +64,10 @@ type ChangePasswordCommand struct {
 	NewPassword string
 }
 
+type ForgotPasswordCommand struct {
+	Email string
+}
+
 // ResetPassword
 type ResetPasswordCommand struct {
 	Token       string

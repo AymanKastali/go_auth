@@ -394,3 +394,80 @@ func (s *passwordResetService) Reset(
 	}
 	return s.recoveryRepo.Save(ctx, recovery)
 }
+
+// --- Forgot Password Service ---
+type forgotPasswordService struct {
+	recoveryRepo   IRecoveryTokenRepository
+	tokenSvc       ITokenService
+	idGen          IIDGenerator
+	recoveryPolicy IRecoveryPolicy // Added to match your Policy pattern
+}
+
+func NewForgotPasswordService(
+	rr IRecoveryTokenRepository,
+	ts ITokenService,
+	idGen IIDGenerator,
+	rp IRecoveryPolicy,
+) IForgotPasswordService {
+	return &forgotPasswordService{
+		recoveryRepo:   rr,
+		tokenSvc:       ts,
+		idGen:          idGen,
+		recoveryPolicy: rp,
+	}
+}
+
+func (s *forgotPasswordService) Execute(
+	ctx context.Context,
+	user *User,
+	now Timepoint,
+) (RawToken, error) {
+	// 1. Generate ID for the new Recovery Token Aggregate
+	id, err := s.idGen.Generate()
+	if err != nil {
+		return ZeroRawToken, err
+	}
+
+	tid, err := NewRecoveryTokenID(id)
+	if err != nil {
+		return ZeroRawToken, err // Consistent with your error handling
+	}
+
+	// 2. Security Materials
+	raw, err := s.tokenSvc.Generate()
+	if err != nil {
+		return ZeroRawToken, ErrInternal
+	}
+
+	hashed, err := s.tokenSvc.Hash(raw)
+	if err != nil {
+		return ZeroRawToken, ErrInternal
+	}
+
+	// 3. Clean up: Revoke any existing tokens for this user
+	if err := s.recoveryRepo.RevokeAllForUser(ctx, user.ID(), now); err != nil {
+		return ZeroRawToken, err
+	}
+
+	// 4. Build the RecoveryToken Aggregate
+	// Use the Policy to determine expiry, similar to establishUserSessionService
+	expiresAt := now.Add(s.recoveryPolicy.GetRecoveryTokenLifetime())
+
+	token, err := NewRecoveryToken(
+		tid,
+		user.ID(),
+		ReconstituteRecoveryTokenHash(hashed.String()),
+		expiresAt,
+		now,
+	)
+	if err != nil {
+		return ZeroRawToken, err
+	}
+
+	// 5. Persist the record
+	if err := s.recoveryRepo.Save(ctx, token); err != nil {
+		return ZeroRawToken, err
+	}
+
+	return raw, nil
+}

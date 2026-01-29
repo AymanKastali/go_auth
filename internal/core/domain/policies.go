@@ -102,3 +102,19 @@ func NewAccessPolicy(
 func (p *accessPolicy) GetAccessLifetime() time.Duration {
 	return p.lifetime
 }
+
+// Recovery
+type recoveryPolicy struct {
+	lifetime time.Duration
+}
+
+func NewRecoveryPolicy(lifetime time.Duration) IRecoveryPolicy {
+	if lifetime <= 0 {
+		lifetime = 15 * time.Minute // Safe default
+	}
+	return &recoveryPolicy{lifetime: lifetime}
+}
+
+func (p *recoveryPolicy) GetRecoveryTokenLifetime() time.Duration {
+	return p.lifetime
+}

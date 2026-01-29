@@ -16,7 +16,7 @@ type seedSuperAdminUseCase struct {
 func NewSeedSuperAdminUseCase(
 	repo domain.IUserRepository,
 	registerUserSvc domain.IRegisterUserService,
-) ISeedSuperAdmin {
+) ISeedSuperAdminUseCase {
 	return &seedSuperAdminUseCase{
 		userRepo:        repo,
 		registerUserSvc: registerUserSvc,
@@ -368,7 +368,7 @@ type findUserByEmailUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmail {
+func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmailUseCase {
 	return &findUserByEmailUseCase{userRepo: repo}
 }
 
@@ -403,7 +403,7 @@ type getUserByIDUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByID {
+func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByIDUseCase {
 	return &getUserByIDUseCase{userRepo: repo}
 }
 
@@ -436,7 +436,7 @@ type getMeUseCase struct {
 	userRepo domain.IUserRepository
 }
 
-func NewGetMeUseCase(repo domain.IUserRepository) IGetMe {
+func NewGetMeUseCase(repo domain.IUserRepository) IGetMeUseCase {
 	return &getMeUseCase{userRepo: repo}
 }
 
@@ -473,7 +473,7 @@ type updateMeUseCase struct {
 func NewUpdateMeUseCase(
 	repo domain.IUserRepository,
 	clock domain.IClock,
-) IUpdateMe {
+) IUpdateMeUseCase {
 	return &updateMeUseCase{
 		userRepo: repo,
 		clock:    clock,
@@ -528,7 +528,7 @@ type changePasswordUseCase struct {
 func NewChangePasswordUseCase(
 	userRepo domain.IUserRepository,
 	changePasswordSvc domain.IChangePassword,
-) IChangePassword {
+) IChangePasswordUseCase {
 	return &changePasswordUseCase{
 		userRepo:          userRepo,
 		changePasswordSvc: changePasswordSvc,
@@ -600,4 +600,69 @@ func (uc *ResetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCo
 		}
 		return nil
 	})
+}
+
+// Forget Password
+type forgotPasswordUseCase struct {
+	userRepo  domain.IUserRepository
+	forgotSvc domain.IForgotPasswordService
+	emailSvc  IEmailService // Infrastructure interface for sending emails
+	txManager ITransactionManager
+	clock     domain.IClock
+}
+
+func NewForgotPasswordUseCase(
+	ur domain.IUserRepository,
+	fs domain.IForgotPasswordService,
+	es IEmailService,
+	tm ITransactionManager,
+	cl domain.IClock,
+) IForgotPasswordUseCase {
+	return &forgotPasswordUseCase{
+		userRepo:  ur,
+		forgotSvc: fs,
+		emailSvc:  es,
+		txManager: tm,
+		clock:     cl,
+	}
+}
+
+func (uc *forgotPasswordUseCase) Execute(ctx context.Context, cmd ForgotPasswordCommand) error {
+	now := uc.clock.Now()
+
+	// 1. Validate Email format using Domain VO
+	email, err := domain.NewEmail(cmd.Email)
+	if err != nil {
+		return err
+	}
+
+	// 2. Lookup User
+	user, err := uc.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	// Security: If user doesn't exist, return nil to prevent account enumeration.
+	// The handler will still show a "Success" message to the requester.
+	if user == nil {
+		return nil
+	}
+
+	var rawToken domain.RawToken
+
+	// 3. Atomic Transaction: Domain Service handles Token Generation & Persistence
+	err = uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		var innerErr error
+		// The Domain Service generates the Raw/Hashed pair and saves to DB
+		rawToken, innerErr = uc.forgotSvc.Execute(txCtx, user, now)
+		return innerErr
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// 4. Send the Email with the Raw Token (Infrastructure)
+	// We do this outside the DB transaction to avoid holding locks during network I/O
+	return uc.emailSvc.SendResetLink(user.Email().String(), rawToken.String())
 }

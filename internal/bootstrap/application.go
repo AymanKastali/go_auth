@@ -4,7 +4,7 @@ import "go_auth/internal/core/application"
 
 type UseCases struct {
 	// auth
-	SeedSA   application.ISeedSuperAdmin
+	SeedSA   application.ISeedSuperAdminUseCase
 	Register application.IRegisterUseCase
 	Login    application.ILoginUseCase
 	Refresh  application.IRefreshTokenUseCase
@@ -12,12 +12,13 @@ type UseCases struct {
 	Validate application.IValidateAccessUseCase
 
 	// user
-	FindByEmail    application.IFindUserByEmail
-	GetByID        application.IGetUserByID
-	GetMe          application.IGetMe
-	UpdateMe       application.IUpdateMe
-	ChangePassword application.IChangePassword
-	ResetPassword  application.IResetPassword
+	FindByEmail    application.IFindUserByEmailUseCase
+	GetByID        application.IGetUserByIDUseCase
+	GetMe          application.IGetMeUseCase
+	UpdateMe       application.IUpdateMeUseCase
+	ChangePassword application.IChangePasswordUseCase
+	ForgotPassword application.IForgotPasswordUseCase
+	ResetPassword  application.IResetPasswordUseCase
 }
 
 func NewUseCases(d DomainServices) UseCases {
@@ -29,10 +30,15 @@ func NewUseCases(d DomainServices) UseCases {
 		Validate: application.NewValidateAccessUseCase(d.AccessSvc, d.UserRepo, d.Clock),
 		SeedSA:   application.NewSeedSuperAdminUseCase(d.UserRepo, d.RegisterSvc),
 		// user
-		FindByEmail:    application.NewFindUserByEmailUseCase(d.UserRepo),
-		GetByID:        application.NewGetUserByIDUseCase(d.UserRepo),
-		GetMe:          application.NewGetMeUseCase(d.UserRepo),
-		UpdateMe:       application.NewUpdateMeUseCase(d.UserRepo, d.Clock),
+		FindByEmail: application.NewFindUserByEmailUseCase(d.UserRepo),
+		GetByID:     application.NewGetUserByIDUseCase(d.UserRepo),
+		GetMe:       application.NewGetMeUseCase(d.UserRepo),
+		UpdateMe:    application.NewUpdateMeUseCase(d.UserRepo, d.Clock),
+		ForgotPassword: application.NewForgotPasswordUseCase(d.UserRepo,
+			d.ForgotPasswordSvc, // Correct Service
+			d.EmailSvc,          // Email infrastructure
+			d.TxManager,         // For atomic token creation
+			d.Clock),
 		ChangePassword: application.NewChangePasswordUseCase(d.UserRepo, d.ChangePasswordSvc),
 	}
 }

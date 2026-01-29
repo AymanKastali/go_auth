@@ -19,6 +19,8 @@ type Config struct {
 	SessionPolicy  SessionPolicyConfig
 	Database       DatabaseConfig
 	Seed           SeedConfig
+	Email          EmailConfig
+	RecoveryPolicy RecoveryPolicyConfig
 }
 
 type PasswordPolicyConfig struct {
@@ -59,6 +61,18 @@ type JWTConfig struct {
 
 type PasswordConfig struct {
 	BcryptCost int
+}
+
+type RecoveryPolicyConfig struct {
+	Lifetime time.Duration
+}
+
+type EmailConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
 }
 
 type DatabaseConfig struct {

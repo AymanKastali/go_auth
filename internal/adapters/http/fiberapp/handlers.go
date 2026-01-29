@@ -8,12 +8,13 @@ import (
 )
 
 type AuthHandler struct {
-	registerUC     application.IRegisterUseCase
-	loginUC        application.ILoginUseCase
-	refreshUC      application.IRefreshTokenUseCase
-	logoutUC       application.ILogoutUseCase
-	validateAccess application.IValidateAccessUseCase
-	resetPassword  application.IResetPassword
+	registerUC       application.IRegisterUseCase
+	loginUC          application.ILoginUseCase
+	refreshUC        application.IRefreshTokenUseCase
+	logoutUC         application.ILogoutUseCase
+	validateAccess   application.IValidateAccessUseCase
+	forgotPasswordUC application.IForgotPasswordUseCase
+	resetPassword    application.IResetPasswordUseCase
 }
 
 // ... NewAuthHandler constructor ...
@@ -23,16 +24,18 @@ func NewAuthHandler(
 	ref application.IRefreshTokenUseCase,
 	out application.ILogoutUseCase,
 	val application.IValidateAccessUseCase,
-	resetPassword application.IResetPassword,
+	forgotPasswordUC application.IForgotPasswordUseCase,
+	resetPassword application.IResetPasswordUseCase,
 ) *AuthHandler {
 
 	return &AuthHandler{
-		registerUC:     reg,
-		loginUC:        log,
-		refreshUC:      ref,
-		logoutUC:       out,
-		validateAccess: val,
-		resetPassword:  resetPassword,
+		registerUC:       reg,
+		loginUC:          log,
+		refreshUC:        ref,
+		logoutUC:         out,
+		validateAccess:   val,
+		forgotPasswordUC: forgotPasswordUC,
+		resetPassword:    resetPassword,
 	}
 
 }
@@ -209,20 +212,20 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 
 // User Handler
 type UserHandler struct {
-	findByEmail    application.IFindUserByEmail
-	getByID        application.IGetUserByID
-	getMe          application.IGetMe
-	updateMe       application.IUpdateMe
-	changePassword application.IChangePassword
+	findByEmail    application.IFindUserByEmailUseCase
+	getByID        application.IGetUserByIDUseCase
+	getMe          application.IGetMeUseCase
+	updateMe       application.IUpdateMeUseCase
+	changePassword application.IChangePasswordUseCase
 }
 
 // ... NewAuthHandler constructor ...
 func UewUserHandler(
-	findByEmail application.IFindUserByEmail,
-	getByID application.IGetUserByID,
-	getMe application.IGetMe,
-	updateMe application.IUpdateMe,
-	changePassword application.IChangePassword,
+	findByEmail application.IFindUserByEmailUseCase,
+	getByID application.IGetUserByIDUseCase,
+	getMe application.IGetMeUseCase,
+	updateMe application.IUpdateMeUseCase,
+	changePassword application.IChangePasswordUseCase,
 ) *UserHandler {
 
 	return &UserHandler{
@@ -424,4 +427,24 @@ func (h *AuthHandler) ResetPassword(c fiber.Ctx) error {
 	}
 
 	return SendOK(c, "Password has been reset successfully. You can now log in with your new credentials.", nil)
+}
+
+func (h *AuthHandler) ForgotPassword(c fiber.Ctx) error {
+	var req ForgotPasswordRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := Validate(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ForgotPasswordCommand{Email: req.Email}
+
+	// We don't return an error if user not found (security best practice)
+	if err := h.forgotPasswordUC.Execute(c.Context(), cmd); err != nil {
+		return err
+	}
+
+	return SendOK(c, "If an account exists with that email, a reset link has been sent.", nil)
 }
