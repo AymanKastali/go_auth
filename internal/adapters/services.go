@@ -36,20 +36,46 @@ func NewUUIDV7Generator() domain.IIDGenerator {
 	return &uuidV7Generator{}
 }
 
-func (g *uuidV7Generator) Generate() (string, error) {
-	// NewV7 uses the current time internally
+func (g *uuidV7Generator) GenerateUserID() (domain.UserID, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return "", domain.ErrInternal
+		return domain.ZeroUserID, domain.ErrInternal
 	}
+	uidVO, err := domain.NewUserID(id.String())
+	if err != nil {
+		return domain.ZeroUserID, err
+	}
+	return uidVO, nil
+}
 
-	return id.String(), nil
+func (g *uuidV7Generator) GenerateSessionID() (domain.SessionID, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return domain.ZeroSessionID, domain.ErrInternal
+	}
+	uidVO, err := domain.NewSessionID(id.String())
+	if err != nil {
+		return domain.ZeroSessionID, err
+	}
+	return uidVO, nil
+}
+
+func (g *uuidV7Generator) GenerateRecoveryTokenID() (domain.RecoveryTokenID, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return domain.ZeroRecoveryTokenID, domain.ErrInternal
+	}
+	uidVO, err := domain.NewRecoveryTokenID(id.String())
+	if err != nil {
+		return domain.ZeroRecoveryTokenID, err
+	}
+	return uidVO, nil
 }
 
 // ULID Generator
 type ulidGenerator struct{}
 
-func NewULIDGenerator() domain.IIDGenerator {
+func NewULIDGenerator() application.IIDGenerator {
 	return &ulidGenerator{}
 }
 

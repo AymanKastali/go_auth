@@ -14,10 +14,11 @@ type fiberPostgresContainer struct {
 	Logger *slog.Logger
 	DB     *gorm.DB
 
-	Domain   DomainServices
-	UC       UseCases
-	Handlers Handlers
-	App      *fiber.App
+	Domain      DomainServices
+	UC          UseCases
+	AppServices ApplicationServices
+	Handlers    Handlers
+	App         *fiber.App
 }
 
 func NewFiberPostgresContainer() *fiberPostgresContainer {
@@ -28,9 +29,10 @@ func NewFiberPostgresContainer() *fiberPostgresContainer {
 	c.DB = SetupDatabase(c.Config.Database.URL)
 	c.Domain = NewDomainServices(c.Config, c.DB)
 	c.UC = NewUseCases(c.Domain)
+	c.AppServices = NewApplicationServices()
 	c.Handlers = NewHandlers(c.UC)
 
-	c.App, c.Handlers = NewApp(c.Config.App, c.Handlers, c.Domain.ULIDGen, c.Logger)
+	c.App, c.Handlers = NewApp(c.Config.App, c.Handlers, c.AppServices.IDGen, c.Logger)
 
 	return c
 }

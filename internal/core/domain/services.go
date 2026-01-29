@@ -55,14 +55,9 @@ func (s *registerUserService) Execute(ctx context.Context, email Email, password
 		return nil, err
 	}
 
-	id, err := s.idGen.Generate()
+	uid, err := s.idGen.GenerateUserID()
 	if err != nil {
 		return nil, err
-	}
-
-	uid, err := NewUserID(id)
-	if err != nil {
-		return nil, err // Returns ErrUserIDRequired
 	}
 
 	user, err := s.userFactory.Build(uid, email, hashed, now)
@@ -151,13 +146,10 @@ func (s *establishUserSessionService) Execute(ctx context.Context, user *User, d
 
 	// 2. ID Generation
 	if sid.IsEmpty() {
-		id, err := s.idGen.Generate()
+		var err error
+		sid, err = s.idGen.GenerateSessionID()
 		if err != nil {
 			return nil, ZeroRawToken, err
-		}
-		sid, err = NewSessionID(id)
-		if err != nil {
-			return nil, ZeroRawToken, err // Returns ErrSessionIDRequired
 		}
 	}
 
@@ -423,14 +415,9 @@ func (s *forgotPasswordService) Execute(
 	now Timepoint,
 ) (RawToken, error) {
 	// 1. Generate ID for the new Recovery Token Aggregate
-	id, err := s.idGen.Generate()
+	tid, err := s.idGen.GenerateRecoveryTokenID()
 	if err != nil {
 		return ZeroRawToken, err
-	}
-
-	tid, err := NewRecoveryTokenID(id)
-	if err != nil {
-		return ZeroRawToken, err // Consistent with your error handling
 	}
 
 	// 2. Security Materials

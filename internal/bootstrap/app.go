@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"go_auth/internal/adapters"
 	"go_auth/internal/adapters/http/fiberapp"
-	"go_auth/internal/core/domain"
+	"go_auth/internal/core/application"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,7 +12,7 @@ import (
 func NewApp(
 	cfg adapters.AppConfig,
 	handlers Handlers,
-	idGen domain.IIDGenerator,
+	idGen application.IIDGenerator,
 	baseLogger *slog.Logger,
 ) (*fiber.App, Handlers) {
 	app := fiber.New(fiber.Config{

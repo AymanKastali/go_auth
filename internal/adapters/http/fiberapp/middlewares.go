@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"go_auth/internal/core/application"
-	"go_auth/internal/core/domain"
 	"go_auth/internal/core/pkg/err"
 	"log/slog"
 
@@ -79,7 +78,7 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 	}
 }
 
-func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen domain.IIDGenerator) {
+func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen application.IIDGenerator) {
 	// 1. Trace ID / Request ID
 	app.Use(requestid.New(requestid.Config{
 		Generator: func() string {

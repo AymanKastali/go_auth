@@ -18,7 +18,7 @@ type DomainServices struct {
 	AccessGrantor     domain.IAccessGrantor
 	AccessSvc         domain.IAccessTokenService
 	Clock             domain.IClock
-	ULIDGen           domain.IIDGenerator
+	IDGen             domain.IIDGenerator
 	ChangePasswordSvc domain.IChangePassword
 	ForgotPasswordSvc domain.IForgotPasswordService
 	ResetPasswordSvc  domain.IPasswordResetService
@@ -32,7 +32,6 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 
 	clock := adapters.NewClock()
 	uuidGen := adapters.NewUUIDV7Generator()
-	ulidGen := adapters.NewULIDGenerator()
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 	jwtSvc := adapters.NewJWTService(cfg.JWT.Secret, cfg.JWT.Issuer, cfg.JWT.Audience)
 	tokenSvc := adapters.NewTokenService()
@@ -73,7 +72,7 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 		AccessGrantor:     accessGrantor,
 		AccessSvc:         jwtSvc,
 		Clock:             clock,
-		ULIDGen:           ulidGen,
+		IDGen:             uuidGen,
 		ChangePasswordSvc: changePasswordSvc,
 		ForgotPasswordSvc: forgotPasswordSvc,
 		ResetPasswordSvc:  resetPasswordSvc,

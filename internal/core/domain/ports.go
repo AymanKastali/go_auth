@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+// Services
+type IIDGenerator interface {
+	GenerateUserID() (UserID, error)
+	GenerateSessionID() (SessionID, error)
+	GenerateRecoveryTokenID() (RecoveryTokenID, error)
+}
+
 // Repositories
 type IUserRepository interface {
 	FindByID(ctx context.Context, id UserID) (*User, error)
@@ -18,11 +25,6 @@ type IRecoveryTokenRepository interface {
 	FindByHash(ctx context.Context, hash RecoveryTokenHash) (*RecoveryToken, error)
 	Save(ctx context.Context, token *RecoveryToken) error
 	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
-}
-
-// Services
-type IIDGenerator interface {
-	Generate() (string, error)
 }
 
 type ITokenService interface {

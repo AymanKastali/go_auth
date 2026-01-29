@@ -1,6 +1,9 @@
 package bootstrap
 
-import "go_auth/internal/core/application"
+import (
+	"go_auth/internal/adapters"
+	"go_auth/internal/core/application"
+)
 
 type UseCases struct {
 	// auth
@@ -40,5 +43,15 @@ func NewUseCases(d DomainServices) UseCases {
 			d.TxManager,         // For atomic token creation
 			d.Clock),
 		ChangePassword: application.NewChangePasswordUseCase(d.UserRepo, d.ChangePasswordSvc),
+	}
+}
+
+type ApplicationServices struct {
+	IDGen application.IIDGenerator
+}
+
+func NewApplicationServices() ApplicationServices {
+	return ApplicationServices{
+		IDGen: adapters.NewULIDGenerator(),
 	}
 }
