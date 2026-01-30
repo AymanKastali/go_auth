@@ -118,8 +118,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	db := loadDatabase()
-	seed := loadSeed()
+	db, err := loadDatabase()
+	if err != nil {
+		return nil, err
+	}
+
+	seed, err := loadSeed()
+	if err != nil {
+		return nil, err
+	}
 
 	registerPolicy, err := loadRegisterPolicy()
 	if err != nil {
@@ -162,12 +169,16 @@ func loadHTTP() HTTPConfig {
 }
 
 func loadJWT() (JWTConfig, error) {
+	secret, err := getRequiredEnv("JWT_SECRET")
+	if err != nil {
+		return JWTConfig{}, err
+	}
 	ttl, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
 	if err != nil {
 		return JWTConfig{}, fmt.Errorf("config: invalid GA_JWT_ACCESS_TTL: %w", err)
 	}
 	return JWTConfig{
-		Secret:    getRequiredEnv("JWT_SECRET"),
+		Secret:    secret,
 		Issuer:    getEnv("JWT_ISSUER", "go-auth-service"),
 		Audience:  getEnv("JWT_AUDIENCE", "go-auth-client"),
 		AccessTTL: ttl,
@@ -253,17 +264,27 @@ func loadRegisterPolicy() (RegisterPolicyConfig, error) {
 	}, nil
 }
 
-func loadDatabase() DatabaseConfig {
-	return DatabaseConfig{
-		URL: getRequiredEnv("DATABASE_URL"),
+func loadDatabase() (DatabaseConfig, error) {
+	url, err := getRequiredEnv("DATABASE_URL")
+	if err != nil {
+		return DatabaseConfig{}, err
 	}
+	return DatabaseConfig{URL: url}, nil
 }
 
-func loadSeed() SeedConfig {
-	return SeedConfig{
-		AdminEmail:    getRequiredEnv("ADMIN_EMAIL"),
-		AdminPassword: getRequiredEnv("ADMIN_PASSWORD"),
+func loadSeed() (SeedConfig, error) {
+	email, err := getRequiredEnv("ADMIN_EMAIL")
+	if err != nil {
+		return SeedConfig{}, err
 	}
+	password, err := getRequiredEnv("ADMIN_PASSWORD")
+	if err != nil {
+		return SeedConfig{}, err
+	}
+	return SeedConfig{
+		AdminEmail:    email,
+		AdminPassword: password,
+	}, nil
 }
 
 // --- Helpers ---
@@ -276,11 +297,11 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func getRequiredEnv(key string) string {
+func getRequiredEnv(key string) (string, error) {
 	fullKey := envPrefix + key
 	value := os.Getenv(fullKey)
 	if value == "" {
-		panic(fmt.Sprintf("config: environment variable %s is required", fullKey))
+		return "", fmt.Errorf("config: environment variable %s is required", fullKey)
 	}
-	return value
+	return value, nil
 }

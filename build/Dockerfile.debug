@@ -16,10 +16,10 @@ COPY ./cmd ./cmd
 COPY ./internal ./internal
 
 # 4. Generate Swagger docs
-RUN swag init -g cmd/server/main.go --parseDependency --parseInternal -o ./docs
+RUN swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs
 
 # 5. Expose ports
 EXPOSE 8080 2345
 
 # 6. Run Delve (exact same command you had)
-ENTRYPOINT ["dlv", "debug", "./cmd/server/main.go", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--", "--port=8080"]
+ENTRYPOINT ["dlv", "debug", "./cmd/auth/", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--output=/tmp/__debug_bin", "--", "--port=8080"]
