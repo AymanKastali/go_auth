@@ -1,6 +1,6 @@
 package application
 
-import "go_auth/internal/core/pkg/err"
+import "go_auth/internal/core/domain"
 
 // ---------------------------------------------------------
 // Application Sentinel Registry
@@ -9,25 +9,25 @@ import "go_auth/internal/core/pkg/err"
 var (
 	// ErrUnauthorized is raised when the Application Context is missing
 	// a valid UserID/SessionID in a protected use case.
-	ErrUnauthorized = err.New(err.CodeUnauthorized, "authentication is required to access this resource")
+	ErrUnauthorized = domain.NewError(domain.CodeUnauthorized, "authentication is required to access this resource")
 
 	// --- Infrastructure Shielding ---
 	// This is the "Safety Net". Use this to wrap database crashes,
 	// network timeouts, or library panics to avoid leaking technical details.
-	ErrInternal = err.New(err.CodeInternal, "an unexpected internal error occurred")
+	ErrInternal = domain.NewError(domain.CodeInternal, "an unexpected internal error occurred")
 
 	// --- Process & Orchestration ---
 	// Use this when a repository lookup returns nil but the
 	// use case requires that resource to proceed with the next step.
-	ErrResourceNotFound = err.New(err.CodeNotFound, "the requested resource could not be found")
+	ErrResourceNotFound = domain.NewError(domain.CodeNotFound, "the requested resource could not be found")
 
 	// --- Security Boundaries ---
 	// Use this when the user is authenticated, but the application orchestrator
 	// refuses to execute the flow for this specific identity/context.
-	ErrAccessDenied = err.New(err.CodeForbidden, "access to this operation is denied")
+	ErrAccessDenied = domain.NewError(domain.CodeForbidden, "access to this operation is denied")
 
 	// --- Concurrency & System State ---
 	// Use this when a race condition is detected at the orchestration level
 	// (e.g., a "late duplicate" caught by a database constraint).
-	ErrConflict = err.New(err.CodeConflict, "the operation conflicted with the current state of the system")
+	ErrConflict = domain.NewError(domain.CodeConflict, "the operation conflicted with the current state of the system")
 )
