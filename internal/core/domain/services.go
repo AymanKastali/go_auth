@@ -4,92 +4,111 @@ import (
 	"context"
 )
 
-type changePassword struct {
-	userRepo    IUserRepository
-	passwordSvc IPasswordService
-	policy      IPasswordPolicy
-	clock       IClock
+type userAccountManager struct {
+	userRepo       IUserRepository
+	recoveryRepo   IRecoveryTokenRepository
+	tokenSvc       ITokenService
+	passwordMgr    IPasswordManager
+	idGen          IIDGenerator
+	recoveryPolicy IRecoveryPolicy
 }
 
-func NewChangePassword(
+func NewUserAccountManager(
 	userRepo IUserRepository,
-	passwordSvc IPasswordService,
-	policy IPasswordPolicy,
-	clock IClock,
-) IChangePassword {
-	return &changePassword{
-		userRepo:    userRepo,
-		passwordSvc: passwordSvc,
-		policy:      policy,
-		clock:       clock,
+	recoveryRepo IRecoveryTokenRepository,
+	tokenSvc ITokenService,
+	passwordMgr IPasswordManager,
+	idGen IIDGenerator,
+	recoveryPolicy IRecoveryPolicy,
+) IUserAccountManager {
+	return &userAccountManager{
+		userRepo:       userRepo,
+		recoveryRepo:   recoveryRepo,
+		tokenSvc:       tokenSvc,
+		passwordMgr:    passwordMgr,
+		idGen:          idGen,
+		recoveryPolicy: recoveryPolicy,
 	}
 }
 
-func (s *changePassword) ChangePassword(
+func (manager *userAccountManager) InitiatePasswordReset(
 	ctx context.Context,
 	user *User,
-	oldPassword RawPassword,
-	newPassword RawPassword,
+	now Timepoint,
+) (RawToken, *RecoveryToken, error) {
+	// 1. Invariant Checks
+	if !user.IsActive() {
+		return ZeroRawToken, nil, ErrUserInactive
+	}
+
+	// 2. Technical Logic
+	rawToken, err := manager.tokenSvc.Generate()
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	hashedToken, err := manager.tokenSvc.HashRecoveryToken(rawToken)
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	// 3. Policy Application
+	expirationTime := now.Add(manager.recoveryPolicy.GetRecoveryTokenLifetime())
+
+	// 4. Aggregate Construction (The Service acts as a Factory coordinator)
+	// We get the ID from the repository (identity generation is a repo responsibility)
+	id, err := manager.idGen.GenerateRecoveryTokenID()
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	recoveryToken, err := NewRecoveryToken(
+		id,
+		user.ID(),
+		hashedToken,
+		expirationTime,
+		now,
+	)
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	return rawToken, recoveryToken, nil
+}
+
+func (m *userAccountManager) ChangePassword(
+	ctx context.Context,
+	user *User,
+	oldPass RawPassword,
+	newPass RawPassword,
+	now Timepoint,
 ) error {
-	// 1. Verify Ownership/Knowledge of existing credential
-	if !s.passwordSvc.Compare(oldPassword, user.HashedPassword()) {
+	if !m.passwordMgr.Compare(oldPass, user.HashedPassword()) {
 		return ErrAuthenticationFailed
 	}
 
-	// 2. Enforce complexity/policy invariants
-	if err := s.policy.Validate(newPassword); err != nil {
-		return err
-	}
-
-	// 3. Transform Raw to Hashed
-	newHash, err := s.passwordSvc.Hash(newPassword)
+	newHash, err := m.passwordMgr.ValidateAndHashNewPassword(newPass)
 	if err != nil {
 		return err
 	}
 
-	// 4. Update Aggregate state (this will also revoke sessions)
-	return user.UpdatePassword(newHash, s.clock.Now())
+	return user.UpdatePassword(newHash, now)
 }
 
-// Password Reset Service
-type passwordResetService struct {
-	userRepo     IUserRepository
-	recoveryRepo IRecoveryTokenRepository
-	tokenSvc     ITokenService
-	passwordSvc  IPasswordService
-	pwPolicy     IPasswordPolicy
-}
-
-func NewPasswordResetService(
-	ur IUserRepository,
-	rr IRecoveryTokenRepository,
-	ts ITokenService,
-	ps IPasswordService,
-	pp IPasswordPolicy,
-) IPasswordResetService {
-	return &passwordResetService{
-		userRepo:     ur,
-		recoveryRepo: rr,
-		tokenSvc:     ts,
-		passwordSvc:  ps,
-		pwPolicy:     pp,
-	}
-}
-
-func (s *passwordResetService) Reset(
+func (m *userAccountManager) ResetPasswordByToken(
 	ctx context.Context,
-	rawToken RawToken,
+	token RawToken,
 	newPassword RawPassword,
 	now Timepoint,
 ) error {
-	// 1. Hashing for DB Lookup
-	hashedToken, err := s.tokenSvc.Hash(rawToken)
+	// 1. Resolve Token Hash
+	hashed, err := m.tokenSvc.HashRecoveryToken(token)
 	if err != nil {
-		return ErrInternal
+		return err
 	}
 
-	// 2. Find and Validate the Recovery Token
-	recovery, err := s.recoveryRepo.FindByHash(ctx, ReconstituteRecoveryTokenHash(hashedToken.String()))
+	// 2. Fetch & Validate Recovery Aggregate
+	recovery, err := m.recoveryRepo.FindByHash(ctx, hashed)
 	if err != nil {
 		return err
 	}
@@ -97,8 +116,8 @@ func (s *passwordResetService) Reset(
 		return ErrRecoveryTokenInvalid
 	}
 
-	// 3. Find the User
-	user, err := s.userRepo.FindByID(ctx, recovery.UserID())
+	// 3. Fetch User Aggregate
+	user, err := m.userRepo.FindByID(ctx, recovery.UserID())
 	if err != nil {
 		return err
 	}
@@ -106,100 +125,306 @@ func (s *passwordResetService) Reset(
 		return ErrUserNotFound
 	}
 
-	// 4. Policy Check
-	if err := s.pwPolicy.Validate(newPassword); err != nil {
+	// 4. Cross-Aggregate Invariant: Token Ownership
+	if !recovery.UserID().Equal(user.ID()) {
+		return ErrInvalidRecoveryAttempt
+	}
+
+	// 5. Technical Process: Validation & Hashing combined
+	// We delegate the "How" of the new secret to the Manager
+	newHash, err := m.passwordMgr.ValidateAndHashNewPassword(newPassword)
+	if err != nil {
 		return err
 	}
 
-	// 5. Hash the Password
-	newHashedPw, err := s.passwordSvc.Hash(newPassword)
-	if err != nil {
-		return ErrInternal
-	}
-
-	// 6. Update Aggregates (Domain State changes)
-	if err := user.UpdatePassword(newHashedPw, now); err != nil {
+	// 6. Execute State Transitions
+	if err := user.UpdatePassword(newHash, now); err != nil {
 		return err
 	}
 	if err := recovery.MarkAsUsed(now); err != nil {
 		return err
 	}
 
-	// 7. Persist changes
-	if err := s.userRepo.Save(ctx, user); err != nil {
+	// 7. Atomic Persistence
+	if err := m.userRepo.Save(ctx, user); err != nil {
 		return err
 	}
-	return s.recoveryRepo.Save(ctx, recovery)
+	return m.recoveryRepo.Save(ctx, recovery)
 }
 
-// --- Forgot Password Service ---
-type forgotPasswordService struct {
-	recoveryRepo   IRecoveryTokenRepository
-	tokenSvc       ITokenService
-	idGen          IIDGenerator
-	recoveryPolicy IRecoveryPolicy // Added to match your Policy pattern
+type accessManager struct {
+	userRepo     IUserRepository
+	accessSvc    IAccessService
+	accessPolicy IAccessPolicy
 }
 
-func NewForgotPasswordService(
-	rr IRecoveryTokenRepository,
-	ts ITokenService,
-	idGen IIDGenerator,
-	rp IRecoveryPolicy,
-) IForgotPasswordService {
-	return &forgotPasswordService{
-		recoveryRepo:   rr,
-		tokenSvc:       ts,
-		idGen:          idGen,
-		recoveryPolicy: rp,
+func NewAccessManager(
+	userRepo IUserRepository,
+	accessSvc IAccessService,
+	accessPolicy IAccessPolicy,
+) IAccessManager {
+	return &accessManager{
+		userRepo:     userRepo,
+		accessSvc:    accessSvc,
+		accessPolicy: accessPolicy,
 	}
 }
 
-func (s *forgotPasswordService) Execute(
+func (m *accessManager) GrantImmediateAccess(
+	user *User,
+	sid SessionID,
+	now Timepoint,
+) (AccessToken, Timepoint, error) {
+	issuedAt := now
+	notBefore := now
+
+	ttl := m.accessPolicy.GetAccessLifetime()
+	expiresAt := issuedAt.Add(ttl)
+
+	return m.accessSvc.Issue(
+		user.ID(),
+		user.Email(),
+		sid,
+		user.Roles(),
+		issuedAt,
+		expiresAt,
+		notBefore,
+	)
+}
+
+func (m *accessManager) VerifyAccess(ctx context.Context, token AccessToken, now Timepoint) (*User, SessionID, error) {
+	// 1. Technical Domain Step: Cryptographic validation (The "Dumb" Service)
+	identity, err := m.accessSvc.Validate(token)
+	if err != nil {
+		return nil, ZeroSessionID, err
+	}
+
+	// 2. Identity Resolution: Fetch the Aggregate Root
+	user, err := m.userRepo.FindByID(ctx, identity.UserID())
+	if err != nil || user == nil {
+		return nil, ZeroSessionID, ErrUserNotFound
+	}
+
+	// 3. Aggregate Invariant Check: Session Integrity
+	// This is where the User Aggregate checks if the SID is revoked or expired
+	sid := identity.SessionID()
+	if err := user.ValidateIntegrity(sid, now); err != nil {
+		return nil, ZeroSessionID, err
+	}
+
+	return user, sid, nil
+}
+
+type authenticationService struct {
+	userRepo      IUserRepository
+	tokenSvc      ITokenService
+	idGen         IIDGenerator
+	sessionPolicy ISessionPolicy
+	passwordMgr   IPasswordManager
+}
+
+func NewAuthenticationService(
+	userRepo IUserRepository,
+	tokenSvc ITokenService,
+	idGen IIDGenerator,
+	sessionPolicy ISessionPolicy,
+	passwordMgr IPasswordManager,
+) IAuthenticationService {
+	return &authenticationService{
+		userRepo:      userRepo,
+		tokenSvc:      tokenSvc,
+		idGen:         idGen,
+		sessionPolicy: sessionPolicy,
+		passwordMgr:   passwordMgr,
+	}
+}
+
+func (s *authenticationService) AuthenticateAndEstablishSession(
 	ctx context.Context,
 	user *User,
+	rawPassword RawPassword,
+	identity DeviceIdentity,
 	now Timepoint,
-) (RawToken, error) {
-	// 1. Generate ID for the new Recovery Token Aggregate
-	tid, err := s.idGen.GenerateRecoveryTokenID()
+) (RawToken, Session, error) {
+	// 1. Verify Credentials using internal dependency
+	if !s.passwordMgr.Compare(rawPassword, user.HashedPassword()) {
+		return ZeroRawToken, ZeroSession, ErrAuthenticationFailed
+	}
+
+	// 2. Resolve Session ID
+	sid, found := user.FindActiveSessionByFingerprint(identity.Fingerprint())
+	if !found {
+		generatedSid, err := s.idGen.GenerateSessionID()
+		if err != nil {
+			return ZeroRawToken, ZeroSession, err
+		}
+		sid = generatedSid
+	}
+
+	// 3. Prepare Secrets
+	rawToken, err := s.tokenSvc.Generate()
 	if err != nil {
-		return ZeroRawToken, err
+		return ZeroRawToken, ZeroSession, err
 	}
 
-	// 2. Security Materials
-	raw, err := s.tokenSvc.Generate()
+	hashedToken, err := s.tokenSvc.HashSessionToken(rawToken)
 	if err != nil {
-		return ZeroRawToken, ErrInternal
+		return ZeroRawToken, ZeroSession, err
 	}
 
-	hashed, err := s.tokenSvc.Hash(raw)
+	// 4. Invariants and Policy Math
+	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
+
+	session, err := NewSession(sid, hashedToken, identity, expiresAt, now)
 	if err != nil {
-		return ZeroRawToken, ErrInternal
+		return ZeroRawToken, ZeroSession, err
 	}
 
-	// 3. Clean up: Revoke any existing tokens for this user
-	if err := s.recoveryRepo.RevokeAllForUser(ctx, user.ID(), now); err != nil {
-		return ZeroRawToken, err
+	// 5. Delegate to Aggregate Root
+	if err := user.EstablishSession(session, s.sessionPolicy.GetMaxActiveSessions()); err != nil {
+		return ZeroRawToken, ZeroSession, err
 	}
 
-	// 4. Build the RecoveryToken Aggregate
-	// Use the Policy to determine expiry, similar to establishUserSessionService
-	expiresAt := now.Add(s.recoveryPolicy.GetRecoveryTokenLifetime())
+	return rawToken, session, nil
+}
 
-	token, err := NewRecoveryToken(
-		tid,
-		user.ID(),
-		ReconstituteRecoveryTokenHash(hashed.String()),
-		expiresAt,
-		now,
-	)
+func (s *authenticationService) RefreshSession(
+	ctx context.Context,
+	rawToken RawToken,
+	fp DeviceFingerprint,
+	now Timepoint,
+) (*User, Session, error) {
+	// 1. Technical Domain Rule: Tokens are stored as hashes
+	hashed, err := s.tokenSvc.HashSessionToken(rawToken)
 	if err != nil {
-		return ZeroRawToken, err
+		return nil, ZeroSession, err
 	}
 
-	// 5. Persist the record
-	if err := s.recoveryRepo.Save(ctx, token); err != nil {
-		return ZeroRawToken, err
+	// 2. Identity Resolution: Find the owner via the repository
+	user, err := s.userRepo.FindBySessionToken(ctx, hashed)
+	if err != nil {
+		return nil, ZeroSession, err
+	}
+	if user == nil {
+		return nil, ZeroSession, ErrSessionNotFound
 	}
 
-	return raw, nil
+	// 3. Delegation to Aggregate: The Aggregate Root enforces the business rules
+	session, err := user.RefreshSession(hashed, fp, now)
+	if err != nil {
+		return nil, ZeroSession, err
+	}
+
+	return user, session, nil
+}
+
+type passwordManager struct {
+	svc    IPasswordService
+	policy IPasswordPolicy
+}
+
+func NewPasswordManager(
+	svc IPasswordService,
+	policy IPasswordPolicy,
+) *passwordManager {
+	return &passwordManager{
+		svc:    svc,
+		policy: policy,
+	}
+}
+
+func (m *passwordManager) ValidateAndHashNewPassword(raw RawPassword) (HashedPassword, error) {
+	if err := m.policy.Validate(raw); err != nil {
+		return ZeroHashedPassword, err
+	}
+	return m.svc.Hash(raw)
+}
+
+func (m *passwordManager) Compare(raw RawPassword, hashed HashedPassword) bool {
+	return m.svc.Compare(raw, hashed)
+}
+
+type registrationService struct {
+	userRepo       IUserRepository
+	registerPolicy IRegisterPolicy
+}
+
+func NewRegistrationService(
+	userRepo IUserRepository,
+	registerPolicy IRegisterPolicy,
+) *registrationService {
+	return &registrationService{
+		userRepo:       userRepo,
+		registerPolicy: registerPolicy,
+	}
+}
+
+func (s *registrationService) RegisterNewMember(
+	ctx context.Context,
+	id UserID,
+	email Email,
+	pwd HashedPassword,
+	now Timepoint,
+) (*User, error) {
+	if err := s.registerPolicy.Validate(email); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, ErrUserEmailTaken
+	}
+
+	user, err := NewUser(id, email, pwd, now)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := user.AssignRole(RoleMember, now); err != nil {
+		return nil, err
+	}
+
+	if err := user.Activate(now); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *registrationService) RegisterNewSuperAdmin(
+	ctx context.Context,
+	id UserID,
+	email Email,
+	pwd HashedPassword,
+	now Timepoint,
+) (*User, error) {
+	if err := s.registerPolicy.Validate(email); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, ErrUserEmailTaken
+	}
+
+	user, err := NewUser(id, email, pwd, now)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := user.AssignRole(RoleAdmin, now); err != nil {
+		return nil, err
+	}
+
+	if err := user.Activate(now); err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }

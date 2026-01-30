@@ -8,6 +8,7 @@ import "go_auth/internal/core/pkg/err"
 
 var (
 	// --- Identity Context ---
+	ErrSessionNotFound   = err.New(err.CodeNotFound, "session was not found")
 	ErrUserNotFound      = err.New(err.CodeNotFound, "user was not found")
 	ErrUserIDRequired    = err.New(err.CodeValidation, "user identifier is required")
 	ErrUserEmailRequired = err.New(err.CodeValidation, "user email address is required")
@@ -54,6 +55,14 @@ var (
 	// --- Recovery Token Context ---
 	ErrRecoveryTokenIDRequired = err.New(err.CodeValidation, "recovery token identifier is required")
 	ErrRecoveryTokenRevoked    = err.New(err.CodeConflict, "recovery token has been revoked")
-	ErrRecoveryTokenInvalid    = err.New(err.CodeUnauthorized, "recovery token is invalid")
+	ErrRecoveryTokenInvalid    = err.New(err.CodeUnauthorized, "recovery token is invalid or not found")
 	ErrRecoveryTokenExpired    = err.New(err.CodeForbidden, "recovery token has expired")
+
+	// This is the one the compiler is screaming about:
+	// It triggers when a token is valid, but the UserID inside the token
+	// doesn't match the User Aggregate we are trying to update.
+	ErrInvalidRecoveryAttempt = err.New(err.CodeBusinessRule, "this recovery token does not belong to the specified user")
+
+	// Optional but good for strictness:
+	ErrRecoveryTokenAlreadyUsed = err.New(err.CodeConflict, "recovery token has already been consumed")
 )

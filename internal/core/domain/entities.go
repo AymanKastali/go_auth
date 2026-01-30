@@ -21,17 +21,17 @@ func NewSession(
 	identity DeviceIdentity,
 	expiresAt Timepoint,
 	now Timepoint,
-) (*Session, error) {
+) (Session, error) {
 	if id.IsEmpty() {
-		return nil, ErrSessionIDRequired // Explicit
+		return ZeroSession, ErrSessionIDRequired
 	}
 
 	// Invariant: A session cannot be born expired
 	if expiresAt.IsBefore(now) {
-		return nil, ErrSessionExpiryInPast // Explicit
+		return ZeroSession, ErrSessionExpiryInPast
 	}
 
-	return &Session{
+	return Session{
 		id:           id,
 		hashedToken:  hashedToken,
 		identity:     identity,

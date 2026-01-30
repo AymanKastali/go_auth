@@ -30,61 +30,61 @@ func NewUseCases(d DomainServices) UseCases {
 
 		Register: application.NewRegisterUseCase(
 			d.UserRepo,
-			d.RegisterPolicy,
-			d.PasswordPolicy,
-			d.PasswordSvc,
-			d.UserFactory,
+			d.RegistrationSvc,
+			d.PasswordManager,
 			d.IDGen,
 			d.Clock,
 		),
 		SeedSA: application.NewSeedSuperAdminUseCase(
 			d.UserRepo,
-			d.PasswordPolicy,
-			d.PasswordSvc,
-			d.UserFactory,
+			d.RegistrationSvc,
+			d.PasswordManager,
 			d.IDGen,
 			d.Clock,
 		),
 		Login: application.NewLoginUseCase(
 			d.UserRepo,
-			d.PasswordSvc,
-			d.IDGen,
-			d.TokenSvc,
-			d.SessionFactory,
-			d.SessionPolicy,
+			d.AuthenticationSvc,
+			d.AccessManager,
 			d.Clock,
-			d.AccessSvc,
-			d.AccessPolicy,
 		),
 		Refresh: application.NewRefreshTokenUseCase(
 			d.UserRepo,
-			d.TokenSvc,
+			d.AuthenticationSvc,
+			d.AccessManager,
 			d.Clock,
-			d.AccessSvc,
-			d.AccessPolicy,
 		),
 		Validate: application.NewValidateAccessUseCase(
-			d.AccessSvc,
-			d.UserRepo,
+			d.AccessManager,
 			d.Clock,
 		),
 		Logout: application.NewLogoutUseCase(
 			d.UserRepo, d.Clock,
 		),
 
-		//
-
 		// user
 		FindByEmail: application.NewFindUserByEmailUseCase(d.UserRepo),
 		GetByID:     application.NewGetUserByIDUseCase(d.UserRepo),
 		GetMe:       application.NewGetMeUseCase(d.UserRepo),
 		UpdateMe:    application.NewUpdateMeUseCase(d.UserRepo, d.Clock),
-		ForgotPassword: application.NewForgotPasswordUseCase(d.UserRepo,
-			d.ForgotPasswordSvc, // Correct Service
-			d.EmailSvc,          // Email infrastructure
-			d.TxManager,         // For atomic token creation
-			d.Clock),
-		ChangePassword: application.NewChangePasswordUseCase(d.UserRepo, d.ChangePasswordSvc),
+		ForgotPassword: application.NewForgotPasswordUseCase(
+			d.UserRepo,
+			d.RecoveryRepo,
+			d.AccountManager,
+			d.EmailSvc,
+			d.TxManager,
+			d.Clock,
+		),
+		ChangePassword: application.NewChangePasswordUseCase(
+			d.UserRepo,
+			d.AccountManager,
+			d.Clock,
+		),
+		ResetPassword: application.NewResetPasswordUseCase(
+			d.AccountManager,
+			d.TxManager,
+			d.Clock,
+		),
 	}
 }
 
