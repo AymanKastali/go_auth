@@ -112,21 +112,25 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 
 	now := candidate.LastActiveAt()
 
-	// Logic: If device matches an active session, refresh it instead of creating new
+	// 1. Logic: Update existing session if fingerprint matches
 	for i := range u.sessions {
+		// IMPORTANT: Use &u.sessions[i] to get a pointer to the ACTUAL element in the slice
 		s := &u.sessions[i]
+
 		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
+			// Internal mutation is safe because the Aggregate Root (User) is doing it
 			s.UpdateLogin(candidate.HashedToken(), candidate.ExpiresAt(), now)
 			u.updatedAt = now
 			return nil
 		}
 	}
 
-	// Logic: Enforce session limit invariant
+	// 2. Logic: Enforce session limit invariant
 	if len(u.sessions) >= maxSessions {
 		u.revokeOldestSession(now)
 	}
 
+	// 3. Logic: Add the new session value
 	u.sessions = append(u.sessions, candidate)
 	u.updatedAt = now
 	return nil
@@ -138,22 +142,24 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 	}
 
 	for i := range u.sessions {
-		s := &u.sessions[i]
+		s := &u.sessions[i] // Pointer to mutate the slice element
 		if s.HashedToken().Equal(hash) {
-			// Security Invariant: Detect session hijacking via fingerprint mismatch
+			// Invariant: Detect hijacking
 			if !s.ValidateFingerprint(currentFingerprint) {
 				_ = s.Revoke(now)
 				u.updatedAt = now
 				return ZeroSession, ErrSessionFingerprintMiss
 			}
 
+			// Invariant: Check expiry
 			if !s.IsValid(now) {
 				return ZeroSession, ErrSessionExpired
 			}
 
+			// State Update
 			s.UpdateActivity(now)
 			u.updatedAt = now
-			return *s, nil
+			return *s, nil // Return the updated session value
 		}
 	}
 	return ZeroSession, ErrTokenInvalid
@@ -239,6 +245,7 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	u.passwordHash = newHash
 	u.updatedAt = now
 
+	// Side effect: Security invariant - Kill all sessions on password change
 	for i := range u.sessions {
 		_ = u.sessions[i].Revoke(now)
 	}

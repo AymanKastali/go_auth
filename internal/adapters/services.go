@@ -99,16 +99,40 @@ func (s *tokenService) Generate() (domain.RawToken, error) {
 	return domain.NewRawToken(hex.EncodeToString(b))
 }
 
-func (s *tokenService) Hash(rawToken domain.RawToken) (domain.HashedToken, error) {
-	// Use SHA-256 for opaque token hashing (fast and collision-resistant)
-	hash := sha256.Sum256([]byte(rawToken.String()))
-	return domain.NewHashedToken(hex.EncodeToString(hash[:]))
+// --- Session Context ---
+
+func (s *tokenService) HashSessionToken(raw domain.RawToken) (domain.HashedToken, error) {
+	hash := s.computeHash(raw)
+	return domain.NewHashedToken(hash)
 }
 
-func (s *tokenService) Compare(raw domain.RawToken, hashed domain.HashedToken) bool {
-	actualHash := sha256.Sum256([]byte(raw.String()))
-	actualHashStr := hex.EncodeToString(actualHash[:])
-	return subtle.ConstantTimeCompare([]byte(actualHashStr), []byte(hashed.String())) == 1
+func (s *tokenService) CompareSession(raw domain.RawToken, hashed domain.HashedToken) bool {
+	actualHash := s.computeHash(raw)
+	return s.secureCompare(actualHash, hashed.String())
+}
+
+// --- Recovery Context ---
+
+func (s *tokenService) HashRecoveryToken(raw domain.RawToken) (domain.RecoveryTokenHash, error) {
+	hash := s.computeHash(raw)
+	// Here we use the specific Recovery Value Object
+	return domain.NewRecoveryTokenHash(hash)
+}
+
+func (s *tokenService) CompareRecovery(raw domain.RawToken, hashed domain.RecoveryTokenHash) bool {
+	actualHash := s.computeHash(raw)
+	return s.secureCompare(actualHash, hashed.String())
+}
+
+// --- Private Helpers (DRY the technical implementation) ---
+
+func (s *tokenService) computeHash(raw domain.RawToken) string {
+	hash := sha256.Sum256([]byte(raw.String()))
+	return hex.EncodeToString(hash[:])
+}
+
+func (s *tokenService) secureCompare(actual, expected string) bool {
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(expected)) == 1
 }
 
 // Password Service

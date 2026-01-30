@@ -10,38 +10,33 @@ import (
 )
 
 type DomainServices struct {
-	IDGen          domain.IIDGenerator
-	PasswordSvc    domain.IPasswordService
-	UserFactory    domain.IUserFactory
-	SessionFactory domain.ISessionFactory
-	PasswordPolicy domain.IPasswordPolicy
-	RegisterPolicy domain.IRegisterPolicy
-	SessionPolicy  domain.ISessionPolicy
-	AccessPolicy   domain.IAccessPolicy
-	AccessSvc      domain.IAccessService
-	Clock          domain.IClock
-	TokenSvc       domain.ITokenService
-
+	IDGen             domain.IIDGenerator
+	PasswordManager   domain.IPasswordManager
+	RegisterPolicy    domain.IRegisterPolicy
+	SessionPolicy     domain.ISessionPolicy
+	AccessPolicy      domain.IAccessPolicy
+	AccessSvc         domain.IAccessService
+	Clock             domain.IClock
+	TokenSvc          domain.ITokenService
+	RegistrationSvc   domain.IRegistrationService
+	AccessManager     domain.IAccessManager
+	AuthenticationSvc domain.IAuthenticationService
+	AccountManager    domain.IUserAccountManager
 	UserRepo          domain.IUserRepository
-	ChangePasswordSvc domain.IChangePassword
-	ForgotPasswordSvc domain.IForgotPasswordService
-	ResetPasswordSvc  domain.IPasswordResetService
+	RecoveryRepo      domain.IRecoveryTokenRepository
 	EmailSvc          application.IEmailService
 	TxManager         application.ITransactionManager
 }
 
 func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
-	//
-	uuidGen := adapters.NewUUIDV7Generator()
+	idGen := adapters.NewUUIDV7Generator()
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 	tokenSvc := adapters.NewTokenService()
-	jwtSvc := adapters.NewJWTService(
+	accessSvc := adapters.NewJWTService(
 		cfg.JWT.Secret,
 		cfg.JWT.Issuer,
 		cfg.JWT.Audience,
 	)
-	userFactory := domain.NewUserFactory()
-	sessionFactory := domain.NewSessionFactory()
 	passwordPolicy := domain.NewPasswordPolicy(
 		cfg.PasswordPolicy.MinLength,
 		cfg.PasswordPolicy.MaxLength,
@@ -57,40 +52,57 @@ func NewDomainServices(cfg *adapters.Config, db *gorm.DB) DomainServices {
 		cfg.SessionPolicy.Lifetime,
 		cfg.SessionPolicy.MaxActive,
 	)
-	accessPolicy := domain.NewAccessPolicy(cfg.JWT.AccessTTL)
-	//
 	userRepo := postgres.NewPostgresUserRepository(db)
+	accessPolicy := domain.NewAccessPolicy(cfg.JWT.AccessTTL)
+	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy)
+	passwordManager := domain.NewPasswordManager(
+		passwordSvc,
+		passwordPolicy,
+	)
+	accessManager := domain.NewAccessManager(
+		userRepo,
+		accessSvc,
+		accessPolicy,
+	)
+	authSvc := domain.NewAuthenticationService(
+		userRepo,
+		tokenSvc,
+		idGen,
+		sessionPolicy,
+		passwordManager,
+	)
+	recoveryPolicy := domain.NewRecoveryPolicy(cfg.RecoveryPolicy.Lifetime)
 	recoveryRepo := postgres.NewPostgresRecoveryTokenRepository(db)
+	accountManager := domain.NewUserAccountManager(
+		userRepo,
+		recoveryRepo,
+		tokenSvc,
+		passwordManager,
+		idGen,
+		recoveryPolicy,
+	)
 
 	clock := adapters.NewClock()
 
-	emailSvc := adapters.NewEmailService(cfg.Email) // Assuming you have a config for this
+	emailSvc := adapters.NewEmailService(cfg.Email)
 	txManager := postgres.NewTransactionManager(db)
 
-	recoveryPolicy := domain.NewRecoveryPolicy(cfg.RecoveryPolicy.Lifetime)
-
-	changePasswordSvc := domain.NewChangePassword(userRepo, passwordSvc, passwordPolicy, clock)
-	forgotPasswordSvc := domain.NewForgotPasswordService(recoveryRepo, tokenSvc, uuidGen, recoveryPolicy)
-	resetPasswordSvc := domain.NewPasswordResetService(userRepo, recoveryRepo, tokenSvc, passwordSvc, passwordPolicy)
-
 	return DomainServices{
-		UserRepo:       userRepo,
-		PasswordSvc:    passwordSvc,
-		UserFactory:    userFactory,
-		SessionFactory: sessionFactory,
-		PasswordPolicy: passwordPolicy,
-		RegisterPolicy: registerPolicy,
-		SessionPolicy:  sessionPolicy,
-		AccessPolicy:   accessPolicy,
-		Clock:          clock,
-		AccessSvc:      jwtSvc,
-		TokenSvc:       tokenSvc,
-
-		IDGen:             uuidGen,
-		ChangePasswordSvc: changePasswordSvc,
-		ForgotPasswordSvc: forgotPasswordSvc,
-		ResetPasswordSvc:  resetPasswordSvc,
+		UserRepo:          userRepo,
+		PasswordManager:   passwordManager,
+		RegisterPolicy:    registerPolicy,
+		SessionPolicy:     sessionPolicy,
+		AccessPolicy:      accessPolicy,
+		Clock:             clock,
+		AccessSvc:         accessSvc,
+		TokenSvc:          tokenSvc,
+		RegistrationSvc:   registrationSvc,
+		AccessManager:     accessManager,
+		AuthenticationSvc: authSvc,
+		AccountManager:    accountManager,
+		IDGen:             idGen,
 		EmailSvc:          emailSvc,
 		TxManager:         txManager,
+		RecoveryRepo:      recoveryRepo,
 	}
 }

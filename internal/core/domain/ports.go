@@ -5,7 +5,39 @@ import (
 	"time"
 )
 
-//
+type IUserAccountManager interface {
+	InitiatePasswordReset(
+		ctx context.Context,
+		user *User,
+		now Timepoint,
+	) (RawToken, *RecoveryToken, error)
+	ChangePassword(
+		ctx context.Context,
+		user *User,
+		oldPass RawPassword,
+		newPass RawPassword,
+		now Timepoint,
+	) error
+	ResetPasswordByToken(
+		ctx context.Context,
+		token RawToken,
+		newPassword RawPassword,
+		now Timepoint,
+	) error
+}
+
+type IAccessManager interface {
+	GrantImmediateAccess(
+		user *User,
+		sid SessionID,
+		now Timepoint,
+	) (AccessToken, Timepoint, error)
+	VerifyAccess(
+		ctx context.Context,
+		token AccessToken,
+		now Timepoint,
+	) (*User, SessionID, error)
+}
 
 // Policies
 type IPasswordPolicy interface {
@@ -37,8 +69,12 @@ type IIDGenerator interface {
 }
 type ITokenService interface {
 	Generate() (RawToken, error)
-	Hash(rawToken RawToken) (HashedToken, error)
-	Compare(raw RawToken, hashed HashedToken) bool
+
+	HashSessionToken(raw RawToken) (HashedToken, error)
+	HashRecoveryToken(raw RawToken) (RecoveryTokenHash, error)
+
+	CompareSession(raw RawToken, hashed HashedToken) bool
+	CompareRecovery(raw RawToken, hashed RecoveryTokenHash) bool
 }
 type IAccessService interface {
 	Issue(
@@ -53,23 +89,42 @@ type IAccessService interface {
 	Validate(token AccessToken) (AccessIdentity, error)
 }
 
-// Factories
-type IUserFactory interface {
-	Build(
+type IRegistrationService interface {
+	RegisterNewMember(
+		ctx context.Context,
 		id UserID,
 		email Email,
-		password HashedPassword,
-		createdAt Timepoint,
+		pwd HashedPassword,
+		now Timepoint,
+	) (*User, error)
+	RegisterNewSuperAdmin(
+		ctx context.Context,
+		id UserID,
+		email Email,
+		pwd HashedPassword,
+		now Timepoint,
 	) (*User, error)
 }
-type ISessionFactory interface {
-	Build(
-		id SessionID,
-		token HashedToken,
+
+type IAuthenticationService interface {
+	AuthenticateAndEstablishSession(
+		ctx context.Context,
+		user *User,
+		rawPassword RawPassword,
 		identity DeviceIdentity,
-		expiresAt Timepoint,
 		now Timepoint,
-	) (*Session, error)
+	) (RawToken, Session, error)
+	RefreshSession(
+		ctx context.Context,
+		rawToken RawToken,
+		fp DeviceFingerprint,
+		now Timepoint,
+	) (*User, Session, error)
+}
+
+type IPasswordManager interface {
+	ValidateAndHashNewPassword(raw RawPassword) (HashedPassword, error)
+	Compare(raw RawPassword, hashed HashedPassword) bool
 }
 
 //
@@ -92,34 +147,4 @@ type IRecoveryTokenRepository interface {
 // Policies
 type IRecoveryPolicy interface {
 	GetRecoveryTokenLifetime() time.Duration
-}
-
-// Access
-
-type IChangePassword interface {
-	ChangePassword(
-		ctx context.Context,
-		user *User,
-		oldPassword RawPassword,
-		newPassword RawPassword,
-	) error
-}
-
-type IPasswordResetService interface {
-	Reset(
-		ctx context.Context,
-		rawToken RawToken,
-		newPassword RawPassword,
-		now Timepoint,
-	) error
-}
-
-type IForgotPasswordService interface {
-	// Execute generates a RawToken/Hash pair, revokes old tokens, and saves the new one.
-	// It returns the RawToken to be sent to the user via email.
-	Execute(
-		ctx context.Context,
-		user *User,
-		now Timepoint,
-	) (RawToken, error)
 }
