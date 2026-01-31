@@ -1,5 +1,10 @@
 package domain
 
+type IPasswordManager interface {
+	ValidateAndHashNewPassword(raw RawPassword) (HashedPassword, error)
+	Compare(raw RawPassword, hashed HashedPassword) bool
+}
+
 type passwordManager struct {
 	svc    IPasswordService
 	policy IPasswordPolicy

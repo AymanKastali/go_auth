@@ -4,6 +4,22 @@ import (
 	"context"
 )
 
+type IAuthenticationService interface {
+	AuthenticateAndEstablishSession(
+		ctx context.Context,
+		user *User,
+		rawPassword RawPassword,
+		identity DeviceIdentity,
+		now Timepoint,
+	) (RawToken, Session, error)
+	RefreshSession(
+		ctx context.Context,
+		rawToken RawToken,
+		fp DeviceFingerprint,
+		now Timepoint,
+	) (*User, Session, error)
+}
+
 type authenticationService struct {
 	userRepo      IUserRepository
 	tokenSvc      ITokenService

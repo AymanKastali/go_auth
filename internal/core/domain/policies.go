@@ -6,6 +6,27 @@ import (
 	"time"
 )
 
+type IPasswordPolicy interface {
+	Validate(rawPassword RawPassword) error
+}
+
+type IRegisterPolicy interface {
+	Validate(email Email) error
+}
+
+type IAccessPolicy interface {
+	GetAccessLifetime() time.Duration
+}
+
+type ISessionPolicy interface {
+	GetSessionLifetime() time.Duration
+	GetMaxActiveSessions() int
+}
+
+type IRecoveryPolicy interface {
+	GetRecoveryTokenLifetime() time.Duration
+}
+
 var (
 	upperRegex   = regexp.MustCompile(`[A-Z]`)
 	numberRegex  = regexp.MustCompile(`[0-9]`)
