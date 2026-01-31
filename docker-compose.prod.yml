@@ -1,9 +1,6 @@
 services:
   web:
-    image: "${GA_APP_NAME}:latest"
-    build:
-      context: .
-      dockerfile: build/Dockerfile.prod
+    image: "${GA_IMAGE:-ghcr.io/aymankastali/go_auth:latest}"
     restart: always
     ports:
       - "${GA_HTTP_PORT}:8080"

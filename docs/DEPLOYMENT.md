@@ -1,37 +1,46 @@
-# GoAuth
+# Deployment Guide
 
-JWT Authentication microservice for managing users, sessions, and access control.
+## Pulling from GHCR
 
-## Quick Start
-
-### Pull the image
+Images are published to GitHub Container Registry on every push to `main` and on version tags.
 
 ```bash
-docker pull ghcr.io/aymankastali/go_auth:latest
-```
+# Latest from main
+docker pull ghcr.io/aymankastali/go_auth:main
 
-Or a specific version:
-
-```bash
+# Specific version
 docker pull ghcr.io/aymankastali/go_auth:1.0.0
+
+# Specific commit
+docker pull ghcr.io/aymankastali/go_auth:sha-abc1234
 ```
 
-### Run with Docker Compose
-
-1. Create a `.env` file with your configuration (see [Environment Variables](#environment-variables) below).
-
-2. Start the service:
+## Running with Docker Compose
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-3. The API is available at `http://localhost:8080` (or the port you configured with `GA_HTTP_PORT`).
-
-### Override the image version
+Override the image reference with `GA_IMAGE`:
 
 ```bash
-GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.prod.yml up -d
+GA_IMAGE=ghcr.io/aymankastali/go_auth:1.2.3 docker compose -f docker-compose.prod.yml up -d
+```
+
+## Versioning Strategy
+
+The CI pipeline generates Docker tags automatically based on git refs:
+
+| Git ref | Docker tags |
+|---------|-------------|
+| `v1.2.3` tag | `1.2.3`, `1.2`, `1`, `sha-<hash>` |
+| `main` branch push | `main`, `sha-<hash>` |
+
+To release a new version:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Environment Variables
@@ -69,20 +78,22 @@ GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.pro
 | `GA_REGISTER_BLOCKED_DOMAINS` | Comma-separated blocked email domains | -- |
 | `GA_IMAGE` | Docker image override for compose | `ghcr.io/aymankastali/go_auth:latest` |
 
-## Versioning
+## Docker Hub (Optional)
 
-Images are tagged using semantic versioning. Available tags:
+To also push images to Docker Hub, add a second login step to the CI workflow:
 
-| Tag | Example | Description |
-|-----|---------|-------------|
-| `X.Y.Z` | `1.0.0` | Exact release |
-| `X.Y` | `1.0` | Latest patch for that minor |
-| `X` | `1` | Latest minor/patch for that major |
-| `main` | `main` | Latest build from main branch |
-| `sha-*` | `sha-abc1234` | Specific commit |
+```yaml
+- name: Login to Docker Hub
+  uses: docker/login-action@v3
+  with:
+    username: ${{ secrets.DOCKERHUB_USERNAME }}
+    password: ${{ secrets.DOCKERHUB_TOKEN }}
+```
 
-For production, pin to an exact version (`1.0.0`). For staging, `main` or a minor tag (`1.0`) works well.
+Then add the Docker Hub image to the `metadata-action` images list:
 
-## License
-
-See [LICENSE](LICENSE) for details.
+```yaml
+images: |
+  ghcr.io/${{ github.repository }}
+  docker.io/<your-dockerhub-username>/go_auth
+```
