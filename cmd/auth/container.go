@@ -28,7 +28,7 @@ func newContainer() *container {
 	c.logger = setupLogger(c.config.App.LogLevel)
 	c.persistence = setupDatabase(c.config.Database.URL)
 	c.domain = newDomainServices(c.config, c.persistence)
-	c.appInfra = newApplicationInfra(c.config, c.persistence)
+	c.appInfra = newApplicationInfra(c.config, c.persistence, c.logger)
 	c.uc = newUseCases(c.domain, c.appInfra)
 	c.handlers = newHandlers(c.uc)
 

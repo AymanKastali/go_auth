@@ -6,6 +6,7 @@ import (
 
 // User is the Aggregate Root for the Identity context.
 type User struct {
+	EventRecorder
 	id           UserID
 	email        Email
 	passwordHash HashedPassword
@@ -34,7 +35,7 @@ func NewUser(
 		return nil, ErrUserPasswordRequired
 	}
 
-	return &User{
+	u := &User{
 		id:           userID,
 		email:        email,
 		passwordHash: passwordHash,
@@ -44,7 +45,9 @@ func NewUser(
 		createdAt:    now,
 		updatedAt:    now,
 		deletedAt:    nil,
-	}, nil
+	}
+	u.RecordEvent(NewUserRegistered(userID, email, now))
+	return u, nil
 }
 
 // ReconstituteUser is for Repository use only.
@@ -83,6 +86,7 @@ func (u *User) Activate(now Timepoint) error {
 
 	u.isActive = true
 	u.updatedAt = now
+	u.RecordEvent(NewUserActivated(u.id, now))
 	return nil
 }
 
@@ -99,6 +103,7 @@ func (u *User) AssignRole(role Role, now Timepoint) error {
 
 	u.roles = append(u.roles, role)
 	u.updatedAt = now
+	u.RecordEvent(NewRoleAssigned(u.id, role, now))
 	return nil
 }
 
@@ -121,6 +126,7 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 			// Internal mutation is safe because the Aggregate Root (User) is doing it
 			s.UpdateLogin(candidate.HashedToken(), candidate.ExpiresAt(), now)
 			u.updatedAt = now
+			u.RecordEvent(NewSessionEstablished(u.id, s.ID(), now))
 			return nil
 		}
 	}
@@ -133,6 +139,7 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 	// 3. Logic: Add the new session value
 	u.sessions = append(u.sessions, candidate)
 	u.updatedAt = now
+	u.RecordEvent(NewSessionEstablished(u.id, candidate.ID(), now))
 	return nil
 }
 
@@ -148,6 +155,7 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 			if !s.ValidateFingerprint(currentFingerprint) {
 				_ = s.Revoke(now)
 				u.updatedAt = now
+				u.RecordEvent(NewSessionHijackDetected(u.id, s.ID(), now))
 				return ZeroSession, ErrSessionFingerprintMiss
 			}
 
@@ -159,6 +167,7 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 			// State Update
 			s.UpdateActivity(now)
 			u.updatedAt = now
+			u.RecordEvent(NewSessionRefreshed(u.id, s.ID(), now))
 			return *s, nil // Return the updated session value
 		}
 	}
@@ -180,6 +189,7 @@ func (u *User) RevokeSession(sid SessionID, now Timepoint) error {
 				return err
 			}
 			u.updatedAt = now
+			u.RecordEvent(NewSessionRevoked(u.id, sid, now))
 			return nil
 		}
 	}
@@ -211,6 +221,7 @@ func (u *User) revokeOldestSession(now Timepoint) {
 	for i := range u.sessions {
 		if !u.sessions[i].IsRevoked() {
 			_ = u.sessions[i].Revoke(now)
+			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
 			break
 		}
 	}
@@ -226,8 +237,10 @@ func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 		return nil
 	}
 
+	oldEmail := u.email
 	u.email = newEmail
 	u.updatedAt = now
+	u.RecordEvent(NewEmailUpdated(u.id, oldEmail, newEmail, now))
 
 	// Note: In many systems, changing an email would also set u.isActive = false
 	// to trigger a new email verification flow.
@@ -247,9 +260,13 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 
 	// Side effect: Security invariant - Kill all sessions on password change
 	for i := range u.sessions {
-		_ = u.sessions[i].Revoke(now)
+		if !u.sessions[i].IsRevoked() {
+			_ = u.sessions[i].Revoke(now)
+			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
+		}
 	}
 
+	u.RecordEvent(NewPasswordChanged(u.id, now))
 	return nil
 }
 

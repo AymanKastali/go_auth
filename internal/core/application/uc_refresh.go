@@ -12,6 +12,7 @@ type refreshTokenUseCase struct {
 	authSvc       domain.IAuthenticationService
 	accessManager domain.IAccessManager
 	clock         domain.IClock
+	dispatcher    IEventDispatcher
 }
 
 func NewRefreshTokenUseCase(
@@ -19,12 +20,14 @@ func NewRefreshTokenUseCase(
 	authSvc domain.IAuthenticationService,
 	accessManager domain.IAccessManager,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IRefreshTokenUseCase {
 	return &refreshTokenUseCase{
 		userRepo:      userRepo,
 		authSvc:       authSvc,
 		accessManager: accessManager,
 		clock:         clock,
+		dispatcher:    dispatcher,
 	}
 }
 
@@ -64,6 +67,8 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("refresh_token_success",
 		slog.String("user_id", user.ID().String()),

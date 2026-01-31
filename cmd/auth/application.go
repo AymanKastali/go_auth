@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log/slog"
+
 	"go_auth/internal/adapters"
 	"go_auth/internal/adapters/persistence/postgres"
 	"go_auth/internal/core/application"
@@ -9,14 +11,16 @@ import (
 // applicationInfra holds adapter implementations of application-layer ports
 // (e.g. email, transactions). These are NOT domain services.
 type applicationInfra struct {
-	emailSvc  application.IEmailService
-	txManager application.ITransactionManager
+	emailSvc   application.IEmailService
+	txManager  application.ITransactionManager
+	dispatcher application.IEventDispatcher
 }
 
-func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory) applicationInfra {
+func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, logger *slog.Logger) applicationInfra {
 	return applicationInfra{
-		emailSvc:  adapters.NewEmailService(cfg.Email),
-		txManager: pf.NewTransactionManager(),
+		emailSvc:   adapters.NewEmailService(cfg.Email),
+		txManager:  pf.NewTransactionManager(),
+		dispatcher: adapters.NewLoggingEventDispatcher(logger),
 	}
 }
 
@@ -47,6 +51,7 @@ func newUseCases(d domainServices, infra applicationInfra) useCases {
 			d.passwordManager,
 			d.idGen,
 			d.clock,
+			infra.dispatcher,
 		),
 		seedSA: application.NewSeedSuperAdminUseCase(
 			d.userRepo,
@@ -54,32 +59,35 @@ func newUseCases(d domainServices, infra applicationInfra) useCases {
 			d.passwordManager,
 			d.idGen,
 			d.clock,
+			infra.dispatcher,
 		),
 		login: application.NewLoginUseCase(
 			d.userRepo,
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
+			infra.dispatcher,
 		),
 		refresh: application.NewRefreshTokenUseCase(
 			d.userRepo,
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
+			infra.dispatcher,
 		),
 		validate: application.NewValidateAccessUseCase(
 			d.accessManager,
 			d.clock,
 		),
 		logout: application.NewLogoutUseCase(
-			d.userRepo, d.clock,
+			d.userRepo, d.clock, infra.dispatcher,
 		),
 
 		// user
 		findByEmail: application.NewFindUserByEmailUseCase(d.userRepo),
 		getByID:     application.NewGetUserByIDUseCase(d.userRepo),
 		getMe:       application.NewGetMeUseCase(d.userRepo),
-		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock),
+		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock, infra.dispatcher),
 		forgotPassword: application.NewForgotPasswordUseCase(
 			d.userRepo,
 			d.recoveryRepo,
@@ -87,11 +95,13 @@ func newUseCases(d domainServices, infra applicationInfra) useCases {
 			infra.emailSvc,
 			infra.txManager,
 			d.clock,
+			infra.dispatcher,
 		),
 		changePassword: application.NewChangePasswordUseCase(
 			d.userRepo,
 			d.accountManager,
 			d.clock,
+			infra.dispatcher,
 		),
 		resetPassword: application.NewResetPasswordUseCase(
 			d.accountManager,

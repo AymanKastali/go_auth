@@ -4,6 +4,7 @@ import "time"
 
 // RecoveryToken
 type RecoveryToken struct {
+	EventRecorder
 	id          RecoveryTokenID
 	userID      UserID
 	hashedToken RecoveryTokenHash
@@ -26,14 +27,16 @@ func NewRecoveryToken(
 	if expiresAt.IsBefore(now) {
 		return nil, ErrSessionExpiryInPast
 	}
-	return &RecoveryToken{
+	rt := &RecoveryToken{
 		id:          id,
 		userID:      uid,
 		hashedToken: hash,
 		expiresAt:   expiresAt,
 		usedAt:      nil,
 		createdAt:   now,
-	}, nil
+	}
+	rt.RecordEvent(NewPasswordResetRequested(id, uid, now))
+	return rt, nil
 }
 
 // ReconstituteRecoveryToken is used by the repository to load existing tokens.
@@ -80,6 +83,7 @@ func (r *RecoveryToken) MarkAsUsed(now Timepoint) error {
 		return ErrRecoveryTokenRevoked
 	}
 	r.usedAt = &now
+	r.RecordEvent(NewRecoveryTokenUsed(r.id, r.userID, now))
 	return nil
 }
 
