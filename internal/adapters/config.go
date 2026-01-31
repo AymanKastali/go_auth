@@ -79,11 +79,12 @@ type RecoveryPolicyConfig struct {
 }
 
 type EmailConfig struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	From     string
+	Host         string
+	Port         int
+	Username     string
+	Password     string
+	From         string
+	ResetBaseURL string
 }
 
 type DatabaseConfig struct {
@@ -133,6 +134,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	email, err := loadEmail()
+	if err != nil {
+		return nil, err
+	}
+
+	recoveryPolicy, err := loadRecoveryPolicy()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		App:            app,
 		HTTP:           http,
@@ -143,6 +154,8 @@ func Load() (*Config, error) {
 		Database:       db,
 		Seed:           seed,
 		RegisterPolicy: registerPolicy,
+		Email:          email,
+		RecoveryPolicy: recoveryPolicy,
 	}, nil
 }
 
@@ -285,6 +298,40 @@ func loadSeed() (SeedConfig, error) {
 		AdminEmail:    email,
 		AdminPassword: password,
 	}, nil
+}
+
+func loadEmail() (EmailConfig, error) {
+	from, err := getRequiredEnv("EMAIL_FROM")
+	if err != nil {
+		return EmailConfig{}, err
+	}
+
+	resetBaseURL, err := getRequiredEnv("EMAIL_RESET_BASE_URL")
+	if err != nil {
+		return EmailConfig{}, err
+	}
+
+	port, err := strconv.Atoi(getEnv("EMAIL_PORT", "587"))
+	if err != nil {
+		return EmailConfig{}, fmt.Errorf("config: invalid GA_EMAIL_PORT: %w", err)
+	}
+
+	return EmailConfig{
+		Host:         getEnv("EMAIL_HOST", "localhost"),
+		Port:         port,
+		Username:     getEnv("EMAIL_USERNAME", ""),
+		Password:     getEnv("EMAIL_PASSWORD", ""),
+		From:         from,
+		ResetBaseURL: resetBaseURL,
+	}, nil
+}
+
+func loadRecoveryPolicy() (RecoveryPolicyConfig, error) {
+	lifetime, err := time.ParseDuration(getEnv("RECOVERY_TOKEN_LIFETIME", "15m"))
+	if err != nil {
+		return RecoveryPolicyConfig{}, fmt.Errorf("config: invalid GA_RECOVERY_TOKEN_LIFETIME: %w", err)
+	}
+	return RecoveryPolicyConfig{Lifetime: lifetime}, nil
 }
 
 // --- Helpers ---

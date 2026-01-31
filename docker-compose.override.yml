@@ -8,6 +8,9 @@ services:
     stdin_open: true
     env_file:
       - .env
+    environment:
+      GA_EMAIL_HOST: mailhog
+      GA_EMAIL_PORT: 1025
     ports:
       - "${GA_HTTP_PORT}:${GA_HTTP_PORT}"
       - "2345:2345"
@@ -17,7 +20,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     cap_add:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: "${GA_APP_NAME}_mailhog"
+    ports:
+      - "1025:1025"
+      - "8025:8025"
