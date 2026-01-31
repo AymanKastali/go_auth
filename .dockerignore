@@ -1,0 +1,29 @@
+.git
+.github
+.gitignore
+.dockerignore
+.env
+.env.*
+
+# Build artifacts
+build/Dockerfile.*
+docker-compose*.yml
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Test files
+*_test.go
+**/*_test.go
+
+# IDE configs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Debug binaries
+__debug_bin*
