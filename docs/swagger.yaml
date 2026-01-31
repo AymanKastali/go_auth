@@ -1,6 +1,20 @@
+basePath: /
 definitions:
-  go_auth_internal_adapters_http_fiber_dto.ErrorResponse:
+  internal_adapters_http_fiberapp.ChangePasswordRequest:
     properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  internal_adapters_http_fiberapp.ErrorResponse:
+    properties:
+      code:
+        example: VALIDATION
+        type: string
       details:
         additionalProperties: {}
         type: object
@@ -10,277 +24,331 @@ definitions:
       trace_id:
         example: req-12345
         type: string
-      type:
-        example: VALIDATION
-        type: string
     type: object
-  go_auth_internal_adapters_http_fiber_dto.LoginRequest:
+  internal_adapters_http_fiberapp.LoginRequest:
     properties:
       email:
         type: string
       password:
-        minLength: 8
         type: string
     required:
     - email
     - password
     type: object
-  go_auth_internal_adapters_http_fiber_dto.LoginResponse:
+  internal_adapters_http_fiberapp.LoginResponse:
     properties:
+      access_exp:
+        type: string
       access_token:
         type: string
+      refresh_exp:
+        type: string
       refresh_token:
         type: string
     type: object
-  go_auth_internal_adapters_http_fiber_dto.LogoutRequest:
+  internal_adapters_http_fiberapp.RefreshRequest:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
     type: object
-  go_auth_internal_adapters_http_fiber_dto.ManageRoleRequest:
-    properties:
-      action:
-        enum:
-        - grant
-        - revoke
-        type: string
-      role:
-        type: string
-      user_id:
-        type: string
-    required:
-    - action
-    - role
-    - user_id
-    type: object
-  go_auth_internal_adapters_http_fiber_dto.RefreshTokenRequest:
-    properties:
-      refresh_token:
-        type: string
-    required:
-    - refresh_token
-    type: object
-  go_auth_internal_adapters_http_fiber_dto.RegisterRequest:
+  internal_adapters_http_fiberapp.RegisterRequest:
     properties:
       email:
         type: string
       password:
-        minLength: 8
         type: string
     required:
     - email
     - password
     type: object
-  go_auth_internal_adapters_http_fiber_dto.RegisteredUserResponse:
+  internal_adapters_http_fiberapp.RegisterUserResponse:
     properties:
       email:
         type: string
-      user_id:
+      id:
         type: string
     type: object
-  go_auth_internal_adapters_http_fiber_dto.SuccessResponse:
+  internal_adapters_http_fiberapp.SuccessResponse:
     properties:
       data: {}
       message:
         example: humanized success message
         type: string
     type: object
-  go_auth_internal_adapters_http_fiber_dto.UserResponse:
+  internal_adapters_http_fiberapp.UpdateMeRequest:
     properties:
-      created_at:
+      email:
         type: string
+    required:
+    - email
+    type: object
+  internal_adapters_http_fiberapp.UserResponse:
+    properties:
       email:
         type: string
       id:
         type: string
-      roles:
-        items:
-          type: string
-        type: array
-      status:
-        type: string
-      updated_at:
-        type: string
     type: object
+host: localhost:8080
 info:
-  contact: {}
+  contact:
+    email: support@example.com
+    name: API Support
+  description: Authentication service using Hexagonal Architecture and Fiber v3.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Auth Service API
+  version: "1.0"
 paths:
-  /auth/login:
+  /api/v1/auth/login:
     post:
       consumes:
       - application/json
-      description: Authenticates a user and returns access/refresh tokens. Uses device
-        metadata for session management.
+      description: Authenticate user and return tokens
       parameters:
       - description: Login Credentials
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginRequest'
+          $ref: '#/definitions/internal_adapters_http_fiberapp.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Successfully authenticated
+          description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginResponse'
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
               type: object
-        "400":
-          description: Bad Request - Invalid syntax
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
         "401":
-          description: Unauthorized - Invalid credentials
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "422":
-          description: Unprocessable Entity - Validation failed
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
       summary: User Login
       tags:
-      - auth
-  /auth/logout:
+      - Auth
+  /api/v1/auth/logout:
     post:
-      consumes:
-      - application/json
-      description: Invalidates the provided session renewal token (refresh token).
-      parameters:
-      - description: Logout Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.LogoutRequest'
-      produces:
-      - application/json
+      description: Revoke the current session
       responses:
         "204":
-          description: Successfully logged out
-        "400":
-          description: Invalid request body or validation failed
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
+          description: No Content
         "401":
-          description: Unauthorized - Invalid or expired token
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-      summary: User Logout
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Logout
       tags:
-      - auth
-  /auth/refresh:
+      - Auth
+  /api/v1/auth/refresh:
     post:
       consumes:
       - application/json
-      description: Rotates the session renewal token (refresh token) and issues a
-        new access token.
+      description: Exchange a valid refresh token for a new access token
       parameters:
-      - description: Refresh Token Details
+      - description: Refresh Token
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.RefreshTokenRequest'
+          $ref: '#/definitions/internal_adapters_http_fiberapp.RefreshRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Tokens rotated successfully
+          description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.LoginResponse'
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
               type: object
-        "400":
-          description: Bad Request - Invalid syntax or missing fields
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
         "401":
-          description: Unauthorized - Invalid or expired refresh token
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "403":
-          description: Forbidden - Device mismatch or security violation
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-      summary: Refresh Tokens
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: Refresh Access Token
       tags:
-      - auth
-  /auth/register:
+      - Auth
+  /api/v1/auth/register:
     post:
       consumes:
       - application/json
-      description: Creates a new user account with email and password.
+      description: Create a user account with email and password
       parameters:
-      - description: Registration Info
+      - description: Registration Details
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.RegisterRequest'
+          $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: User successfully registered
+          description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.RegisteredUserResponse'
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterUserResponse'
               type: object
         "400":
-          description: Bad Request - Invalid syntax or missing fields
+          description: Bad Request
           schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "409":
-          description: Conflict - Email already exists
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "422":
-          description: Unprocessable Entity - Validation failed
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-      summary: Register User
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: Register a new user
       tags:
-      - auth
-  /roles/manage:
-    post:
+      - Auth
+  /api/v1/users:
+    get:
       consumes:
       - application/json
+      description: Search for a specific user using their email address
       parameters:
-      - description: Role management details
+      - description: User Email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Find user by email
+      tags:
+      - Users
+  /api/v1/users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a user's public profile by their unique ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+  /api/v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user
+      tags:
+      - Users
+    patch:
+      consumes:
+      - application/json
+      description: Update the authenticated user's email
+      parameters:
+      - description: Update Details
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ManageRoleRequest'
+          $ref: '#/definitions/internal_adapters_http_fiberapp.UpdateMeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Current User Profile
+      tags:
+      - Users
+  /api/v1/users/me/password:
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's password
+      parameters:
+      - description: Password Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_http_fiberapp.ChangePasswordRequest'
       produces:
       - application/json
       responses:
@@ -289,39 +357,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-      summary: Manage User Roles
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Change Password
       tags:
-      - roles
-  /user/me:
-    get:
-      description: Retrieves detailed profile information for the user currently logged
-        in.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Profile retrieved successfully
-          schema:
-            allOf:
-            - $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.SuccessResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.UserResponse'
-              type: object
-        "401":
-          description: Unauthorized - Session missing or invalid
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "404":
-          description: User not found
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/go_auth_internal_adapters_http_fiber_dto.ErrorResponse'
-      summary: Get Current User
-      tags:
-      - user
+      - Users
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
