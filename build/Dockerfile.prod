@@ -6,7 +6,7 @@ RUN go mod download
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 ARG VERSION=dev
-RUN go build -ldflags="-s -w -X main.version=${VERSION}" -o /main ./cmd/auth/main.go
+RUN go build -ldflags="-s -w -X main.version=${VERSION}" -o /main ./cmd/auth/
 
 # Stage 2 — Runtime
 FROM debian:bookworm-slim AS runtime
