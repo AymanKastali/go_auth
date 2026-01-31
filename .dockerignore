@@ -9,8 +9,8 @@
 build/Dockerfile.*
 docker-compose*.yml
 
-# Documentation
-docs/
+# Documentation (keep docs/*.go for swagger)
+docs/DEPLOYMENT.md
 *.md
 LICENSE
 
