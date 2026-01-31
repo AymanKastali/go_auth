@@ -3,10 +3,7 @@ package main
 import (
 	"go_auth/internal/adapters"
 	"go_auth/internal/adapters/persistence/postgres"
-	"go_auth/internal/core/application"
 	"go_auth/internal/core/domain"
-
-	"gorm.io/gorm"
 )
 
 type domainServices struct {
@@ -24,11 +21,9 @@ type domainServices struct {
 	accountManager    domain.IUserAccountManager
 	userRepo          domain.IUserRepository
 	recoveryRepo      domain.IRecoveryTokenRepository
-	emailSvc          application.IEmailService
-	txManager         application.ITransactionManager
 }
 
-func newDomainServices(cfg *adapters.Config, db *gorm.DB) domainServices {
+func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainServices {
 	idGen := adapters.NewUUIDV7Generator()
 	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
 	tokenSvc := adapters.NewTokenService()
@@ -37,23 +32,25 @@ func newDomainServices(cfg *adapters.Config, db *gorm.DB) domainServices {
 		cfg.JWT.Issuer,
 		cfg.JWT.Audience,
 	)
-	passwordPolicy := domain.NewPasswordPolicy(
-		cfg.PasswordPolicy.MinLength,
-		cfg.PasswordPolicy.MaxLength,
-		cfg.PasswordPolicy.RequireUpper,
-		cfg.PasswordPolicy.RequireNumber,
-		cfg.PasswordPolicy.RequireSpecial,
-	)
-	registerPolicy := domain.NewRegisterPolicy(
-		cfg.RegisterPolicy.AllowPublic,
-		cfg.RegisterPolicy.BlockedDomains,
-	)
-	sessionPolicy := domain.NewSessionPolicy(
-		cfg.SessionPolicy.Lifetime,
-		cfg.SessionPolicy.MaxActive,
-	)
-	userRepo := postgres.NewPostgresUserRepository(db)
-	accessPolicy := domain.NewAccessPolicy(cfg.JWT.AccessTTL)
+	passwordPolicy := domain.NewPasswordPolicy(domain.PasswordPolicyConfig{
+		MinLength:      cfg.PasswordPolicy.MinLength,
+		MaxLength:      cfg.PasswordPolicy.MaxLength,
+		RequireUpper:   cfg.PasswordPolicy.RequireUpper,
+		RequireNumber:  cfg.PasswordPolicy.RequireNumber,
+		RequireSpecial: cfg.PasswordPolicy.RequireSpecial,
+	})
+	registerPolicy := domain.NewRegisterPolicy(domain.RegisterPolicyConfig{
+		AllowPublic:    cfg.RegisterPolicy.AllowPublic,
+		BlockedDomains: cfg.RegisterPolicy.BlockedDomains,
+	})
+	sessionPolicy := domain.NewSessionPolicy(domain.SessionPolicyConfig{
+		Lifetime:  cfg.SessionPolicy.Lifetime,
+		MaxActive: cfg.SessionPolicy.MaxActive,
+	})
+	userRepo := pf.NewUserRepository()
+	accessPolicy := domain.NewAccessPolicy(domain.AccessPolicyConfig{
+		Lifetime: cfg.JWT.AccessTTL,
+	})
 	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy)
 	passwordManager := domain.NewPasswordManager(
 		passwordSvc,
@@ -71,8 +68,10 @@ func newDomainServices(cfg *adapters.Config, db *gorm.DB) domainServices {
 		sessionPolicy,
 		passwordManager,
 	)
-	recoveryPolicy := domain.NewRecoveryPolicy(cfg.RecoveryPolicy.Lifetime)
-	recoveryRepo := postgres.NewPostgresRecoveryTokenRepository(db)
+	recoveryPolicy := domain.NewRecoveryPolicy(domain.RecoveryPolicyConfig{
+		Lifetime: cfg.RecoveryPolicy.Lifetime,
+	})
+	recoveryRepo := pf.NewRecoveryTokenRepository()
 	accountManager := domain.NewUserAccountManager(
 		userRepo,
 		recoveryRepo,
@@ -83,9 +82,6 @@ func newDomainServices(cfg *adapters.Config, db *gorm.DB) domainServices {
 	)
 
 	clock := adapters.NewClock()
-
-	emailSvc := adapters.NewEmailService(cfg.Email)
-	txManager := postgres.NewTransactionManager(db)
 
 	return domainServices{
 		userRepo:          userRepo,
@@ -101,8 +97,6 @@ func newDomainServices(cfg *adapters.Config, db *gorm.DB) domainServices {
 		authenticationSvc: authSvc,
 		accountManager:    accountManager,
 		idGen:             idGen,
-		emailSvc:          emailSvc,
-		txManager:         txManager,
 		recoveryRepo:      recoveryRepo,
 	}
 }

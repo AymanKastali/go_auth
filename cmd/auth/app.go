@@ -11,7 +11,6 @@ import (
 func newApp(
 	cfg adapters.AppConfig,
 	h handlers,
-	idGen fiberapp.IIDGenerator,
 	baseLogger *slog.Logger,
 ) (*fiber.App, handlers) {
 	app := fiber.New(fiber.Config{
@@ -19,6 +18,7 @@ func newApp(
 		AppName:      cfg.Name,
 	})
 
+	idGen := adapters.NewULIDGenerator()
 	fiberapp.ConfigureMiddlewares(app, baseLogger, idGen)
 	fiberapp.RegisterRoutes(
 		app,

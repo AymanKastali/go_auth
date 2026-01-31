@@ -2,9 +2,23 @@ package main
 
 import (
 	"go_auth/internal/adapters"
-	"go_auth/internal/adapters/http/fiberapp"
+	"go_auth/internal/adapters/persistence/postgres"
 	"go_auth/internal/core/application"
 )
+
+// applicationInfra holds adapter implementations of application-layer ports
+// (e.g. email, transactions). These are NOT domain services.
+type applicationInfra struct {
+	emailSvc  application.IEmailService
+	txManager application.ITransactionManager
+}
+
+func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory) applicationInfra {
+	return applicationInfra{
+		emailSvc:  adapters.NewEmailService(cfg.Email),
+		txManager: pf.NewTransactionManager(),
+	}
+}
 
 type useCases struct {
 	// auth
@@ -25,7 +39,7 @@ type useCases struct {
 	resetPassword  application.IResetPasswordUseCase
 }
 
-func newUseCases(d domainServices) useCases {
+func newUseCases(d domainServices, infra applicationInfra) useCases {
 	return useCases{
 		register: application.NewRegisterUseCase(
 			d.userRepo,
@@ -70,8 +84,8 @@ func newUseCases(d domainServices) useCases {
 			d.userRepo,
 			d.recoveryRepo,
 			d.accountManager,
-			d.emailSvc,
-			d.txManager,
+			infra.emailSvc,
+			infra.txManager,
 			d.clock,
 		),
 		changePassword: application.NewChangePasswordUseCase(
@@ -81,18 +95,8 @@ func newUseCases(d domainServices) useCases {
 		),
 		resetPassword: application.NewResetPasswordUseCase(
 			d.accountManager,
-			d.txManager,
+			infra.txManager,
 			d.clock,
 		),
-	}
-}
-
-type applicationServices struct {
-	idGen fiberapp.IIDGenerator
-}
-
-func newApplicationServices() applicationServices {
-	return applicationServices{
-		idGen: adapters.NewULIDGenerator(),
 	}
 }
