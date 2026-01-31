@@ -1,8 +1,9 @@
 package postgres
 
 import (
-	"go_auth/internal/core/domain"
 	"time"
+
+	"go_auth/internal/core/domain"
 )
 
 // Recovery Token
@@ -24,13 +25,18 @@ func toRecoveryTokenModel(t *domain.RecoveryToken) RecoveryTokenModel {
 }
 
 func toRecoveryTokenDomain(m RecoveryTokenModel) *domain.RecoveryToken {
-	// We use our Reconstitutor which handles the Timepoint conversions
+	var usedAt *domain.Timepoint
+	if m.UsedAt != nil {
+		tp := domain.NewTimepoint(*m.UsedAt)
+		usedAt = &tp
+	}
+
 	return domain.ReconstituteRecoveryToken(
-		m.ID,
-		m.UserID,
-		m.HashedToken,
-		m.ExpiresAt,
-		m.CreatedAt,
-		m.UsedAt,
+		domain.ReconstituteRecoveryTokenID(m.ID),
+		domain.ReconstituteUserID(m.UserID),
+		domain.ReconstituteRecoveryTokenHash(m.HashedToken),
+		domain.NewTimepoint(m.ExpiresAt),
+		domain.NewTimepoint(m.CreatedAt),
+		usedAt,
 	)
 }

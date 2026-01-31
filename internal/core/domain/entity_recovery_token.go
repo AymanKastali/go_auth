@@ -1,7 +1,5 @@
 package domain
 
-import "time"
-
 // RecoveryToken
 type RecoveryToken struct {
 	EventRecorder
@@ -41,26 +39,20 @@ func NewRecoveryToken(
 
 // ReconstituteRecoveryToken is used by the repository to load existing tokens.
 func ReconstituteRecoveryToken(
-	id string,
-	userID string,
-	hashedToken string,
-	expiresAt time.Time,
-	createdAt time.Time,
-	usedAt *time.Time,
+	id RecoveryTokenID,
+	userID UserID,
+	hashedToken RecoveryTokenHash,
+	expiresAt Timepoint,
+	createdAt Timepoint,
+	usedAt *Timepoint,
 ) *RecoveryToken {
-	var usedAtTP *Timepoint
-	if usedAt != nil {
-		tp := NewTimepoint(*usedAt)
-		usedAtTP = &tp
-	}
-
 	return &RecoveryToken{
-		id:          ReconstituteRecoveryTokenID(id),
-		userID:      ReconstituteUserID(userID),
-		hashedToken: ReconstituteRecoveryTokenHash(hashedToken),
-		expiresAt:   NewTimepoint(expiresAt),
-		createdAt:   NewTimepoint(createdAt),
-		usedAt:      usedAtTP,
+		id:          id,
+		userID:      userID,
+		hashedToken: hashedToken,
+		expiresAt:   expiresAt,
+		createdAt:   createdAt,
+		usedAt:      usedAt,
 	}
 }
 
