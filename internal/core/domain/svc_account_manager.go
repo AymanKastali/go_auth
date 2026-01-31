@@ -4,6 +4,27 @@ import (
 	"context"
 )
 
+type IUserAccountManager interface {
+	InitiatePasswordReset(
+		ctx context.Context,
+		user *User,
+		now Timepoint,
+	) (RawToken, *RecoveryToken, error)
+	ChangePassword(
+		ctx context.Context,
+		user *User,
+		oldPass RawPassword,
+		newPass RawPassword,
+		now Timepoint,
+	) error
+	ResetPasswordByToken(
+		ctx context.Context,
+		token RawToken,
+		newPassword RawPassword,
+		now Timepoint,
+	) error
+}
+
 type userAccountManager struct {
 	userRepo       IUserRepository
 	recoveryRepo   IRecoveryTokenRepository

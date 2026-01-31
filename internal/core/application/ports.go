@@ -2,10 +2,16 @@ package application
 
 import (
 	"context"
+
+	"go_auth/internal/core/domain"
 )
 
 type ITransactionManager interface {
 	WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
+}
+
+type IEventDispatcher interface {
+	Dispatch(ctx context.Context, events []domain.DomainEvent)
 }
 
 type IEmailService interface {

@@ -7,17 +7,20 @@ import (
 )
 
 type updateMeUseCase struct {
-	userRepo domain.IUserRepository
-	clock    domain.IClock
+	userRepo   domain.IUserRepository
+	clock      domain.IClock
+	dispatcher IEventDispatcher
 }
 
 func NewUpdateMeUseCase(
 	repo domain.IUserRepository,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IUpdateMeUseCase {
 	return &updateMeUseCase{
-		userRepo: repo,
-		clock:    clock,
+		userRepo:   repo,
+		clock:      clock,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -67,6 +70,8 @@ func (uc *updateMeUseCase) Execute(ctx context.Context, cmd UpdateMeCommand) err
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("update_me_success", slog.String("new_email", cmd.Email))
 

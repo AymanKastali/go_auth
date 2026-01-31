@@ -4,6 +4,19 @@ import (
 	"context"
 )
 
+type IAccessManager interface {
+	GrantImmediateAccess(
+		user *User,
+		sid SessionID,
+		now Timepoint,
+	) (AccessToken, Timepoint, error)
+	VerifyAccess(
+		ctx context.Context,
+		token AccessToken,
+		now Timepoint,
+	) (*User, SessionID, error)
+}
+
 type accessManager struct {
 	userRepo     IUserRepository
 	accessSvc    IAccessService

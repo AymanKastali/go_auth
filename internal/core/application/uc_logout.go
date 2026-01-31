@@ -7,17 +7,20 @@ import (
 )
 
 type logoutUseCase struct {
-	userRepo domain.IUserRepository
-	clock    domain.IClock
+	userRepo   domain.IUserRepository
+	clock      domain.IClock
+	dispatcher IEventDispatcher
 }
 
 func NewLogoutUseCase(
 	repo domain.IUserRepository,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) ILogoutUseCase {
 	return &logoutUseCase{
-		userRepo: repo,
-		clock:    clock,
+		userRepo:   repo,
+		clock:      clock,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -63,6 +66,8 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("logout_success", slog.String("session_id", sid.String()))
 

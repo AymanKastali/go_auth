@@ -4,6 +4,23 @@ import (
 	"context"
 )
 
+type IRegistrationService interface {
+	RegisterNewMember(
+		ctx context.Context,
+		id UserID,
+		email Email,
+		pwd HashedPassword,
+		now Timepoint,
+	) (*User, error)
+	RegisterNewSuperAdmin(
+		ctx context.Context,
+		id UserID,
+		email Email,
+		pwd HashedPassword,
+		now Timepoint,
+	) (*User, error)
+}
+
 type registrationService struct {
 	userRepo       IUserRepository
 	registerPolicy IRegisterPolicy

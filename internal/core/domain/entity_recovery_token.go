@@ -1,9 +1,8 @@
 package domain
 
-import "time"
-
 // RecoveryToken
 type RecoveryToken struct {
+	EventRecorder
 	id          RecoveryTokenID
 	userID      UserID
 	hashedToken RecoveryTokenHash
@@ -26,38 +25,34 @@ func NewRecoveryToken(
 	if expiresAt.IsBefore(now) {
 		return nil, ErrSessionExpiryInPast
 	}
-	return &RecoveryToken{
+	rt := &RecoveryToken{
 		id:          id,
 		userID:      uid,
 		hashedToken: hash,
 		expiresAt:   expiresAt,
 		usedAt:      nil,
 		createdAt:   now,
-	}, nil
+	}
+	rt.RecordEvent(NewPasswordResetRequested(id, uid, now))
+	return rt, nil
 }
 
 // ReconstituteRecoveryToken is used by the repository to load existing tokens.
 func ReconstituteRecoveryToken(
-	id string,
-	userID string,
-	hashedToken string,
-	expiresAt time.Time,
-	createdAt time.Time,
-	usedAt *time.Time,
+	id RecoveryTokenID,
+	userID UserID,
+	hashedToken RecoveryTokenHash,
+	expiresAt Timepoint,
+	createdAt Timepoint,
+	usedAt *Timepoint,
 ) *RecoveryToken {
-	var usedAtTP *Timepoint
-	if usedAt != nil {
-		tp := NewTimepoint(*usedAt)
-		usedAtTP = &tp
-	}
-
 	return &RecoveryToken{
-		id:          ReconstituteRecoveryTokenID(id),
-		userID:      ReconstituteUserID(userID),
-		hashedToken: ReconstituteRecoveryTokenHash(hashedToken),
-		expiresAt:   NewTimepoint(expiresAt),
-		createdAt:   NewTimepoint(createdAt),
-		usedAt:      usedAtTP,
+		id:          id,
+		userID:      userID,
+		hashedToken: hashedToken,
+		expiresAt:   expiresAt,
+		createdAt:   createdAt,
+		usedAt:      usedAt,
 	}
 }
 
@@ -80,6 +75,7 @@ func (r *RecoveryToken) MarkAsUsed(now Timepoint) error {
 		return ErrRecoveryTokenRevoked
 	}
 	r.usedAt = &now
+	r.RecordEvent(NewRecoveryTokenUsed(r.id, r.userID, now))
 	return nil
 }
 

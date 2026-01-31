@@ -13,6 +13,7 @@ type seedSuperAdminUseCase struct {
 	passwordMgr     domain.IPasswordManager
 	idGen           domain.IIDGenerator
 	clock           domain.IClock
+	dispatcher      IEventDispatcher
 }
 
 func NewSeedSuperAdminUseCase(
@@ -21,6 +22,7 @@ func NewSeedSuperAdminUseCase(
 	passwordMgr domain.IPasswordManager,
 	idGen domain.IIDGenerator,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) ISeedSuperAdminUseCase {
 	return &seedSuperAdminUseCase{
 		userRepo:        userRepo,
@@ -28,6 +30,7 @@ func NewSeedSuperAdminUseCase(
 		passwordMgr:     passwordMgr,
 		idGen:           idGen,
 		clock:           clock,
+		dispatcher:      dispatcher,
 	}
 }
 
@@ -73,6 +76,8 @@ func (uc *seedSuperAdminUseCase) Execute(ctx context.Context, cmd RegisterUserCo
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("super_admin_seeded_successfully",
 		slog.String("user_id", user.ID().String()),

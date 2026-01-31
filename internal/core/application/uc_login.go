@@ -12,6 +12,7 @@ type loginUseCase struct {
 	authSvc       domain.IAuthenticationService
 	accessManager domain.IAccessManager
 	clock         domain.IClock
+	dispatcher    IEventDispatcher
 }
 
 func NewLoginUseCase(
@@ -19,12 +20,14 @@ func NewLoginUseCase(
 	authSvc domain.IAuthenticationService,
 	accessManager domain.IAccessManager,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) ILoginUseCase {
 	return &loginUseCase{
 		userRepo:      userRepo,
 		authSvc:       authSvc,
 		accessManager: accessManager,
 		clock:         clock,
+		dispatcher:    dispatcher,
 	}
 }
 
@@ -80,6 +83,8 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("login_success", slog.String("user_id", user.ID().String()))
 

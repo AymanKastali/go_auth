@@ -14,6 +14,7 @@ type forgotPasswordUseCase struct {
 	emailService       IEmailService
 	transactionManager ITransactionManager
 	clock              domain.IClock
+	dispatcher         IEventDispatcher
 }
 
 func NewForgotPasswordUseCase(
@@ -23,6 +24,7 @@ func NewForgotPasswordUseCase(
 	emailService IEmailService,
 	transactionManager ITransactionManager,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IForgotPasswordUseCase {
 	return &forgotPasswordUseCase{
 		userRepository:     userRepository,
@@ -31,6 +33,7 @@ func NewForgotPasswordUseCase(
 		emailService:       emailService,
 		transactionManager: transactionManager,
 		clock:              clock,
+		dispatcher:         dispatcher,
 	}
 }
 
@@ -65,6 +68,7 @@ func (useCase *forgotPasswordUseCase) Execute(
 	}
 
 	var rawToken domain.RawToken
+	var token *domain.RecoveryToken
 
 	// 4. Transactional Boundary: Managing persistence of Domain changes.
 	err = useCase.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
@@ -78,6 +82,7 @@ func (useCase *forgotPasswordUseCase) Execute(
 		}
 
 		rawToken = raw
+		token = recoveryToken
 
 		return useCase.recoveryRepository.Save(txCtx, recoveryToken)
 	})
@@ -86,6 +91,8 @@ func (useCase *forgotPasswordUseCase) Execute(
 		logger.Error("recovery_initiation_failed", slog.Any("error", err))
 		return err
 	}
+
+	useCase.dispatcher.Dispatch(ctx, token.CollectEvents())
 
 	// 5. Infrastructure side-effect: Send the RawToken to the user.
 	if err := useCase.emailService.SendResetLink(user.Email().String(), rawToken.String()); err != nil {

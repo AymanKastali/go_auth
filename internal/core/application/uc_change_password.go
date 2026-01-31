@@ -10,17 +10,20 @@ type changePasswordUseCase struct {
 	userRepo       domain.IUserRepository
 	accountManager domain.IUserAccountManager
 	clock          domain.IClock
+	dispatcher     IEventDispatcher
 }
 
 func NewChangePasswordUseCase(
 	userRepo domain.IUserRepository,
 	accountManager domain.IUserAccountManager,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IChangePasswordUseCase {
 	return &changePasswordUseCase{
 		userRepo:       userRepo,
 		accountManager: accountManager,
 		clock:          clock,
+		dispatcher:     dispatcher,
 	}
 }
 
@@ -70,6 +73,8 @@ func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePassword
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("change_password_success")
 

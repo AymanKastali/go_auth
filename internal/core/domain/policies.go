@@ -6,22 +6,48 @@ import (
 	"time"
 )
 
+type IPasswordPolicy interface {
+	Validate(rawPassword RawPassword) error
+}
+
+type IRegisterPolicy interface {
+	Validate(email Email) error
+}
+
+type IAccessPolicy interface {
+	GetAccessLifetime() time.Duration
+}
+
+type ISessionPolicy interface {
+	GetSessionLifetime() time.Duration
+	GetMaxActiveSessions() int
+}
+
+type IRecoveryPolicy interface {
+	GetRecoveryTokenLifetime() time.Duration
+}
+
 var (
 	upperRegex   = regexp.MustCompile(`[A-Z]`)
 	numberRegex  = regexp.MustCompile(`[0-9]`)
 	specialRegex = regexp.MustCompile(`[!@#\$%\^&\*]`)
 )
 
-// Register Policy
+// RegisterPolicyConfig holds the configuration for registration rules.
+type RegisterPolicyConfig struct {
+	AllowPublic    bool
+	BlockedDomains []string
+}
+
 type registerPolicy struct {
 	allowPublicSignUp bool
 	blockedDomains    []string
 }
 
-func NewRegisterPolicy(allowPublic bool, blockedDomains []string) IRegisterPolicy {
+func NewRegisterPolicy(cfg RegisterPolicyConfig) IRegisterPolicy {
 	return &registerPolicy{
-		allowPublicSignUp: allowPublic,
-		blockedDomains:    blockedDomains,
+		allowPublicSignUp: cfg.AllowPublic,
+		blockedDomains:    cfg.BlockedDomains,
 	}
 }
 
@@ -42,7 +68,15 @@ func (p *registerPolicy) Validate(email Email) error {
 	return nil
 }
 
-// Password Policy
+// PasswordPolicyConfig holds the configuration for password validation rules.
+type PasswordPolicyConfig struct {
+	MinLength      uint8
+	MaxLength      uint8
+	RequireUpper   bool
+	RequireNumber  bool
+	RequireSpecial bool
+}
+
 type passwordPolicy struct {
 	minLength      uint8
 	maxLength      uint8
@@ -51,19 +85,13 @@ type passwordPolicy struct {
 	requireSpecial bool
 }
 
-func NewPasswordPolicy(
-	min uint8,
-	max uint8,
-	upper bool,
-	num bool,
-	special bool,
-) IPasswordPolicy {
+func NewPasswordPolicy(cfg PasswordPolicyConfig) IPasswordPolicy {
 	return &passwordPolicy{
-		minLength:      min,
-		maxLength:      max,
-		requireUpper:   upper,
-		requireNumber:  num,
-		requireSpecial: special,
+		minLength:      cfg.MinLength,
+		maxLength:      cfg.MaxLength,
+		requireUpper:   cfg.RequireUpper,
+		requireNumber:  cfg.RequireNumber,
+		requireSpecial: cfg.RequireSpecial,
 	}
 }
 
@@ -93,19 +121,21 @@ func (p *passwordPolicy) Validate(password RawPassword) error {
 	return nil
 }
 
-// Session Policy
+// SessionPolicyConfig holds the configuration for session management rules.
+type SessionPolicyConfig struct {
+	Lifetime  time.Duration
+	MaxActive uint8
+}
+
 type sessionPolicy struct {
 	lifetime  time.Duration
 	maxActive uint8
 }
 
-func NewSessionPolicy(
-	lifetime time.Duration,
-	maxActive uint8,
-) ISessionPolicy {
+func NewSessionPolicy(cfg SessionPolicyConfig) ISessionPolicy {
 	return &sessionPolicy{
-		lifetime:  lifetime,
-		maxActive: maxActive,
+		lifetime:  cfg.Lifetime,
+		maxActive: cfg.MaxActive,
 	}
 }
 
@@ -117,16 +147,18 @@ func (p *sessionPolicy) GetMaxActiveSessions() int {
 	return int(p.maxActive)
 }
 
-// Access Policy
+// AccessPolicyConfig holds the configuration for access token rules.
+type AccessPolicyConfig struct {
+	Lifetime time.Duration
+}
+
 type accessPolicy struct {
 	lifetime time.Duration
 }
 
-func NewAccessPolicy(
-	lifetime time.Duration,
-) IAccessPolicy {
+func NewAccessPolicy(cfg AccessPolicyConfig) IAccessPolicy {
 	return &accessPolicy{
-		lifetime: lifetime,
+		lifetime: cfg.Lifetime,
 	}
 }
 
@@ -134,12 +166,17 @@ func (p *accessPolicy) GetAccessLifetime() time.Duration {
 	return p.lifetime
 }
 
-// Recovery
+// RecoveryPolicyConfig holds the configuration for recovery token rules.
+type RecoveryPolicyConfig struct {
+	Lifetime time.Duration
+}
+
 type recoveryPolicy struct {
 	lifetime time.Duration
 }
 
-func NewRecoveryPolicy(lifetime time.Duration) IRecoveryPolicy {
+func NewRecoveryPolicy(cfg RecoveryPolicyConfig) IRecoveryPolicy {
+	lifetime := cfg.Lifetime
 	if lifetime <= 0 {
 		lifetime = 15 * time.Minute // Safe default
 	}

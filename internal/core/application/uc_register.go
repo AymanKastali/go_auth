@@ -13,6 +13,7 @@ type registerUseCase struct {
 	passwordMgr     domain.IPasswordManager
 	idGen           domain.IIDGenerator
 	clock           domain.IClock
+	dispatcher      IEventDispatcher
 }
 
 func NewRegisterUseCase(
@@ -21,6 +22,7 @@ func NewRegisterUseCase(
 	passwordMgr domain.IPasswordManager,
 	idGen domain.IIDGenerator,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IRegisterUseCase {
 	return &registerUseCase{
 		userRepo:        userRepo,
@@ -28,6 +30,7 @@ func NewRegisterUseCase(
 		passwordMgr:     passwordMgr,
 		idGen:           idGen,
 		clock:           clock,
+		dispatcher:      dispatcher,
 	}
 }
 
@@ -73,6 +76,8 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 		logger.Error("database_save_failed", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
+
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	logger.Info("register_success", slog.String("user_id", user.ID().String()))
 
