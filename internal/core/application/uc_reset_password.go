@@ -8,20 +8,32 @@ import (
 
 // Reset Password
 type resetPasswordUseCase struct {
-	accountMgr domain.IUserAccountManager
-	txManager  ITransactionManager
-	clock      domain.IClock
+	userRepo     domain.IUserRepository
+	recoveryRepo domain.IRecoveryTokenRepository
+	tokenSvc     domain.ITokenService
+	accountMgr   domain.IUserAccountManager
+	txManager    ITransactionManager
+	clock        domain.IClock
+	dispatcher   IEventDispatcher
 }
 
 func NewResetPasswordUseCase(
+	userRepo domain.IUserRepository,
+	recoveryRepo domain.IRecoveryTokenRepository,
+	tokenSvc domain.ITokenService,
 	accountMgr domain.IUserAccountManager,
 	txManager ITransactionManager,
 	clock domain.IClock,
+	dispatcher IEventDispatcher,
 ) IResetPasswordUseCase {
 	return &resetPasswordUseCase{
-		accountMgr: accountMgr,
-		txManager:  txManager,
-		clock:      clock,
+		userRepo:     userRepo,
+		recoveryRepo: recoveryRepo,
+		tokenSvc:     tokenSvc,
+		accountMgr:   accountMgr,
+		txManager:    txManager,
+		clock:        clock,
+		dispatcher:   dispatcher,
 	}
 }
 
@@ -41,19 +53,58 @@ func (uc *resetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCo
 		return err
 	}
 
-	// 2. Transaction Orchestration
+	// 2. Hash the token for lookup
+	hashedToken, err := uc.tokenSvc.HashRecoveryToken(rawToken)
+	if err != nil {
+		logger.Error("token_hash_failed", slog.Any("error", err))
+		return err
+	}
+
+	now := uc.clock.Now()
+
+	var user *domain.User
+	var recovery *domain.RecoveryToken
+
+	// 3. Transaction Orchestration
 	err = uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		return uc.accountMgr.ResetPasswordByToken(
-			txCtx,
-			rawToken,
-			rawPassword,
-			uc.clock.Now(),
-		)
+		// 3a. Fetch recovery token
+		var err error
+		recovery, err = uc.recoveryRepo.FindByHash(txCtx, hashedToken)
+		if err != nil {
+			return err
+		}
+		if recovery == nil {
+			return domain.ErrRecoveryTokenInvalid
+		}
+
+		// 3b. Fetch user aggregate
+		user, err = uc.userRepo.FindByID(txCtx, recovery.UserID())
+		if err != nil {
+			return err
+		}
+		if user == nil {
+			return domain.ErrUserNotFound
+		}
+
+		// 3c. Domain logic (stateless)
+		if err := uc.accountMgr.ResetPasswordByToken(user, recovery, rawPassword, now); err != nil {
+			return err
+		}
+
+		// 3d. Persist both aggregates
+		if err := uc.userRepo.Save(txCtx, user); err != nil {
+			return err
+		}
+		return uc.recoveryRepo.Save(txCtx, recovery)
 	})
 	if err != nil {
 		logger.Warn("reset_password_failed", slog.Any("error", err))
 		return err
 	}
+
+	// 4. Dispatch events after commit
+	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
+	uc.dispatcher.Dispatch(ctx, recovery.CollectEvents())
 
 	logger.Info("reset_password_success")
 

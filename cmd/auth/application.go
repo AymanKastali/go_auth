@@ -108,9 +108,13 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			infra.dispatcher,
 		),
 		resetPassword: application.NewResetPasswordUseCase(
+			d.userRepo,
+			d.recoveryRepo,
+			d.tokenSvc,
 			d.accountManager,
 			infra.txManager,
 			d.clock,
+			infra.dispatcher,
 		),
 
 		// policies
