@@ -1,5 +1,7 @@
 package main
 
+import "log"
+
 // @title Auth Service API
 // @version 1.0
 // @description Authentication service using Hexagonal Architecture and Fiber v3.
@@ -17,6 +19,9 @@ package main
 // @in header
 // @name Authorization
 func main() {
-	c := newContainer()
+	c, err := newContainer()
+	if err != nil {
+		log.Fatalf("failed to start: %v\n", err)
+	}
 	c.run()
 }

@@ -6,6 +6,7 @@ import (
 	"go_auth/internal/adapters"
 	"go_auth/internal/adapters/persistence/postgres"
 	"go_auth/internal/core/application"
+	"go_auth/internal/core/domain"
 )
 
 // applicationInfra holds adapter implementations of application-layer ports
@@ -41,9 +42,12 @@ type useCases struct {
 	changePassword application.IChangePasswordUseCase
 	forgotPassword application.IForgotPasswordUseCase
 	resetPassword  application.IResetPasswordUseCase
+
+	// policies
+	publicPolicies application.IGetPublicPoliciesUseCase
 }
 
-func newUseCases(d domainServices, infra applicationInfra) useCases {
+func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config) useCases {
 	return useCases{
 		register: application.NewRegisterUseCase(
 			d.userRepo,
@@ -107,6 +111,21 @@ func newUseCases(d domainServices, infra applicationInfra) useCases {
 			d.accountManager,
 			infra.txManager,
 			d.clock,
+		),
+
+		// policies
+		publicPolicies: application.NewGetPublicPoliciesUseCase(
+			domain.PasswordPolicyConfig{
+				MinLength:      cfg.PasswordPolicy.MinLength,
+				MaxLength:      cfg.PasswordPolicy.MaxLength,
+				RequireUpper:   cfg.PasswordPolicy.RequireUpper,
+				RequireNumber:  cfg.PasswordPolicy.RequireNumber,
+				RequireSpecial: cfg.PasswordPolicy.RequireSpecial,
+			},
+			domain.RegisterPolicyConfig{
+				AllowPublic:    cfg.RegisterPolicy.AllowPublic,
+				BlockedDomains: cfg.RegisterPolicy.BlockedDomains,
+			},
 		),
 	}
 }

@@ -9,6 +9,7 @@ import (
 type handlers struct {
 	auth      *fiberapp.AuthHandler
 	user      *fiberapp.UserHandler
+	policy    *fiberapp.PolicyHandler
 	authGuard fiber.Handler
 }
 
@@ -34,6 +35,7 @@ func newHandlers(uc useCases) handlers {
 			uc.updateMe,
 			uc.changePassword,
 		),
+		policy:    fiberapp.NewPolicyHandler(uc.publicPolicies),
 		authGuard: fiberapp.Protected(uc.validate),
 	}
 }

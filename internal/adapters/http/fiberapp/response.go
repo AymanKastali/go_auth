@@ -19,6 +19,24 @@ type UserResponse struct {
 	Email string `json:"email"`
 }
 
+type PasswordPolicyHTTPResponse struct {
+	MinLength      uint8 `json:"min_length" example:"8"`
+	MaxLength      uint8 `json:"max_length" example:"64"`
+	RequireUpper   bool  `json:"require_upper" example:"true"`
+	RequireNumber  bool  `json:"require_number" example:"true"`
+	RequireSpecial bool  `json:"require_special" example:"true"`
+}
+
+type RegisterPolicyHTTPResponse struct {
+	AllowPublic    bool     `json:"allow_public" example:"true"`
+	BlockedDomains []string `json:"blocked_domains"`
+}
+
+type PolicyHTTPResponse struct {
+	Password     PasswordPolicyHTTPResponse  `json:"password"`
+	Registration RegisterPolicyHTTPResponse  `json:"registration"`
+}
+
 type SuccessResponse struct {
 	Message string `json:"message,omitempty" example:"humanized success message"`
 	Data    any    `json:"data,omitempty"`

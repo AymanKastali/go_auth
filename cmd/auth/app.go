@@ -24,6 +24,7 @@ func newApp(
 		app,
 		h.auth,
 		h.user,
+		h.policy,
 		h.authGuard,
 	)
 	return app, h

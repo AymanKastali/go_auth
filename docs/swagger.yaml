@@ -46,12 +46,47 @@ definitions:
       refresh_token:
         type: string
     type: object
+  internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse:
+    properties:
+      max_length:
+        example: 64
+        type: integer
+      min_length:
+        example: 8
+        type: integer
+      require_number:
+        example: true
+        type: boolean
+      require_special:
+        example: true
+        type: boolean
+      require_upper:
+        example: true
+        type: boolean
+    type: object
+  internal_adapters_http_fiberapp.PolicyHTTPResponse:
+    properties:
+      password:
+        $ref: '#/definitions/internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse'
+      registration:
+        $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse'
+    type: object
   internal_adapters_http_fiberapp.RefreshRequest:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
+    type: object
+  internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse:
+    properties:
+      allow_public:
+        example: true
+        type: boolean
+      blocked_domains:
+        items:
+          type: string
+        type: array
     type: object
   internal_adapters_http_fiberapp.RegisterRequest:
     properties:
@@ -212,6 +247,28 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/v1/policies:
+    get:
+      description: Returns password and registration policy rules (unauthenticated)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_http_fiberapp.PolicyHTTPResponse'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+      summary: Get public policies
+      tags:
+      - Policies
   /api/v1/users:
     get:
       consumes:

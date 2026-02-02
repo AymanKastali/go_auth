@@ -21,18 +21,23 @@ type container struct {
 	app      *fiber.App
 }
 
-func newContainer() *container {
+func newContainer() (*container, error) {
 	c := &container{}
 
-	c.config = loadConfig()
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, err
+	}
+	c.config = cfg
+
 	c.logger = setupLogger(c.config.App.LogLevel)
 	c.persistence = setupDatabase(c.config.Database.URL)
 	c.domain = newDomainServices(c.config, c.persistence)
 	c.appInfra = newApplicationInfra(c.config, c.persistence, c.logger)
-	c.uc = newUseCases(c.domain, c.appInfra)
+	c.uc = newUseCases(c.domain, c.appInfra, c.config)
 	c.handlers = newHandlers(c.uc)
 
 	c.app, c.handlers = newApp(c.config.App, c.handlers, c.logger)
 
-	return c
+	return c, nil
 }
