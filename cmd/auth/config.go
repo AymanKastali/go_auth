@@ -2,10 +2,6 @@ package main
 
 import "go_auth/internal/adapters"
 
-func loadConfig() *adapters.Config {
-	cfg, err := adapters.Load()
-	if err != nil {
-		panic(err)
-	}
-	return cfg
+func loadConfig() (*adapters.Config, error) {
+	return adapters.Load()
 }

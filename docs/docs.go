@@ -204,6 +204,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/policies": {
+            "get": {
+                "description": "Returns password and registration policy rules (unauthenticated)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Policies"
+                ],
+                "summary": "Get public policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_adapters_http_fiberapp.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_http_fiberapp.PolicyHTTPResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_http_fiberapp.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users": {
             "get": {
                 "security": [
@@ -527,6 +565,42 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse": {
+            "type": "object",
+            "properties": {
+                "max_length": {
+                    "type": "integer",
+                    "example": 64
+                },
+                "min_length": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "require_number": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "require_special": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "require_upper": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_adapters_http_fiberapp.PolicyHTTPResponse": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "$ref": "#/definitions/internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse"
+                },
+                "registration": {
+                    "$ref": "#/definitions/internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse"
+                }
+            }
+        },
         "internal_adapters_http_fiberapp.RefreshRequest": {
             "type": "object",
             "required": [
@@ -535,6 +609,21 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse": {
+            "type": "object",
+            "properties": {
+                "allow_public": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "blocked_domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

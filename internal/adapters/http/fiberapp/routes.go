@@ -11,11 +11,15 @@ func RegisterRoutes(
 	app *fiber.App,
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
+	policyHandler *PolicyHandler,
 	authGuard fiber.Handler,
 ) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	api := app.Group("/api/v1")
+
+	// Policies (public)
+	api.Get("/policies", policyHandler.GetPublicPolicies)
 
 	// Auth
 	auth := api.Group("/auth")

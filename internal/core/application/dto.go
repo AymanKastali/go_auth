@@ -3,10 +3,11 @@ package application
 import "time"
 
 var (
-	ZeroLoginResponse          = LoginResponse{}
-	ZeroRegisterUserResponse   = RegisterUserResponse{}
-	ZeroValidateAccessResponse = ValidateAccessResponse{}
-	ZeroUserResponse           = UserResponse{}
+	ZeroLoginResponse           = LoginResponse{}
+	ZeroRegisterUserResponse    = RegisterUserResponse{}
+	ZeroValidateAccessResponse  = ValidateAccessResponse{}
+	ZeroUserResponse            = UserResponse{}
+	ZeroPublicPoliciesResponse  = PublicPoliciesResponse{}
 )
 
 // RegisterUserCommand
@@ -95,4 +96,25 @@ type UserResponse struct {
 	ID        string
 	Email     string
 	CreatedAT time.Time
+}
+
+// PasswordPolicyDTO exposes password requirements to clients.
+type PasswordPolicyDTO struct {
+	MinLength      uint8
+	MaxLength      uint8
+	RequireUpper   bool
+	RequireNumber  bool
+	RequireSpecial bool
+}
+
+// RegisterPolicyDTO exposes registration rules to clients.
+type RegisterPolicyDTO struct {
+	AllowPublic    bool
+	BlockedDomains []string
+}
+
+// PublicPoliciesResponse is the aggregate response for the public policies endpoint.
+type PublicPoliciesResponse struct {
+	Password     PasswordPolicyDTO
+	Registration RegisterPolicyDTO
 }

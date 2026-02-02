@@ -79,3 +79,8 @@ type IResetPasswordUseCase interface {
 type IForgotPasswordUseCase interface {
 	Execute(ctx context.Context, cmd ForgotPasswordCommand) error
 }
+
+// IGetPublicPoliciesUseCase returns the publicly visible policy configuration.
+type IGetPublicPoliciesUseCase interface {
+	Execute(ctx context.Context) (PublicPoliciesResponse, error)
+}
