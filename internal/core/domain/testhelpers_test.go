@@ -240,23 +240,6 @@ func (r *stubUserRepository) Delete(_ context.Context, _ UserID) error {
 	return r.deleteErr
 }
 
-type stubRecoveryTokenRepository struct {
-	findByHashResult *RecoveryToken
-	findByHashErr    error
-	saveErr          error
-	revokeAllErr     error
-}
-
-func (r *stubRecoveryTokenRepository) FindByHash(_ context.Context, _ RecoveryTokenHash) (*RecoveryToken, error) {
-	return r.findByHashResult, r.findByHashErr
-}
-func (r *stubRecoveryTokenRepository) Save(_ context.Context, _ *RecoveryToken) error {
-	return r.saveErr
-}
-func (r *stubRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ UserID, _ Timepoint) error {
-	return r.revokeAllErr
-}
-
 type stubPasswordManager struct {
 	validateHashResult HashedPassword
 	validateHashErr    error

@@ -135,14 +135,35 @@ type mockAccountManager struct {
 	resetErr         error
 }
 
-func (m *mockAccountManager) InitiatePasswordReset(_ context.Context, _ *domain.User, _ domain.Timepoint) (domain.RawToken, *domain.RecoveryToken, error) {
+func (m *mockAccountManager) InitiatePasswordReset(_ *domain.User, _ domain.Timepoint) (domain.RawToken, *domain.RecoveryToken, error) {
 	return m.initiateRawToken, m.initiateRecovery, m.initiateErr
 }
-func (m *mockAccountManager) ChangePassword(_ context.Context, _ *domain.User, _ domain.RawPassword, _ domain.RawPassword, _ domain.Timepoint) error {
+func (m *mockAccountManager) ChangePassword(_ *domain.User, _ domain.RawPassword, _ domain.RawPassword, _ domain.Timepoint) error {
 	return m.changeErr
 }
-func (m *mockAccountManager) ResetPasswordByToken(_ context.Context, _ domain.RawToken, _ domain.RawPassword, _ domain.Timepoint) error {
+func (m *mockAccountManager) ResetPasswordByToken(_ *domain.User, _ *domain.RecoveryToken, _ domain.RawPassword, _ domain.Timepoint) error {
 	return m.resetErr
+}
+
+type mockTokenService struct {
+	hashRecoveryOut domain.RecoveryTokenHash
+	hashRecoveryErr error
+}
+
+func (m *mockTokenService) Generate() (domain.RawToken, error) {
+	return domain.RawToken{}, nil
+}
+func (m *mockTokenService) HashSessionToken(_ domain.RawToken) (domain.HashedToken, error) {
+	return domain.HashedToken{}, nil
+}
+func (m *mockTokenService) HashRecoveryToken(_ domain.RawToken) (domain.RecoveryTokenHash, error) {
+	return m.hashRecoveryOut, m.hashRecoveryErr
+}
+func (m *mockTokenService) CompareSession(_ domain.RawToken, _ domain.HashedToken) bool {
+	return false
+}
+func (m *mockTokenService) CompareRecovery(_ domain.RawToken, _ domain.RecoveryTokenHash) bool {
+	return false
 }
 
 type mockPasswordManager struct {

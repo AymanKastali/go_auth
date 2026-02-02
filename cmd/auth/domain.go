@@ -73,8 +73,6 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 	})
 	recoveryRepo := pf.NewRecoveryTokenRepository()
 	accountManager := domain.NewUserAccountManager(
-		userRepo,
-		recoveryRepo,
 		tokenSvc,
 		passwordManager,
 		idGen,

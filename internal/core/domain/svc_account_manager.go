@@ -1,33 +1,25 @@
 package domain
 
-import (
-	"context"
-)
-
 type IUserAccountManager interface {
 	InitiatePasswordReset(
-		ctx context.Context,
 		user *User,
 		now Timepoint,
 	) (RawToken, *RecoveryToken, error)
 	ChangePassword(
-		ctx context.Context,
 		user *User,
 		oldPass RawPassword,
 		newPass RawPassword,
 		now Timepoint,
 	) error
 	ResetPasswordByToken(
-		ctx context.Context,
-		token RawToken,
+		user *User,
+		recovery *RecoveryToken,
 		newPassword RawPassword,
 		now Timepoint,
 	) error
 }
 
 type userAccountManager struct {
-	userRepo       IUserRepository
-	recoveryRepo   IRecoveryTokenRepository
 	tokenSvc       ITokenService
 	passwordMgr    IPasswordManager
 	idGen          IIDGenerator
@@ -35,16 +27,12 @@ type userAccountManager struct {
 }
 
 func NewUserAccountManager(
-	userRepo IUserRepository,
-	recoveryRepo IRecoveryTokenRepository,
 	tokenSvc ITokenService,
 	passwordMgr IPasswordManager,
 	idGen IIDGenerator,
 	recoveryPolicy IRecoveryPolicy,
 ) IUserAccountManager {
 	return &userAccountManager{
-		userRepo:       userRepo,
-		recoveryRepo:   recoveryRepo,
 		tokenSvc:       tokenSvc,
 		passwordMgr:    passwordMgr,
 		idGen:          idGen,
@@ -53,7 +41,6 @@ func NewUserAccountManager(
 }
 
 func (manager *userAccountManager) InitiatePasswordReset(
-	ctx context.Context,
 	user *User,
 	now Timepoint,
 ) (RawToken, *RecoveryToken, error) {
@@ -98,7 +85,6 @@ func (manager *userAccountManager) InitiatePasswordReset(
 }
 
 func (m *userAccountManager) ChangePassword(
-	ctx context.Context,
 	user *User,
 	oldPass RawPassword,
 	newPass RawPassword,
@@ -117,58 +103,30 @@ func (m *userAccountManager) ChangePassword(
 }
 
 func (m *userAccountManager) ResetPasswordByToken(
-	ctx context.Context,
-	token RawToken,
+	user *User,
+	recovery *RecoveryToken,
 	newPassword RawPassword,
 	now Timepoint,
 ) error {
-	// 1. Resolve Token Hash
-	hashed, err := m.tokenSvc.HashRecoveryToken(token)
-	if err != nil {
-		return err
-	}
-
-	// 2. Fetch & Validate Recovery Aggregate
-	recovery, err := m.recoveryRepo.FindByHash(ctx, hashed)
-	if err != nil {
-		return err
-	}
-	if recovery == nil || !recovery.IsValid(now) {
+	// 1. Validate Recovery Token
+	if !recovery.IsValid(now) {
 		return ErrRecoveryTokenInvalid
 	}
 
-	// 3. Fetch User Aggregate
-	user, err := m.userRepo.FindByID(ctx, recovery.UserID())
-	if err != nil {
-		return err
-	}
-	if user == nil {
-		return ErrUserNotFound
-	}
-
-	// 4. Cross-Aggregate Invariant: Token Ownership
+	// 2. Cross-Aggregate Invariant: Token Ownership
 	if !recovery.UserID().Equal(user.ID()) {
 		return ErrInvalidRecoveryAttempt
 	}
 
-	// 5. Technical Process: Validation & Hashing combined
-	// We delegate the "How" of the new secret to the Manager
+	// 3. Validate and hash the new password
 	newHash, err := m.passwordMgr.ValidateAndHashNewPassword(newPassword)
 	if err != nil {
 		return err
 	}
 
-	// 6. Execute State Transitions
+	// 4. Execute State Transitions
 	if err := user.UpdatePassword(newHash, now); err != nil {
 		return err
 	}
-	if err := recovery.MarkAsUsed(now); err != nil {
-		return err
-	}
-
-	// 7. Atomic Persistence
-	if err := m.userRepo.Save(ctx, user); err != nil {
-		return err
-	}
-	return m.recoveryRepo.Save(ctx, recovery)
+	return recovery.MarkAsUsed(now)
 }

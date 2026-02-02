@@ -16,5 +16,6 @@
             ]
         }
     },
+    "postCreateCommand": "bash scripts/install-hooks.sh",
     "shutdownAction": "none"
 }

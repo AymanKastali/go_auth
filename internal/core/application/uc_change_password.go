@@ -63,7 +63,7 @@ func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePassword
 
 	// 4. Delegate to Domain Manager
 	now := uc.clock.Now()
-	if err := uc.accountManager.ChangePassword(ctx, user, oldPass, newPass, now); err != nil {
+	if err := uc.accountManager.ChangePassword(user, oldPass, newPass, now); err != nil {
 		logger.Warn("change_password_denied", slog.Any("error", err))
 		return err
 	}

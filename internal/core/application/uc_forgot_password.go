@@ -73,7 +73,6 @@ func (useCase *forgotPasswordUseCase) Execute(
 	// 4. Transactional Boundary: Managing persistence of Domain changes.
 	err = useCase.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		raw, recoveryToken, err := useCase.accountManager.InitiatePasswordReset(
-			txCtx,
 			user,
 			useCase.clock.Now(),
 		)
