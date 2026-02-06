@@ -163,7 +163,7 @@ func mapToResponse(user application.UserReadModel) UserResponse {
 	return UserResponse{
 		ID:        user.ID,
 		Email:     user.Email,
-		CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		RegisteredAt: user.RegisteredAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt: user.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }

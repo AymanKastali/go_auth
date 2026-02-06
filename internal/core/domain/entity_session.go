@@ -8,7 +8,7 @@ type Session struct {
 	identity     DeviceIdentity
 	expiresAt    Timepoint
 	lastActiveAt Timepoint
-	revokedAt    *Timepoint
+	isRevoked    bool
 }
 
 // NewSession is the primary constructor for new domain objects.
@@ -35,7 +35,7 @@ func NewSession(
 		identity:     identity,
 		expiresAt:    expiresAt,
 		lastActiveAt: now,
-		revokedAt:    nil,
+		isRevoked:    false,
 	}, nil
 }
 
@@ -46,7 +46,7 @@ func ReconstituteSession(
 	identity DeviceIdentity,
 	expiresAt Timepoint,
 	lastActiveAt Timepoint,
-	revokedAt *Timepoint,
+	isRevoked bool,
 ) Session {
 	return Session{
 		id:           id,
@@ -54,7 +54,7 @@ func ReconstituteSession(
 		identity:     identity,
 		expiresAt:    expiresAt,
 		lastActiveAt: lastActiveAt,
-		revokedAt:    revokedAt,
+		isRevoked:    isRevoked,
 	}
 }
 
@@ -78,12 +78,12 @@ func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
 	s.lastActiveAt = now
 }
 
-func (s *Session) Revoke(now Timepoint) error {
+func (s *Session) Revoke() error {
 	if s.IsRevoked() {
 		return ErrSessionAlreadyRevoked // Explicit sentinel from registry
 	}
 
-	s.revokedAt = &now
+	s.isRevoked = true
 	return nil
 }
 
@@ -97,7 +97,6 @@ func (s Session) ID() SessionID            { return s.id }
 func (s Session) HashedToken() HashedToken { return s.hashedToken }
 func (s Session) ExpiresAt() Timepoint     { return s.expiresAt }
 func (s Session) LastActiveAt() Timepoint  { return s.lastActiveAt }
-func (s Session) IsRevoked() bool          { return s.revokedAt != nil }
-func (s Session) RevokedAt() *Timepoint    { return s.revokedAt }
+func (s Session) IsRevoked() bool          { return s.isRevoked }
 func (s Session) Identity() DeviceIdentity { return s.identity }
 func (s Session) DisplayName() string      { return s.identity.DisplayName() }

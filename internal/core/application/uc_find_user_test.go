@@ -14,7 +14,7 @@ var testReadModel = UserReadModel{
 	Email:     "test@example.com",
 	IsActive:  true,
 	Roles:     []string{"member"},
-	CreatedAt: time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
+	RegisteredAt: time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
 	UpdatedAt: time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
 }
 

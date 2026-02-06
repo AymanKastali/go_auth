@@ -1,13 +1,13 @@
 package domain
 
-// RecoveryToken
+// RecoveryToken is the Aggregate Root for the recovery context.
 type RecoveryToken struct {
 	EventRecorder
 	id          RecoveryTokenID
 	userID      UserID
 	hashedToken RecoveryTokenHash
 	expiresAt   Timepoint
-	usedAt      *Timepoint // If nil, the token hasn't been used yet
+	isUsed      bool
 }
 
 // NewRecoveryToken is the factory for creating a new recovery attempt.
@@ -29,7 +29,7 @@ func NewRecoveryToken(
 		userID:      uid,
 		hashedToken: hash,
 		expiresAt:   expiresAt,
-		usedAt:      nil,
+		isUsed:      false,
 	}
 	rt.RecordEvent(NewPasswordResetRequested(id, uid, now))
 	return rt, nil
@@ -41,14 +41,14 @@ func ReconstituteRecoveryToken(
 	userID UserID,
 	hashedToken RecoveryTokenHash,
 	expiresAt Timepoint,
-	usedAt *Timepoint,
+	isUsed bool,
 ) *RecoveryToken {
 	return &RecoveryToken{
 		id:          id,
 		userID:      userID,
 		hashedToken: hashedToken,
 		expiresAt:   expiresAt,
-		usedAt:      usedAt,
+		isUsed:      isUsed,
 	}
 }
 
@@ -63,14 +63,14 @@ func (r *RecoveryToken) IsExpired(now Timepoint) bool {
 }
 
 func (r *RecoveryToken) IsUsed() bool {
-	return r.usedAt != nil
+	return r.isUsed
 }
 
 func (r *RecoveryToken) MarkAsUsed(now Timepoint) error {
 	if r.IsUsed() {
 		return ErrRecoveryTokenRevoked
 	}
-	r.usedAt = &now
+	r.isUsed = true
 	r.RecordEvent(NewRecoveryTokenUsed(r.id, r.userID, now))
 	return nil
 }
@@ -80,4 +80,3 @@ func (r *RecoveryToken) ID() RecoveryTokenID            { return r.id }
 func (r *RecoveryToken) UserID() UserID                 { return r.userID }
 func (r *RecoveryToken) HashedToken() RecoveryTokenHash { return r.hashedToken }
 func (r *RecoveryToken) ExpiresAt() Timepoint           { return r.expiresAt }
-func (r *RecoveryToken) UsedAt() *Timepoint             { return r.usedAt }

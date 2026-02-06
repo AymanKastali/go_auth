@@ -15,10 +15,11 @@ func TestNewUser(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		u, err := NewUser(validUserID(), validEmail(), validHashedPassword(), testNow)
 		require.NoError(t, err)
-		assert.False(t, u.IsActive(), "new users start inactive")
+		assert.True(t, u.IsActive(), "new users start active")
 		assert.Empty(t, u.Roles())
 		assert.Empty(t, u.Sessions())
 		assert.False(t, u.IsDeleted())
+		assert.Equal(t, testNow, u.RegisteredAt())
 
 		events := u.CollectEvents()
 		assertEventRecorded(t, events, "UserRegistered")
@@ -177,14 +178,14 @@ func TestUser_EstablishSession(t *testing.T) {
 
 	t.Run("revoked_session_not_matched_by_fingerprint", func(t *testing.T) {
 		// Create user with a revoked session
-		revokedAt := testPast
 		u := ReconstituteUser(
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, true),
 			},
 			false,
+			testNow,
 		)
 		_ = u.CollectEvents()
 
@@ -259,9 +260,10 @@ func TestUser_RefreshSession(t *testing.T) {
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, nil),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, false),
 			},
 			false,
+			testNow,
 		)
 		fp := validDeviceIdentity().Fingerprint()
 		_, err := u.RefreshSession(validHashedToken(), fp, testNow)
@@ -327,14 +329,14 @@ func TestUser_ValidateIntegrity(t *testing.T) {
 	})
 
 	t.Run("revoked_session", func(t *testing.T) {
-		revokedAt := testPast
 		u := ReconstituteUser(
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, true),
 			},
 			false,
+			testNow,
 		)
 		err := u.ValidateIntegrity(validSessionID(), testNow)
 		assert.ErrorIs(t, err, ErrSessionAlreadyRevoked)
@@ -345,9 +347,10 @@ func TestUser_ValidateIntegrity(t *testing.T) {
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, nil),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, false),
 			},
 			false,
+			testNow,
 		)
 		err := u.ValidateIntegrity(validSessionID(), testNow)
 		assert.ErrorIs(t, err, ErrSessionExpired)
@@ -437,6 +440,7 @@ func TestUser_UpdatePassword(t *testing.T) {
 			true, []Role{RoleMember},
 			nil, // no sessions
 			false,
+			testNow,
 		)
 		_ = u.CollectEvents()
 
@@ -469,14 +473,14 @@ func TestUser_FindActiveSessionByFingerprint(t *testing.T) {
 	})
 
 	t.Run("revoked_not_found", func(t *testing.T) {
-		revokedAt := testPast
 		u := ReconstituteUser(
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, true),
 			},
 			false,
+			testNow,
 		)
 		fp := validDeviceIdentity().Fingerprint()
 		_, found := u.FindActiveSessionByFingerprint(fp)

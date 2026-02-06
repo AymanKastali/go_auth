@@ -43,10 +43,11 @@ func testActiveUser() *domain.User {
 				testDeviceIdentity(),
 				appTestFuture,
 				appTestNow,
-				nil,
+				false,
 			),
 		},
 		false,
+		appTestNow,
 	)
 }
 

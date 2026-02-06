@@ -14,6 +14,7 @@ type User struct {
 	roles        []Role
 	sessions     []Session
 	isDeleted    bool
+	registeredAt Timepoint
 }
 
 // NewUser enforces business invariants during initial creation.
@@ -21,7 +22,7 @@ func NewUser(
 	userID UserID,
 	email Email,
 	passwordHash HashedPassword,
-	now Timepoint,
+	registeredAt Timepoint,
 ) (*User, error) {
 	if userID.IsEmpty() {
 		return nil, ErrUserIDRequired
@@ -37,12 +38,13 @@ func NewUser(
 		id:           userID,
 		email:        email,
 		passwordHash: passwordHash,
-		isActive:     false, // Users start inactive (awaiting activation)
+		isActive:     true,
 		roles:        []Role{},
 		sessions:     []Session{},
 		isDeleted:    false,
+		registeredAt: registeredAt,
 	}
-	u.RecordEvent(NewUserRegistered(userID, email, now))
+	u.RecordEvent(NewUserRegistered(userID, email, registeredAt))
 	return u, nil
 }
 
@@ -55,6 +57,7 @@ func ReconstituteUser(
 	roles []Role,
 	sessions []Session,
 	isDeleted bool,
+	registeredAt Timepoint,
 ) *User {
 	return &User{
 		id:           id,
@@ -64,6 +67,7 @@ func ReconstituteUser(
 		roles:        slices.Clone(roles),
 		sessions:     slices.Clone(sessions),
 		isDeleted:    isDeleted,
+		registeredAt: registeredAt,
 	}
 }
 
@@ -142,7 +146,7 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 		if s.HashedToken().Equal(hash) {
 			// Invariant: Detect hijacking
 			if !s.ValidateFingerprint(currentFingerprint) {
-				_ = s.Revoke(now)
+				_ = s.Revoke()
 				u.RecordEvent(NewSessionHijackDetected(u.id, s.ID(), now))
 				return ZeroSession, ErrSessionFingerprintMiss
 			}
@@ -172,7 +176,7 @@ func (u *User) RevokeSession(sid SessionID, now Timepoint) error {
 			if s.IsRevoked() {
 				return ErrSessionAlreadyRevoked
 			}
-			if err := s.Revoke(now); err != nil {
+			if err := s.Revoke(); err != nil {
 				return err
 			}
 			u.RecordEvent(NewSessionRevoked(u.id, sid, now))
@@ -206,7 +210,7 @@ func (u *User) ValidateIntegrity(sid SessionID, now Timepoint) error {
 func (u *User) revokeOldestSession(now Timepoint) {
 	for i := range u.sessions {
 		if !u.sessions[i].IsRevoked() {
-			_ = u.sessions[i].Revoke(now)
+			_ = u.sessions[i].Revoke()
 			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
 			break
 		}
@@ -245,7 +249,7 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	// Side effect: Security invariant - Kill all sessions on password change
 	for i := range u.sessions {
 		if !u.sessions[i].IsRevoked() {
-			_ = u.sessions[i].Revoke(now)
+			_ = u.sessions[i].Revoke()
 			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
 		}
 	}
@@ -272,6 +276,7 @@ func (u *User) Roles() []Role                  { return slices.Clone(u.roles) }
 func (u *User) Sessions() []Session            { return slices.Clone(u.sessions) }
 func (u *User) IsDeleted() bool                { return u.isDeleted }
 func (u *User) IsActive() bool                 { return u.isActive }
+func (u *User) RegisteredAt() Timepoint        { return u.registeredAt }
 func (u *User) RoleNames() []string {
 	if len(u.roles) == 0 {
 		return []string{}

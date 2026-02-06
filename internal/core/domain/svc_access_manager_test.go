@@ -122,14 +122,14 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 
 	t.Run("integrity_fails", func(t *testing.T) {
 		// User with revoked session
-		revokedAt := testPast
 		revokedUser := ReconstituteUser(
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			[]Session{
-				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
+				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, true),
 			},
 			false,
+			testNow,
 		)
 		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []Role{RoleMember})
 		mgr := NewAccessManager(

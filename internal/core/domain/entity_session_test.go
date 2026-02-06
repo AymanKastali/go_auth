@@ -48,18 +48,14 @@ func TestSession_IsValid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var revAt *Timepoint
-			if tt.revoked {
-				revAt = &testPast
-			}
-			s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, revAt)
+			s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, tt.revoked)
 			assert.Equal(t, tt.expected, s.IsValid(tt.checkAt))
 		})
 	}
 }
 
 func TestSession_ValidateFingerprint(t *testing.T) {
-	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, nil)
+	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, false)
 	match := validDeviceIdentity().Fingerprint()
 	mismatch := differentDeviceIdentity().Fingerprint()
 
@@ -69,22 +65,22 @@ func TestSession_ValidateFingerprint(t *testing.T) {
 
 func TestSession_Revoke(t *testing.T) {
 	t.Run("first_revoke", func(t *testing.T) {
-		s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, nil)
-		err := s.Revoke(testNow)
+		s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, false)
+		err := s.Revoke()
 		require.NoError(t, err)
 		assert.True(t, s.IsRevoked())
 	})
 
 	t.Run("double_revoke", func(t *testing.T) {
-		s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, nil)
-		_ = s.Revoke(testNow)
-		err := s.Revoke(testNow)
+		s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, false)
+		_ = s.Revoke()
+		err := s.Revoke()
 		assert.ErrorIs(t, err, ErrSessionAlreadyRevoked)
 	})
 }
 
 func TestSession_UpdateLogin(t *testing.T) {
-	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, nil)
+	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, false)
 	newToken := ReconstituteHashedToken("new-hash")
 	s.UpdateLogin(newToken, testFarFuture, testFuture)
 	assert.Equal(t, newToken, s.HashedToken())
@@ -93,7 +89,7 @@ func TestSession_UpdateLogin(t *testing.T) {
 }
 
 func TestSession_UpdateActivity(t *testing.T) {
-	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, nil)
+	s := ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, false)
 	s.UpdateActivity(testFuture)
 	assert.True(t, s.LastActiveAt().Equal(testFuture))
 }

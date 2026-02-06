@@ -57,10 +57,11 @@ func newActiveUserWithSession() *User {
 				validDeviceIdentity(),
 				testFuture,
 				testNow,
-				nil,
+				false,
 			),
 		},
 		false,
+		testNow,
 	)
 	return u
 }
@@ -74,6 +75,7 @@ func newDeletedUser() *User {
 		[]Role{RoleMember},
 		nil,
 		true,
+		testNow,
 	)
 }
 
@@ -86,6 +88,7 @@ func newInactiveUser() *User {
 		nil,
 		nil,
 		false,
+		testNow,
 	)
 }
 

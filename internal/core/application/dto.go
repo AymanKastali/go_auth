@@ -93,12 +93,12 @@ type FindUserByEmailQuery struct {
 }
 
 type UserReadModel struct {
-	ID        string
-	Email     string
-	IsActive  bool
-	Roles     []string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           string
+	Email        string
+	IsActive     bool
+	Roles        []string
+	RegisteredAt time.Time
+	UpdatedAt    time.Time
 }
 
 // PasswordPolicyDTO exposes password requirements to clients.

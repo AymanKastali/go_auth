@@ -18,7 +18,7 @@ func TestForgotPasswordUseCase(t *testing.T) {
 			testUserID(),
 			domain.ReconstituteRecoveryTokenHash("hash"),
 			appTestFuture,
-			nil,
+			false,
 		)
 	}
 

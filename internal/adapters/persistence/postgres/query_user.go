@@ -52,11 +52,11 @@ func (q *postgresUserQueryAdapter) FindByEmail(ctx context.Context, email string
 
 func toUserReadModel(m UserModel) application.UserReadModel {
 	return application.UserReadModel{
-		ID:        m.ID,
-		Email:     m.Email,
-		IsActive:  m.IsActive,
-		Roles:     m.Roles,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:           m.ID,
+		Email:        m.Email,
+		IsActive:     m.IsActive,
+		Roles:        m.Roles,
+		RegisteredAt: m.RegisteredAt,
+		UpdatedAt:    m.UpdatedAt,
 	}
 }
