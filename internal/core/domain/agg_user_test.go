@@ -184,7 +184,7 @@ func TestUser_EstablishSession(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
 			},
-			testPast, testNow, nil,
+			false,
 		)
 		_ = u.CollectEvents()
 
@@ -261,7 +261,7 @@ func TestUser_RefreshSession(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, nil),
 			},
-			testPast, testPast, nil,
+			false,
 		)
 		fp := validDeviceIdentity().Fingerprint()
 		_, err := u.RefreshSession(validHashedToken(), fp, testNow)
@@ -334,7 +334,7 @@ func TestUser_ValidateIntegrity(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
 			},
-			testPast, testNow, nil,
+			false,
 		)
 		err := u.ValidateIntegrity(validSessionID(), testNow)
 		assert.ErrorIs(t, err, ErrSessionAlreadyRevoked)
@@ -347,7 +347,7 @@ func TestUser_ValidateIntegrity(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, nil),
 			},
-			testPast, testPast, nil,
+			false,
 		)
 		err := u.ValidateIntegrity(validSessionID(), testNow)
 		assert.ErrorIs(t, err, ErrSessionExpired)
@@ -436,7 +436,7 @@ func TestUser_UpdatePassword(t *testing.T) {
 			validUserID(), validEmail(), validHashedPassword(),
 			true, []Role{RoleMember},
 			nil, // no sessions
-			testPast, testPast, nil,
+			false,
 		)
 		_ = u.CollectEvents()
 
@@ -476,7 +476,7 @@ func TestUser_FindActiveSessionByFingerprint(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
 			},
-			testPast, testNow, nil,
+			false,
 		)
 		fp := validDeviceIdentity().Fingerprint()
 		_, found := u.FindActiveSessionByFingerprint(fp)

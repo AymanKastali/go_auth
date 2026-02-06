@@ -60,15 +60,12 @@ func newActiveUserWithSession() *User {
 				nil,
 			),
 		},
-		testPast,
-		testNow,
-		nil,
+		false,
 	)
 	return u
 }
 
 func newDeletedUser() *User {
-	deleted := testPast
 	return ReconstituteUser(
 		validUserID(),
 		validEmail(),
@@ -76,9 +73,7 @@ func newDeletedUser() *User {
 		true,
 		[]Role{RoleMember},
 		nil,
-		testPast,
-		testPast,
-		&deleted,
+		true,
 	)
 }
 
@@ -90,9 +85,7 @@ func newInactiveUser() *User {
 		false,
 		nil,
 		nil,
-		testPast,
-		testPast,
-		nil,
+		false,
 	)
 }
 

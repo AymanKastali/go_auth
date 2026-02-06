@@ -19,7 +19,6 @@ func toRecoveryTokenModel(t *domain.RecoveryToken) RecoveryTokenModel {
 		UserID:      t.UserID().String(),
 		HashedToken: t.HashedToken().String(),
 		ExpiresAt:   t.ExpiresAt().Time(),
-		CreatedAt:   t.CreatedAt().Time(),
 		UsedAt:      usedAt,
 	}
 }
@@ -36,7 +35,6 @@ func toRecoveryTokenDomain(m RecoveryTokenModel) *domain.RecoveryToken {
 		domain.ReconstituteUserID(m.UserID),
 		domain.ReconstituteRecoveryTokenHash(m.HashedToken),
 		domain.NewTimepoint(m.ExpiresAt),
-		domain.NewTimepoint(m.CreatedAt),
 		usedAt,
 	)
 }

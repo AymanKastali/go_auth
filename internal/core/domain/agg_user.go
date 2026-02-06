@@ -13,9 +13,7 @@ type User struct {
 	isActive     bool
 	roles        []Role
 	sessions     []Session
-	createdAt    Timepoint
-	updatedAt    Timepoint
-	deletedAt    *Timepoint
+	isDeleted    bool
 }
 
 // NewUser enforces business invariants during initial creation.
@@ -42,9 +40,7 @@ func NewUser(
 		isActive:     false, // Users start inactive (awaiting activation)
 		roles:        []Role{},
 		sessions:     []Session{},
-		createdAt:    now,
-		updatedAt:    now,
-		deletedAt:    nil,
+		isDeleted:    false,
 	}
 	u.RecordEvent(NewUserRegistered(userID, email, now))
 	return u, nil
@@ -58,8 +54,7 @@ func ReconstituteUser(
 	isActive bool,
 	roles []Role,
 	sessions []Session,
-	createdAt, updatedAt Timepoint,
-	deletedAt *Timepoint,
+	isDeleted bool,
 ) *User {
 	return &User{
 		id:           id,
@@ -68,9 +63,7 @@ func ReconstituteUser(
 		isActive:     isActive,
 		roles:        slices.Clone(roles),
 		sessions:     slices.Clone(sessions),
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
-		deletedAt:    deletedAt,
+		isDeleted:    isDeleted,
 	}
 }
 
@@ -85,7 +78,6 @@ func (u *User) Activate(now Timepoint) error {
 	}
 
 	u.isActive = true
-	u.updatedAt = now
 	u.RecordEvent(NewUserActivated(u.id, now))
 	return nil
 }
@@ -102,7 +94,6 @@ func (u *User) AssignRole(role Role, now Timepoint) error {
 	}
 
 	u.roles = append(u.roles, role)
-	u.updatedAt = now
 	u.RecordEvent(NewRoleAssigned(u.id, role, now))
 	return nil
 }
@@ -125,7 +116,6 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
 			// Internal mutation is safe because the Aggregate Root (User) is doing it
 			s.UpdateLogin(candidate.HashedToken(), candidate.ExpiresAt(), now)
-			u.updatedAt = now
 			u.RecordEvent(NewSessionEstablished(u.id, s.ID(), now))
 			return nil
 		}
@@ -138,7 +128,6 @@ func (u *User) EstablishSession(candidate Session, maxSessions int) error {
 
 	// 3. Logic: Add the new session value
 	u.sessions = append(u.sessions, candidate)
-	u.updatedAt = now
 	u.RecordEvent(NewSessionEstablished(u.id, candidate.ID(), now))
 	return nil
 }
@@ -154,7 +143,6 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 			// Invariant: Detect hijacking
 			if !s.ValidateFingerprint(currentFingerprint) {
 				_ = s.Revoke(now)
-				u.updatedAt = now
 				u.RecordEvent(NewSessionHijackDetected(u.id, s.ID(), now))
 				return ZeroSession, ErrSessionFingerprintMiss
 			}
@@ -166,7 +154,6 @@ func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerp
 
 			// State Update
 			s.UpdateActivity(now)
-			u.updatedAt = now
 			u.RecordEvent(NewSessionRefreshed(u.id, s.ID(), now))
 			return *s, nil // Return the updated session value
 		}
@@ -188,7 +175,6 @@ func (u *User) RevokeSession(sid SessionID, now Timepoint) error {
 			if err := s.Revoke(now); err != nil {
 				return err
 			}
-			u.updatedAt = now
 			u.RecordEvent(NewSessionRevoked(u.id, sid, now))
 			return nil
 		}
@@ -239,7 +225,6 @@ func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 
 	oldEmail := u.email
 	u.email = newEmail
-	u.updatedAt = now
 	u.RecordEvent(NewEmailUpdated(u.id, oldEmail, newEmail, now))
 
 	// Note: In many systems, changing an email would also set u.isActive = false
@@ -256,7 +241,6 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	}
 
 	u.passwordHash = newHash
-	u.updatedAt = now
 
 	// Side effect: Security invariant - Kill all sessions on password change
 	for i := range u.sessions {
@@ -286,11 +270,8 @@ func (u *User) Email() Email                   { return u.email }
 func (u *User) HashedPassword() HashedPassword { return u.passwordHash }
 func (u *User) Roles() []Role                  { return slices.Clone(u.roles) }
 func (u *User) Sessions() []Session            { return slices.Clone(u.sessions) }
-func (u *User) IsDeleted() bool                { return u.deletedAt != nil }
+func (u *User) IsDeleted() bool                { return u.isDeleted }
 func (u *User) IsActive() bool                 { return u.isActive }
-func (u *User) CreatedAt() Timepoint           { return u.createdAt }
-func (u *User) UpdatedAt() Timepoint           { return u.updatedAt }
-func (u *User) DeletedAt() *Timepoint          { return u.deletedAt }
 func (u *User) RoleNames() []string {
 	if len(u.roles) == 0 {
 		return []string{}

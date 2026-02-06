@@ -126,7 +126,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 
 	t.Run("happy_path", func(t *testing.T) {
 		user := newActiveUserWithSession()
-		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, testPast, nil)
+		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, nil)
 
 		mgr := NewUserAccountManager(
 			&stubTokenService{},
@@ -147,7 +147,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	t.Run("recovery_expired", func(t *testing.T) {
 		user := newActiveUserWithSession()
 		// Token expired in the past
-		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testPast, testPast, nil)
+		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testPast, nil)
 
 		mgr := NewUserAccountManager(
 			&stubTokenService{},
@@ -164,7 +164,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	t.Run("recovery_already_used", func(t *testing.T) {
 		user := newActiveUserWithSession()
 		usedAt := testPast
-		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, testPast, &usedAt)
+		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, &usedAt)
 
 		mgr := NewUserAccountManager(
 			&stubTokenService{},
@@ -181,7 +181,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	t.Run("user_id_mismatch", func(t *testing.T) {
 		user := newActiveUserWithSession()
 		otherUserID := ReconstituteUserID("other-user")
-		recovery := ReconstituteRecoveryToken(recID, otherUserID, recHash, testFuture, testPast, nil)
+		recovery := ReconstituteRecoveryToken(recID, otherUserID, recHash, testFuture, nil)
 
 		mgr := NewUserAccountManager(
 			&stubTokenService{},
@@ -197,7 +197,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 
 	t.Run("password_policy_fails", func(t *testing.T) {
 		user := newActiveUserWithSession()
-		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, testPast, nil)
+		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, nil)
 
 		mgr := NewUserAccountManager(
 			&stubTokenService{},

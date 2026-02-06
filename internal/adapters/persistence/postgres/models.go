@@ -10,8 +10,8 @@ type UserModel struct {
 	PasswordHash string     `gorm:"column:password_hash"`
 	IsActive     bool       `gorm:"column:is_active"`
 	Roles        []string   `gorm:"serializer:json;column:roles;type:jsonb"`
-	CreatedAt    time.Time  `gorm:"column:created_at"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at"`
+	CreatedAt    time.Time  `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at;autoUpdateTime"`
 	DeletedAt    *time.Time `gorm:"column:deleted_at;index"`
 
 	Sessions []SessionModel `gorm:"foreignKey:user_id"`
@@ -42,7 +42,7 @@ type RecoveryTokenModel struct {
 	UserID      string     `gorm:"index;column:user_id;not null"`
 	HashedToken string     `gorm:"uniqueIndex;column:hashed_token;not null"`
 	ExpiresAt   time.Time  `gorm:"column:expires_at;not null"`
-	CreatedAt   time.Time  `gorm:"column:created_at"`
+	CreatedAt   time.Time  `gorm:"column:created_at;autoCreateTime"`
 	UsedAt      *time.Time `gorm:"column:used_at"` // Nullable: if set, token is spent
 }
 

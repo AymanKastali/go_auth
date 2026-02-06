@@ -121,9 +121,13 @@ definitions:
     type: object
   internal_adapters_http_fiberapp.UserResponse:
     properties:
+      created_at:
+        type: string
       email:
         type: string
       id:
+        type: string
+      updated_at:
         type: string
     type: object
 host: localhost:8080

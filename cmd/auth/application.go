@@ -15,6 +15,7 @@ type applicationInfra struct {
 	emailSvc   application.IEmailService
 	txManager  application.ITransactionManager
 	dispatcher application.IEventDispatcher
+	userQuery  application.IUserQueryPort
 }
 
 func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, logger *slog.Logger) applicationInfra {
@@ -22,6 +23,7 @@ func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, 
 		emailSvc:   adapters.NewEmailService(cfg.Email),
 		txManager:  pf.NewTransactionManager(),
 		dispatcher: adapters.NewLoggingEventDispatcher(logger),
+		userQuery:  pf.NewUserQueryAdapter(),
 	}
 }
 
@@ -88,9 +90,9 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 		),
 
 		// user
-		findByEmail: application.NewFindUserByEmailUseCase(d.userRepo),
-		getByID:     application.NewGetUserByIDUseCase(d.userRepo),
-		getMe:       application.NewGetMeUseCase(d.userRepo),
+		findByEmail: application.NewFindUserByEmailUseCase(infra.userQuery),
+		getByID:     application.NewGetUserByIDUseCase(infra.userQuery),
+		getMe:       application.NewGetMeUseCase(infra.userQuery),
 		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock, infra.dispatcher),
 		forgotPassword: application.NewForgotPasswordUseCase(
 			d.userRepo,

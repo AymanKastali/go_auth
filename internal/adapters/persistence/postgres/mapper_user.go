@@ -1,8 +1,9 @@
 package postgres
 
 import (
-	"go_auth/internal/core/domain"
 	"time"
+
+	"go_auth/internal/core/domain"
 )
 
 func toUserModel(u *domain.User) UserModel {
@@ -16,21 +17,12 @@ func toUserModel(u *domain.User) UserModel {
 		sessionModels[i] = toSessionModel(u.ID().String(), s)
 	}
 
-	var deletedAt *time.Time
-	if u.DeletedAt() != nil {
-		t := u.DeletedAt().Time()
-		deletedAt = &t
-	}
-
 	return UserModel{
 		ID:           u.ID().String(),
 		Email:        u.Email().String(),
 		PasswordHash: u.HashedPassword().String(),
 		IsActive:     u.IsActive(),
 		Roles:        roleNames,
-		CreatedAt:    u.CreatedAt().Time(),
-		UpdatedAt:    u.UpdatedAt().Time(),
-		DeletedAt:    deletedAt,
 		Sessions:     sessionModels,
 	}
 }
@@ -58,12 +50,6 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 		sessions[i] = sDomain
 	}
 
-	var deletedAt *domain.Timepoint
-	if m.DeletedAt != nil {
-		t := domain.ReconstituteTimepoint(*m.DeletedAt)
-		deletedAt = &t
-	}
-
 	return domain.ReconstituteUser(
 		uid,
 		email,
@@ -71,9 +57,7 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 		m.IsActive,
 		roles,
 		sessions,
-		domain.ReconstituteTimepoint(m.CreatedAt),
-		domain.ReconstituteTimepoint(m.UpdatedAt),
-		deletedAt,
+		m.DeletedAt != nil,
 	), nil
 }
 

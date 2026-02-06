@@ -129,7 +129,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 			[]Session{
 				ReconstituteSession(validSessionID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, &revokedAt),
 			},
-			testPast, testNow, nil,
+			false,
 		)
 		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []Role{RoleMember})
 		mgr := NewAccessManager(

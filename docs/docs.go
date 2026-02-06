@@ -677,10 +677,16 @@ const docTemplate = `{
         "internal_adapters_http_fiberapp.UserResponse": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

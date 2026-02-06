@@ -7,7 +7,6 @@ type RecoveryToken struct {
 	userID      UserID
 	hashedToken RecoveryTokenHash
 	expiresAt   Timepoint
-	createdAt   Timepoint
 	usedAt      *Timepoint // If nil, the token hasn't been used yet
 }
 
@@ -31,7 +30,6 @@ func NewRecoveryToken(
 		hashedToken: hash,
 		expiresAt:   expiresAt,
 		usedAt:      nil,
-		createdAt:   now,
 	}
 	rt.RecordEvent(NewPasswordResetRequested(id, uid, now))
 	return rt, nil
@@ -43,7 +41,6 @@ func ReconstituteRecoveryToken(
 	userID UserID,
 	hashedToken RecoveryTokenHash,
 	expiresAt Timepoint,
-	createdAt Timepoint,
 	usedAt *Timepoint,
 ) *RecoveryToken {
 	return &RecoveryToken{
@@ -51,7 +48,6 @@ func ReconstituteRecoveryToken(
 		userID:      userID,
 		hashedToken: hashedToken,
 		expiresAt:   expiresAt,
-		createdAt:   createdAt,
 		usedAt:      usedAt,
 	}
 }
@@ -84,5 +80,4 @@ func (r *RecoveryToken) ID() RecoveryTokenID            { return r.id }
 func (r *RecoveryToken) UserID() UserID                 { return r.userID }
 func (r *RecoveryToken) HashedToken() RecoveryTokenHash { return r.hashedToken }
 func (r *RecoveryToken) ExpiresAt() Timepoint           { return r.expiresAt }
-func (r *RecoveryToken) CreatedAt() Timepoint           { return r.createdAt }
 func (r *RecoveryToken) UsedAt() *Timepoint             { return r.usedAt }
