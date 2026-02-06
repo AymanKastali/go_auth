@@ -28,7 +28,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 		events := user.CollectEvents()
 		assertEventRecorded(t, events, "UserRegistered")
 		assertEventRecorded(t, events, "RoleAssigned")
-		assertEventRecorded(t, events, "UserActivated")
+		assertEventNotRecorded(t, events, "UserActivated")
 	})
 
 	t.Run("policy_rejects", func(t *testing.T) {

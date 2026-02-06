@@ -10,8 +10,8 @@ type UserModel struct {
 	PasswordHash string     `gorm:"column:password_hash"`
 	IsActive     bool       `gorm:"column:is_active"`
 	Roles        []string   `gorm:"serializer:json;column:roles;type:jsonb"`
-	CreatedAt    time.Time  `gorm:"column:created_at"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at"`
+	RegisteredAt time.Time  `gorm:"column:registered_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at;autoUpdateTime"`
 	DeletedAt    *time.Time `gorm:"column:deleted_at;index"`
 
 	Sessions []SessionModel `gorm:"foreignKey:user_id"`
@@ -32,7 +32,7 @@ type SessionModel struct {
 	IsMobile       bool       `gorm:"column:is_mobile"`
 	ExpiresAt      time.Time  `gorm:"column:expires_at"`
 	LastActiveAt   time.Time  `gorm:"column:last_active_at"`
-	RevokedAt      *time.Time `gorm:"column:revoked_at"`
+	IsRevoked      bool       `gorm:"column:is_revoked"`
 }
 
 func (SessionModel) TableName() string { return "sessions" }
@@ -42,8 +42,8 @@ type RecoveryTokenModel struct {
 	UserID      string     `gorm:"index;column:user_id;not null"`
 	HashedToken string     `gorm:"uniqueIndex;column:hashed_token;not null"`
 	ExpiresAt   time.Time  `gorm:"column:expires_at;not null"`
-	CreatedAt   time.Time  `gorm:"column:created_at"`
-	UsedAt      *time.Time `gorm:"column:used_at"` // Nullable: if set, token is spent
+	CreatedAt   time.Time  `gorm:"column:created_at;autoCreateTime"`
+	IsUsed      bool       `gorm:"column:is_used"`
 }
 
 func (RecoveryTokenModel) TableName() string { return "recovery_tokens" }

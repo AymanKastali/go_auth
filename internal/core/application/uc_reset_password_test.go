@@ -19,8 +19,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 			testUserID(),
 			recHash,
 			appTestFuture,
-			appTestNow,
-			nil,
+			false,
 		)
 	}
 

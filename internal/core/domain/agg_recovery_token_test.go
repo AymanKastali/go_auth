@@ -18,7 +18,6 @@ func TestNewRecoveryToken(t *testing.T) {
 		assert.Equal(t, id, rt.ID())
 		assert.Equal(t, uid, rt.UserID())
 		assert.Equal(t, hash, rt.HashedToken())
-		assert.True(t, rt.CreatedAt().Equal(testNow))
 		assert.False(t, rt.IsUsed())
 
 		events := rt.CollectEvents()
@@ -54,11 +53,7 @@ func TestRecoveryToken_IsValid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var usedAt *Timepoint
-			if tt.used {
-				usedAt = &testNow
-			}
-			rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, testPast, usedAt)
+			rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, tt.used)
 			assert.Equal(t, tt.expected, rt.IsValid(tt.checkAt))
 		})
 	}
@@ -70,18 +65,17 @@ func TestRecoveryToken_MarkAsUsed(t *testing.T) {
 	hash := ReconstituteRecoveryTokenHash("hash-001")
 
 	t.Run("first_use", func(t *testing.T) {
-		rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, testPast, nil)
+		rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, false)
 		err := rt.MarkAsUsed(testNow)
 		require.NoError(t, err)
 		assert.True(t, rt.IsUsed())
-		assert.NotNil(t, rt.UsedAt())
 
 		events := rt.CollectEvents()
 		assertEventRecorded(t, events, "RecoveryTokenUsed")
 	})
 
 	t.Run("double_use", func(t *testing.T) {
-		rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, testPast, nil)
+		rt := ReconstituteRecoveryToken(id, uid, hash, testFuture, false)
 		_ = rt.MarkAsUsed(testNow)
 		_ = rt.CollectEvents() // drain
 		err := rt.MarkAsUsed(testNow)

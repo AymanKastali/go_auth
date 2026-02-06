@@ -1,11 +1,8 @@
 {
     "name": "GoAuth",
-    "dockerComposeFile": [
-        "../docker-compose.yml",
-        "../docker-compose.override.yml"
-    ],
+    "dockerComposeFile": "docker-compose.dev.yml",
     "service": "web",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/app",
     "customizations": {
         "vscode": {
             "extensions": [

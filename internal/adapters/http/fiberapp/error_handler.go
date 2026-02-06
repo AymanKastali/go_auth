@@ -21,16 +21,16 @@ func NewErrorHandler() fiber.ErrorHandler {
 
 		resp := ErrorResponse{
 			TraceID: traceID,
-			Code:    string(domain.CodeInternal),
+			Code:    string(domain.KindInternal),
 			Message: "Internal server error",
 		}
 		statusCode := fiber.StatusInternalServerError
 
 		var appErr *domain.Error
 		if errors.As(e, &appErr) {
-			resp.Code = string(appErr.Code())
+			resp.Code = string(appErr.Kind())
 			resp.Message = appErr.Message()
-			statusCode = mapCodeToHTTPStatus(appErr.Code())
+			statusCode = mapKindToHTTPStatus(appErr.Kind())
 
 			logRequestError(c, statusCode, e)
 			return c.Status(statusCode).JSON(resp)
@@ -62,7 +62,7 @@ func logRequestError(c fiber.Ctx, status int, e error) {
 	// Check if it's a domain error to extract more specific metadata
 	var appErr *domain.Error
 	if errors.As(e, &appErr) {
-		appCode = string(appErr.Code())
+		appCode = string(appErr.Kind())
 	}
 
 	if status >= 500 {
@@ -79,19 +79,19 @@ func logRequestError(c fiber.Ctx, status int, e error) {
 	)
 }
 
-func mapCodeToHTTPStatus(code domain.Code) int {
-	switch code {
-	case domain.CodeValidation:
+func mapKindToHTTPStatus(kind domain.Kind) int {
+	switch kind {
+	case domain.KindValidation:
 		return fiber.StatusUnprocessableEntity
-	case domain.CodeUnauthorized:
+	case domain.KindUnauthorized:
 		return fiber.StatusUnauthorized
-	case domain.CodeForbidden:
+	case domain.KindForbidden:
 		return fiber.StatusForbidden
-	case domain.CodeNotFound:
+	case domain.KindNotFound:
 		return fiber.StatusNotFound
-	case domain.CodeConflict:
+	case domain.KindConflict:
 		return fiber.StatusConflict
-	case domain.CodeBusinessRule:
+	case domain.KindBusinessRule:
 		return fiber.StatusUnprocessableEntity
 	default:
 		return fiber.StatusInternalServerError

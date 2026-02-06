@@ -125,6 +125,10 @@ definitions:
         type: string
       id:
         type: string
+      registered_at:
+        type: string
+      updated_at:
+        type: string
     type: object
 host: localhost:8080
 info:

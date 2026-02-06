@@ -19,6 +19,11 @@ type IEmailService interface {
 	SendResetLink(toEmail string, rawToken string) error
 }
 
+type IUserQueryPort interface {
+	FindByID(ctx context.Context, id string) (UserReadModel, error)
+	FindByEmail(ctx context.Context, email string) (UserReadModel, error)
+}
+
 // IRegisterUseCase defines the boundary for creating a new user.
 type IRegisterUseCase interface {
 	// Execute orchestrates the registration process.
@@ -54,15 +59,15 @@ type ISeedSuperAdminUseCase interface {
 }
 
 type IFindUserByEmailUseCase interface {
-	Execute(ctx context.Context, email string) (UserResponse, error)
+	Execute(ctx context.Context, email string) (UserReadModel, error)
 }
 
 type IGetUserByIDUseCase interface {
-	Execute(ctx context.Context, id string) (UserResponse, error)
+	Execute(ctx context.Context, id string) (UserReadModel, error)
 }
 
 type IGetMeUseCase interface {
-	Execute(ctx context.Context, id string) (UserResponse, error)
+	Execute(ctx context.Context, id string) (UserReadModel, error)
 }
 type IUpdateMeUseCase interface {
 	Execute(ctx context.Context, cmd UpdateMeCommand) error

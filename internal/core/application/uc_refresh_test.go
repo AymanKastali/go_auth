@@ -19,7 +19,7 @@ func TestRefreshTokenUseCase(t *testing.T) {
 	accessTok, _ := domain.NewAccessToken("access-tok")
 	sess := domain.ReconstituteSession(
 		testSessionID(), domain.ReconstituteHashedToken("h"),
-		testDeviceIdentity(), appTestFuture, appTestNow, nil,
+		testDeviceIdentity(), appTestFuture, appTestNow, false,
 	)
 
 	t.Run("happy_path", func(t *testing.T) {

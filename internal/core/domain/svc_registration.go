@@ -64,10 +64,6 @@ func (s *registrationService) RegisterNewMember(
 		return nil, err
 	}
 
-	if err := user.Activate(now); err != nil {
-		return nil, err
-	}
-
 	return user, nil
 }
 
@@ -96,10 +92,6 @@ func (s *registrationService) RegisterNewSuperAdmin(
 	}
 
 	if err := user.AssignRole(RoleAdmin, now); err != nil {
-		return nil, err
-	}
-
-	if err := user.Activate(now); err != nil {
 		return nil, err
 	}
 

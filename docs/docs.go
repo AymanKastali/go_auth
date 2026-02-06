@@ -682,6 +682,12 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "registered_at": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         }

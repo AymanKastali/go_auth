@@ -2,117 +2,86 @@ package application
 
 import (
 	"context"
-	"go_auth/internal/core/domain"
 	"log/slog"
 )
 
 // --- Find User By Email Use Case ---
 type findUserByEmailUseCase struct {
-	userRepo domain.IUserRepository
+	queryPort IUserQueryPort
 }
 
-func NewFindUserByEmailUseCase(repo domain.IUserRepository) IFindUserByEmailUseCase {
-	return &findUserByEmailUseCase{userRepo: repo}
+func NewFindUserByEmailUseCase(queryPort IUserQueryPort) IFindUserByEmailUseCase {
+	return &findUserByEmailUseCase{queryPort: queryPort}
 }
 
-func (uc *findUserByEmailUseCase) Execute(ctx context.Context, email string) (UserResponse, error) {
+func (uc *findUserByEmailUseCase) Execute(ctx context.Context, email string) (UserReadModel, error) {
 	logger := GetLogger(ctx).With(
 		slog.String("email", email),
 		slog.String("use_case", "FindUserByEmail"),
 	)
 
-	// 1. Convert primitive string to Domain Value Object
-	emailVO, err := domain.NewEmail(email)
+	if email == "" {
+		logger.Warn("empty_email")
+		return ZeroUserReadModel, ErrResourceNotFound
+	}
+
+	result, err := uc.queryPort.FindByEmail(ctx, email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
-		return ZeroUserResponse, err
+		logger.Warn("user_lookup_failed", slog.Any("error", err))
+		return ZeroUserReadModel, err
 	}
 
-	// 2. Query Repository
-	user, err := uc.userRepo.FindByEmail(ctx, emailVO)
-	if err != nil {
-		logger.Error("user_lookup_failed", slog.Any("error", err))
-		return ZeroUserResponse, err
-	}
-
-	if user == nil {
-		logger.Warn("user_not_found")
-		return ZeroUserResponse, ErrResourceNotFound
-	}
-
-	return UserResponse{
-		ID:    user.ID().String(),
-		Email: user.Email().String(),
-	}, nil
+	return result, nil
 }
 
 // --- Get User By ID Use Case ---
 type getUserByIDUseCase struct {
-	userRepo domain.IUserRepository
+	queryPort IUserQueryPort
 }
 
-func NewGetUserByIDUseCase(repo domain.IUserRepository) IGetUserByIDUseCase {
-	return &getUserByIDUseCase{userRepo: repo}
+func NewGetUserByIDUseCase(queryPort IUserQueryPort) IGetUserByIDUseCase {
+	return &getUserByIDUseCase{queryPort: queryPort}
 }
 
-func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+func (uc *getUserByIDUseCase) Execute(ctx context.Context, id string) (UserReadModel, error) {
 	logger := GetLogger(ctx).With(slog.String("use_case", "GetUserByID"))
 
-	// 1. Domain-level ID validation
-	userID, err := domain.NewUserID(id)
-	if err != nil {
-		logger.Warn("invalid_user_id", slog.Any("error", err))
-		return ZeroUserResponse, err
+	if id == "" {
+		logger.Warn("empty_user_id")
+		return ZeroUserReadModel, ErrResourceNotFound
 	}
 
-	user, err := uc.userRepo.FindByID(ctx, userID)
+	result, err := uc.queryPort.FindByID(ctx, id)
 	if err != nil {
 		logger.Error("user_lookup_failed", slog.String("target_id", id), slog.Any("error", err))
-		return ZeroUserResponse, err
+		return ZeroUserReadModel, err
 	}
 
-	if user == nil {
-		logger.Warn("user_not_found", slog.String("target_id", id))
-		return ZeroUserResponse, ErrResourceNotFound
-	}
-
-	return UserResponse{
-		ID:    user.ID().String(),
-		Email: user.Email().String(),
-	}, nil
+	return result, nil
 }
 
 // --- Get Me Use Case ---
 type getMeUseCase struct {
-	userRepo domain.IUserRepository
+	queryPort IUserQueryPort
 }
 
-func NewGetMeUseCase(repo domain.IUserRepository) IGetMeUseCase {
-	return &getMeUseCase{userRepo: repo}
+func NewGetMeUseCase(queryPort IUserQueryPort) IGetMeUseCase {
+	return &getMeUseCase{queryPort: queryPort}
 }
 
-func (uc *getMeUseCase) Execute(ctx context.Context, id string) (UserResponse, error) {
+func (uc *getMeUseCase) Execute(ctx context.Context, id string) (UserReadModel, error) {
 	logger := GetLogger(ctx).With(slog.String("use_case", "GetMe"))
 
-	userID, err := domain.NewUserID(id)
-	if err != nil {
-		logger.Warn("invalid_user_id", slog.Any("error", err))
-		return ZeroUserResponse, err
+	if id == "" {
+		logger.Warn("empty_user_id")
+		return ZeroUserReadModel, ErrResourceNotFound
 	}
 
-	user, err := uc.userRepo.FindByID(ctx, userID)
+	result, err := uc.queryPort.FindByID(ctx, id)
 	if err != nil {
 		logger.Error("user_lookup_failed", slog.Any("error", err))
-		return ZeroUserResponse, err
+		return ZeroUserReadModel, err
 	}
 
-	if user == nil {
-		logger.Warn("user_not_found")
-		return ZeroUserResponse, ErrResourceNotFound
-	}
-
-	return UserResponse{
-		ID:    user.ID().String(),
-		Email: user.Email().String(),
-	}, nil
+	return result, nil
 }

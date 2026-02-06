@@ -37,6 +37,10 @@ func (f *PersistenceFactory) NewRecoveryTokenRepository() domain.IRecoveryTokenR
 	return NewPostgresRecoveryTokenRepository(f.db)
 }
 
+func (f *PersistenceFactory) NewUserQueryAdapter() application.IUserQueryPort {
+	return NewPostgresUserQueryAdapter(f.db)
+}
+
 func (f *PersistenceFactory) NewTransactionManager() application.ITransactionManager {
 	return NewTransactionManager(f.db)
 }

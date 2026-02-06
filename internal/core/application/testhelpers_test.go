@@ -43,12 +43,11 @@ func testActiveUser() *domain.User {
 				testDeviceIdentity(),
 				appTestFuture,
 				appTestNow,
-				nil,
+				false,
 			),
 		},
+		false,
 		appTestNow,
-		appTestNow,
-		nil,
 	)
 }
 
@@ -259,6 +258,20 @@ func (r *stubAppUserRepository) Save(_ context.Context, _ *domain.User) error {
 }
 func (r *stubAppUserRepository) Delete(_ context.Context, _ domain.UserID) error {
 	return r.deleteErr
+}
+
+type stubUserQueryPort struct {
+	findByIDResult    UserReadModel
+	findByIDErr       error
+	findByEmailResult UserReadModel
+	findByEmailErr    error
+}
+
+func (s *stubUserQueryPort) FindByID(_ context.Context, _ string) (UserReadModel, error) {
+	return s.findByIDResult, s.findByIDErr
+}
+func (s *stubUserQueryPort) FindByEmail(_ context.Context, _ string) (UserReadModel, error) {
+	return s.findByEmailResult, s.findByEmailErr
 }
 
 type stubAppRecoveryTokenRepository struct {

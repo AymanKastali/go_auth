@@ -6,7 +6,7 @@ var (
 	ZeroLoginResponse           = LoginResponse{}
 	ZeroRegisterUserResponse    = RegisterUserResponse{}
 	ZeroValidateAccessResponse  = ValidateAccessResponse{}
-	ZeroUserResponse            = UserResponse{}
+	ZeroUserReadModel           = UserReadModel{}
 	ZeroPublicPoliciesResponse  = PublicPoliciesResponse{}
 )
 
@@ -92,10 +92,13 @@ type FindUserByEmailQuery struct {
 	Email string
 }
 
-type UserResponse struct {
-	ID        string
-	Email     string
-	CreatedAT time.Time
+type UserReadModel struct {
+	ID           string
+	Email        string
+	IsActive     bool
+	Roles        []string
+	RegisteredAt time.Time
+	UpdatedAt    time.Time
 }
 
 // PasswordPolicyDTO exposes password requirements to clients.
