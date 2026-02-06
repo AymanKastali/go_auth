@@ -6,7 +6,6 @@
 .env.*
 
 # Build artifacts
-build/Dockerfile.*
 docker-compose*.yml
 
 # Documentation (keep docs/*.go for swagger)

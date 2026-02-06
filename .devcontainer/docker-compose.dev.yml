@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: "${GA_APP_NAME}_postgres"
+    restart: always
+    volumes:
+      - postgres_db:/var/lib/postgresql
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: auth_db
+      POSTGRES_PORT: 5432
+      GA_DATABASE_URL: ${GA_DATABASE_URL}
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    container_name: "${GA_APP_NAME}_app"
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.dev
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    environment:
+      GA_EMAIL_HOST: mailhog
+      GA_EMAIL_PORT: 1025
+    ports:
+      - "${GA_HTTP_PORT}:${GA_HTTP_PORT}"
+      - "2345:2345"
+    volumes:
+      - ../:/app:cached
+      - /app/docs  # This "anonymous volume" protects the container's /docs from being overwritten by your host
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: "${GA_APP_NAME}_mailhog"
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres_db:

@@ -11,7 +11,7 @@
             "substitutePath": [
                 {
                     "from": "${workspaceFolder}",
-                    "to": "/workspace"
+                    "to": "/app"
                 }
             ]
         }
