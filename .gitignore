@@ -1,3 +1,4 @@
-**/.env
-**/__debug_bin*
 CLAUDE.md
+**/__debug_bin*
+.env
+.env.prod
