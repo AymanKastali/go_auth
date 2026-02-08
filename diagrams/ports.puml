@@ -1,0 +1,85 @@
+@startuml Ports
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Ports — Repository & Infrastructure Interfaces
+
+package "Repository Ports" {
+
+    interface IUserRepository <<port>> {
+        + FindByID(ctx context.Context, id UserID) : (*User, error)
+        + FindByEmail(ctx context.Context, email Email) : (*User, error)
+        + Save(ctx context.Context, user *User) : error
+        + Delete(ctx context.Context, id UserID) : error
+        + FindBySessionToken(ctx context.Context, token HashedToken) : (*User, error)
+    }
+
+    interface IRecoveryTokenRepository <<port>> {
+        + FindByHash(ctx context.Context, hash RecoveryTokenHash) : (*RecoveryToken, error)
+        + Save(ctx context.Context, token *RecoveryToken) : error
+        + RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) : error
+    }
+}
+
+package "Infrastructure Ports" {
+
+    interface IClock <<port>> {
+        + Now() : Timepoint
+    }
+
+    interface IPasswordService <<port>> {
+        + Hash(raw RawPassword) : (HashedPassword, error)
+        + Compare(raw RawPassword, hashed HashedPassword) : bool
+    }
+
+    interface IIDGenerator <<port>> {
+        + GenerateUserID() : (UserID, error)
+        + GenerateSessionID() : (SessionID, error)
+        + GenerateRecoveryTokenID() : (RecoveryTokenID, error)
+    }
+
+    interface ITokenService <<port>> {
+        + Generate() : (RawToken, error)
+        + HashSessionToken(raw RawToken) : (HashedToken, error)
+        + HashRecoveryToken(raw RawToken) : (RecoveryTokenHash, error)
+        + CompareSession(raw RawToken, hashed HashedToken) : bool
+        + CompareRecovery(raw RawToken, hashed RecoveryTokenHash) : bool
+    }
+
+    interface IAccessService <<port>> {
+        + Issue(userID, email, sessionID, roles, issuedAt, expiresAt, notBefore) : (AccessToken, Timepoint, error)
+        + Validate(token AccessToken) : (AccessIdentity, error)
+    }
+}
+
+package "Value Objects (produced / consumed)" <<Cloud>> {
+    class Timepoint <<VO>>
+    class RawPassword <<VO>>
+    class HashedPassword <<VO>>
+    class UserID <<VO>>
+    class SessionID <<VO>>
+    class RecoveryTokenID <<VO>>
+    class RawToken <<VO>>
+    class HashedToken <<VO>>
+    class RecoveryTokenHash <<VO>>
+    class AccessToken <<VO>>
+    class AccessIdentity <<VO>>
+}
+
+IClock ..> Timepoint : produces
+IPasswordService ..> RawPassword : consumes
+IPasswordService ..> HashedPassword : produces
+IIDGenerator ..> UserID : produces
+IIDGenerator ..> SessionID : produces
+IIDGenerator ..> RecoveryTokenID : produces
+ITokenService ..> RawToken : produces
+ITokenService ..> HashedToken : produces
+ITokenService ..> RecoveryTokenHash : produces
+IAccessService ..> AccessToken : produces
+IAccessService ..> AccessIdentity : produces
+
+IUserRepository ..> User : manages
+IRecoveryTokenRepository ..> RecoveryToken : manages
+
+@enduml

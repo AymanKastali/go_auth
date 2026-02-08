@@ -1,0 +1,173 @@
+@startuml DomainEvents
+!theme plain
+skinparam classAttributeIconSize 0
+
+title Domain Events
+
+package "Event Infrastructure" {
+
+    interface DomainEvent {
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+    }
+
+    class EventRecorder <<Mixin>> {
+        - events : []DomainEvent
+        + RecordEvent(event DomainEvent)
+        + CollectEvents() : []DomainEvent
+    }
+
+    EventRecorder o-- "0..*" DomainEvent : collects
+}
+
+package "User Events" {
+
+    class UserRegistered {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - email : string
+        __
+        + {static} NewUserRegistered(userID, email, now) : UserRegistered
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + Email() : string
+    }
+
+    class UserActivated {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        __
+        + {static} NewUserActivated(userID, now) : UserActivated
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+    }
+
+    class RoleAssigned {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - roleName : string
+        __
+        + {static} NewRoleAssigned(userID, role, now) : RoleAssigned
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + RoleName() : string
+    }
+
+    class SessionEstablished {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - sessionID : string
+        __
+        + {static} NewSessionEstablished(userID, sessionID, now) : SessionEstablished
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + SessionID() : string
+    }
+
+    class SessionRefreshed {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - sessionID : string
+        __
+        + {static} NewSessionRefreshed(userID, sessionID, now) : SessionRefreshed
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + SessionID() : string
+    }
+
+    class SessionRevoked {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - sessionID : string
+        __
+        + {static} NewSessionRevoked(userID, sessionID, now) : SessionRevoked
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + SessionID() : string
+    }
+
+    class SessionHijackDetected {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - sessionID : string
+        __
+        + {static} NewSessionHijackDetected(userID, sessionID, now) : SessionHijackDetected
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + SessionID() : string
+    }
+
+    class EmailUpdated {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - oldEmail : string
+        - newEmail : string
+        __
+        + {static} NewEmailUpdated(userID, oldEmail, newEmail, now) : EmailUpdated
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + OldEmail() : string
+        + NewEmail() : string
+    }
+
+    class PasswordChanged {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        __
+        + {static} NewPasswordChanged(userID, now) : PasswordChanged
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+    }
+
+    DomainEvent <|.. UserRegistered
+    DomainEvent <|.. UserActivated
+    DomainEvent <|.. RoleAssigned
+    DomainEvent <|.. SessionEstablished
+    DomainEvent <|.. SessionRefreshed
+    DomainEvent <|.. SessionRevoked
+    DomainEvent <|.. SessionHijackDetected
+    DomainEvent <|.. EmailUpdated
+    DomainEvent <|.. PasswordChanged
+}
+
+package "Recovery Events" {
+
+    class PasswordResetRequested {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - userID : string
+        __
+        + {static} NewPasswordResetRequested(tokenID, userID, now) : PasswordResetRequested
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + UserID() : string
+    }
+
+    class RecoveryTokenUsed {
+        - occurredAt : Timepoint
+        - aggregateID : string
+        - userID : string
+        __
+        + {static} NewRecoveryTokenUsed(tokenID, userID, now) : RecoveryTokenUsed
+        + EventName() : string
+        + OccurredAt() : Timepoint
+        + AggregateID() : string
+        + UserID() : string
+    }
+
+    DomainEvent <|.. PasswordResetRequested
+    DomainEvent <|.. RecoveryTokenUsed
+}
+
+@enduml

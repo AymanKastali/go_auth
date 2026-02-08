@@ -9,8 +9,13 @@
                 "golang.go",
                 "cweijan.vscode-postgresql-client2",
                 "mhutchie.git-graph",
-                "streetsidesoftware.code-spell-checker"
-            ]
+                "streetsidesoftware.code-spell-checker",
+                "jebbs.plantuml"
+            ],
+            "settings": {
+                "plantuml.server": "https://www.plantuml.com/plantuml",
+                "plantuml.render": "PlantUMLServer"
+            }
         }
     },
     "postCreateCommand": "bash scripts/install-hooks.sh",
