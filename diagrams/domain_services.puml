@@ -1,0 +1,132 @@
+@startuml DomainServices
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Domain Services — Interfaces, Implementations & Dependency Wiring
+
+package "Domain Services" {
+
+    interface IRegistrationService {
+        + RegisterNewMember(ctx, id, email, pwd, now) : (*User, error)
+        + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
+    }
+
+    class registrationService {
+        - userRepo : IUserRepository
+        - registerPolicy : IRegisterPolicy
+        __
+        + {static} NewRegistrationService(userRepo, registerPolicy) : *registrationService
+        + RegisterNewMember(ctx, id, email, pwd, now) : (*User, error)
+        + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
+    }
+
+    interface IAuthenticationService {
+        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, Session, error)
+        + RefreshSession(ctx, rawToken, fp, now) : (*User, Session, error)
+    }
+
+    class authenticationService {
+        - userRepo : IUserRepository
+        - tokenSvc : ITokenService
+        - idGen : IIDGenerator
+        - sessionPolicy : ISessionPolicy
+        - passwordMgr : IPasswordManager
+        __
+        + {static} NewAuthenticationService(userRepo, tokenSvc, idGen, sessionPolicy, passwordMgr) : IAuthenticationService
+        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, Session, error)
+        + RefreshSession(ctx, rawToken, fp, now) : (*User, Session, error)
+    }
+
+    interface IAccessManager {
+        + GrantImmediateAccess(user, sid, now) : (AccessToken, Timepoint, error)
+        + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
+    }
+
+    class accessManager {
+        - userRepo : IUserRepository
+        - accessSvc : IAccessService
+        - accessPolicy : IAccessPolicy
+        __
+        + {static} NewAccessManager(userRepo, accessSvc, accessPolicy) : IAccessManager
+        + GrantImmediateAccess(user, sid, now) : (AccessToken, Timepoint, error)
+        + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
+    }
+
+    interface IUserAccountManager {
+        + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
+        + ChangePassword(user, oldPass, newPass, now) : error
+        + ResetPasswordByToken(user, recovery, newPassword, now) : error
+    }
+
+    class userAccountManager {
+        - tokenSvc : ITokenService
+        - passwordMgr : IPasswordManager
+        - idGen : IIDGenerator
+        - recoveryPolicy : IRecoveryPolicy
+        __
+        + {static} NewUserAccountManager(tokenSvc, passwordMgr, idGen, recoveryPolicy) : IUserAccountManager
+        + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
+        + ChangePassword(user, oldPass, newPass, now) : error
+        + ResetPasswordByToken(user, recovery, newPassword, now) : error
+    }
+
+    interface IPasswordManager {
+        + ValidateAndHashNewPassword(raw RawPassword) : (HashedPassword, error)
+        + Compare(raw RawPassword, hashed HashedPassword) : bool
+    }
+
+    class passwordManager {
+        - svc : IPasswordService
+        - policy : IPasswordPolicy
+        __
+        + {static} NewPasswordManager(svc, policy) : *passwordManager
+        + ValidateAndHashNewPassword(raw RawPassword) : (HashedPassword, error)
+        + Compare(raw RawPassword, hashed HashedPassword) : bool
+    }
+
+    IRegistrationService <|.. registrationService
+    IAuthenticationService <|.. authenticationService
+    IAccessManager <|.. accessManager
+    IUserAccountManager <|.. userAccountManager
+    IPasswordManager <|.. passwordManager
+}
+
+package "Ports" <<Cloud>> {
+    interface IUserRepository <<port>>
+    interface ITokenService <<port>>
+    interface IIDGenerator <<port>>
+    interface IAccessService <<port>>
+    interface IPasswordService <<port>>
+}
+
+package "Policies" <<Cloud>> {
+    interface IRegisterPolicy <<policy>>
+    interface ISessionPolicy <<policy>>
+    interface IAccessPolicy <<policy>>
+    interface IRecoveryPolicy <<policy>>
+    interface IPasswordPolicy <<policy>>
+}
+
+registrationService --> IUserRepository
+registrationService --> IRegisterPolicy
+
+authenticationService --> IUserRepository
+authenticationService --> ITokenService
+authenticationService --> IIDGenerator
+authenticationService --> ISessionPolicy
+authenticationService --> IPasswordManager
+
+accessManager --> IUserRepository
+accessManager --> IAccessService
+accessManager --> IAccessPolicy
+
+userAccountManager --> ITokenService
+userAccountManager --> IPasswordManager
+userAccountManager --> IIDGenerator
+userAccountManager --> IRecoveryPolicy
+
+passwordManager --> IPasswordService
+passwordManager --> IPasswordPolicy
+
+@enduml

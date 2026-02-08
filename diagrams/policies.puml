@@ -1,0 +1,127 @@
+@startuml Policies
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Policies — Interfaces, Config Structs & Implementations
+
+package "Password Policy" {
+
+    interface IPasswordPolicy {
+        + Validate(rawPassword RawPassword) : error
+    }
+
+    class PasswordPolicyConfig <<Config>> {
+        + MinLength : uint8
+        + MaxLength : uint8
+        + RequireUpper : bool
+        + RequireNumber : bool
+        + RequireSpecial : bool
+    }
+
+    class passwordPolicy {
+        - minLength : uint8
+        - maxLength : uint8
+        - requireUpper : bool
+        - requireNumber : bool
+        - requireSpecial : bool
+        __
+        + {static} NewPasswordPolicy(cfg PasswordPolicyConfig) : IPasswordPolicy
+        + Validate(password RawPassword) : error
+    }
+
+    IPasswordPolicy <|.. passwordPolicy
+    PasswordPolicyConfig ..> passwordPolicy : configures
+}
+
+package "Registration Policy" {
+
+    interface IRegisterPolicy {
+        + Validate(email Email) : error
+    }
+
+    class RegisterPolicyConfig <<Config>> {
+        + AllowPublic : bool
+        + BlockedDomains : []string
+    }
+
+    class registerPolicy {
+        - allowPublicSignUp : bool
+        - blockedDomains : []string
+        __
+        + {static} NewRegisterPolicy(cfg RegisterPolicyConfig) : IRegisterPolicy
+        + Validate(email Email) : error
+    }
+
+    IRegisterPolicy <|.. registerPolicy
+    RegisterPolicyConfig ..> registerPolicy : configures
+}
+
+package "Session Policy" {
+
+    interface ISessionPolicy {
+        + GetSessionLifetime() : time.Duration
+        + GetMaxActiveSessions() : int
+    }
+
+    class SessionPolicyConfig <<Config>> {
+        + Lifetime : time.Duration
+        + MaxActive : uint8
+    }
+
+    class sessionPolicy {
+        - lifetime : time.Duration
+        - maxActive : uint8
+        __
+        + {static} NewSessionPolicy(cfg SessionPolicyConfig) : ISessionPolicy
+        + GetSessionLifetime() : time.Duration
+        + GetMaxActiveSessions() : int
+    }
+
+    ISessionPolicy <|.. sessionPolicy
+    SessionPolicyConfig ..> sessionPolicy : configures
+}
+
+package "Access Policy" {
+
+    interface IAccessPolicy {
+        + GetAccessLifetime() : time.Duration
+    }
+
+    class AccessPolicyConfig <<Config>> {
+        + Lifetime : time.Duration
+    }
+
+    class accessPolicy {
+        - lifetime : time.Duration
+        __
+        + {static} NewAccessPolicy(cfg AccessPolicyConfig) : IAccessPolicy
+        + GetAccessLifetime() : time.Duration
+    }
+
+    IAccessPolicy <|.. accessPolicy
+    AccessPolicyConfig ..> accessPolicy : configures
+}
+
+package "Recovery Policy" {
+
+    interface IRecoveryPolicy {
+        + GetRecoveryTokenLifetime() : time.Duration
+    }
+
+    class RecoveryPolicyConfig <<Config>> {
+        + Lifetime : time.Duration
+    }
+
+    class recoveryPolicy {
+        - lifetime : time.Duration
+        __
+        + {static} NewRecoveryPolicy(cfg RecoveryPolicyConfig) : IRecoveryPolicy
+        + GetRecoveryTokenLifetime() : time.Duration
+    }
+
+    IRecoveryPolicy <|.. recoveryPolicy
+    RecoveryPolicyConfig ..> recoveryPolicy : configures
+}
+
+@enduml

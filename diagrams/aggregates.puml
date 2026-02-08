@@ -1,0 +1,109 @@
+@startuml Aggregates
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Domain Aggregates
+
+package "User Aggregate" <<Rectangle>> {
+
+    class User <<Aggregate Root>> {
+        - id : UserID
+        - email : Email
+        - passwordHash : HashedPassword
+        - isActive : bool
+        - roles : []Role
+        - sessions : []Session
+        - isDeleted : bool
+        - registeredAt : Timepoint
+        __constructors__
+        + {static} NewUser(userID, email, passwordHash, registeredAt) : (*User, error)
+        + {static} ReconstituteUser(id, email, passwordHash, isActive, roles, sessions, isDeleted, registeredAt) : *User
+        __getters__
+        + ID() : UserID
+        + Email() : Email
+        + HashedPassword() : HashedPassword
+        + Roles() : []Role
+        + Sessions() : []Session
+        + IsDeleted() : bool
+        + IsActive() : bool
+        + RegisteredAt() : Timepoint
+        + RoleNames() : []string
+        __business methods__
+        + Activate(now Timepoint) : error
+        + AssignRole(role Role, now Timepoint) : error
+        + EstablishSession(candidate Session, maxSessions int) : error
+        + RefreshSession(hash HashedToken, fp DeviceFingerprint, now Timepoint) : (Session, error)
+        + RevokeSession(sid SessionID, now Timepoint) : error
+        + ValidateIntegrity(sid SessionID, now Timepoint) : error
+        + UpdateEmail(newEmail Email, now Timepoint) : error
+        + UpdatePassword(newHash HashedPassword, now Timepoint) : error
+        + FindActiveSessionByFingerprint(fp DeviceFingerprint) : (SessionID, bool)
+        - revokeOldestSession(now Timepoint)
+    }
+
+    class Session <<Entity>> {
+        - id : SessionID
+        - hashedToken : HashedToken
+        - identity : DeviceIdentity
+        - expiresAt : Timepoint
+        - lastActiveAt : Timepoint
+        - isRevoked : bool
+        __constructors__
+        + {static} NewSession(id, hashedToken, identity, expiresAt, now) : (Session, error)
+        + {static} ReconstituteSession(id, hashedToken, identity, expiresAt, lastActiveAt, isRevoked) : Session
+        __getters__
+        + ID() : SessionID
+        + HashedToken() : HashedToken
+        + ExpiresAt() : Timepoint
+        + LastActiveAt() : Timepoint
+        + IsRevoked() : bool
+        + Identity() : DeviceIdentity
+        + DisplayName() : string
+        __business methods__
+        + IsValid(now Timepoint) : bool
+        + ValidateFingerprint(fp DeviceFingerprint) : bool
+        + UpdateLogin(newToken HashedToken, newExpiry Timepoint, now Timepoint)
+        + Revoke() : error
+        + UpdateActivity(now Timepoint)
+    }
+
+    class EventRecorder <<Mixin>> {
+        - events : []DomainEvent
+        + RecordEvent(event DomainEvent)
+        + CollectEvents() : []DomainEvent
+    }
+
+    User *-- "0..*" Session : owns
+    User *-- "1..*" Role : has
+    User o-- EventRecorder : embeds
+}
+
+package "RecoveryToken Aggregate" <<Rectangle>> {
+
+    class RecoveryToken <<Aggregate Root>> {
+        - id : RecoveryTokenID
+        - userID : UserID
+        - hashedToken : RecoveryTokenHash
+        - expiresAt : Timepoint
+        - isUsed : bool
+        __constructors__
+        + {static} NewRecoveryToken(id, uid, hash, expiresAt, now) : (*RecoveryToken, error)
+        + {static} ReconstituteRecoveryToken(id, userID, hashedToken, expiresAt, isUsed) : *RecoveryToken
+        __getters__
+        + ID() : RecoveryTokenID
+        + UserID() : UserID
+        + HashedToken() : RecoveryTokenHash
+        + ExpiresAt() : Timepoint
+        + IsUsed() : bool
+        __business methods__
+        + IsValid(now Timepoint) : bool
+        + IsExpired(now Timepoint) : bool
+        + MarkAsUsed(now Timepoint) : error
+    }
+
+    RecoveryToken o-- EventRecorder : embeds
+    RecoveryToken --> UserID : references
+}
+
+@enduml

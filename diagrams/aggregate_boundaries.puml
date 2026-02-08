@@ -1,0 +1,119 @@
+@startuml AggregateBoundaries
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+title Aggregate Boundaries & Cross-Aggregate References
+
+package "User Aggregate Boundary" #E8F4FD {
+
+    class User <<Aggregate Root>> {
+        id : UserID
+        email : Email
+        passwordHash : HashedPassword
+        isActive : bool
+        registeredAt : Timepoint
+        isDeleted : bool
+    }
+
+    class Session <<Entity>> {
+        id : SessionID
+        hashedToken : HashedToken
+        identity : DeviceIdentity
+        expiresAt : Timepoint
+        lastActiveAt : Timepoint
+        isRevoked : bool
+    }
+
+    class Role <<Value Object>> {
+        name : string
+    }
+
+    together {
+        class UserID <<VO>>
+        class Email <<VO>>
+        class HashedPassword <<VO>>
+    }
+
+    together {
+        class SessionID <<VO>>
+        class HashedToken <<VO>>
+        class DeviceIdentity <<VO>>
+        class DeviceFingerprint <<VO>>
+    }
+
+    User *-- "0..*" Session : owns
+    User *-- "1..*" Role : has
+    User *-- UserID
+    User *-- Email
+    User *-- HashedPassword
+    Session *-- SessionID
+    Session *-- HashedToken
+    Session *-- DeviceIdentity
+    DeviceIdentity ..> DeviceFingerprint : derives
+}
+
+package "RecoveryToken Aggregate Boundary" #F3E8FD {
+
+    class RecoveryToken <<Aggregate Root>> {
+        id : RecoveryTokenID
+        userID : UserID
+        hashedToken : RecoveryTokenHash
+        expiresAt : Timepoint
+        isUsed : bool
+    }
+
+    together {
+        class RecoveryTokenID <<VO>>
+        class RecoveryTokenHash <<VO>>
+    }
+
+    RecoveryToken *-- RecoveryTokenID
+    RecoveryToken *-- RecoveryTokenHash
+}
+
+RecoveryToken -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
+
+package "Shared Value Objects (not owned by aggregates)" #FFFFF0 {
+    class AccessToken <<VO>>
+    class AccessIdentity <<VO>>
+    class RawToken <<VO>>
+    class RawPassword <<VO>>
+    class RecoveryTokenRaw <<VO>>
+    class Timepoint <<VO>>
+}
+
+package "Domain Services (bridge aggregates)" #F0FFF0 {
+
+    class IRegistrationService <<service>> {
+    }
+    class IAuthenticationService <<service>> {
+    }
+    class IAccessManager <<service>> {
+    }
+    class IUserAccountManager <<service>> {
+    }
+    class IPasswordManager <<service>> {
+    }
+
+    IRegistrationService --> User
+    IAuthenticationService --> User
+    IAccessManager --> User
+    IUserAccountManager --> User
+    IUserAccountManager --> RecoveryToken
+}
+
+package "Repository Ports" #FFF0F0 {
+
+    interface IUserRepository <<port>> {
+    }
+
+    interface IRecoveryTokenRepository <<port>> {
+    }
+
+    IUserRepository --> User : persists
+    IRecoveryTokenRepository --> RecoveryToken : persists
+}
+
+@enduml

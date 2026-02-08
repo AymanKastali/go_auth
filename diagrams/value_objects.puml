@@ -1,0 +1,199 @@
+@startuml ValueObjects
+!theme plain
+skinparam classAttributeIconSize 0
+
+title Domain Value Objects
+
+package "Identity" {
+
+    class UserID <<Value Object>> {
+        - value : string
+        __
+        + {static} NewUserID(value string) : (UserID, error)
+        + {static} ReconstituteUserID(value string) : UserID
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other UserID) : bool
+    }
+
+    class Email <<Value Object>> {
+        - value : string
+        __
+        + {static} NewEmail(value string) : (Email, error)
+        + {static} ReconstituteEmail(email string) : Email
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other Email) : bool
+    }
+
+    class SessionID <<Value Object>> {
+        - value : string
+        __
+        + {static} NewSessionID(value string) : (SessionID, error)
+        + {static} ReconstituteSessionID(value string) : SessionID
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other SessionID) : bool
+    }
+
+    class RecoveryTokenID <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRecoveryTokenID(v string) : (RecoveryTokenID, error)
+        + {static} ReconstituteRecoveryTokenID(v string) : RecoveryTokenID
+        + String() : string
+    }
+
+    class Role <<Value Object>> {
+        - name : string
+        __
+        + {static} NewRole(name string) : (Role, error)
+        + {static} ReconstituteRole(name string) : Role
+        + Name() : string
+        + Equal(other Role) : bool
+    }
+
+    note bottom of Role
+        Predefined roles:
+        RoleSuperAdmin, RoleAdmin,
+        RoleEditor, RoleModerator,
+        RoleMember, RolePremium,
+        RoleGuest, RolePartner
+    end note
+}
+
+package "Tokens" {
+
+    class HashedToken <<Value Object>> {
+        - value : string
+        __
+        + {static} NewHashedToken(value string) : (HashedToken, error)
+        + {static} ReconstituteHashedToken(value string) : HashedToken
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other HashedToken) : bool
+    }
+
+    class RawToken <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRawToken(value string) : (RawToken, error)
+        + String() : string
+        + IsEmpty() : bool
+    }
+
+    class RecoveryTokenHash <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRecoveryTokenHash(v string) : (RecoveryTokenHash, error)
+        + {static} ReconstituteRecoveryTokenHash(v string) : RecoveryTokenHash
+        + String() : string
+    }
+
+    class RecoveryTokenRaw <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRecoveryTokenRaw(v string) : (RecoveryTokenRaw, error)
+        + String() : string
+    }
+
+    class AccessToken <<Value Object>> {
+        - value : string
+        __
+        + {static} NewAccessToken(value string) : (AccessToken, error)
+        + String() : string
+    }
+}
+
+package "Credentials" {
+
+    class HashedPassword <<Value Object>> {
+        - value : string
+        __
+        + {static} NewHashedPassword(value string) : (HashedPassword, error)
+        + {static} ReconstituteHashedPassword(value string) : HashedPassword
+        + String() : string
+        + IsEmpty() : bool
+    }
+
+    class RawPassword <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRawPassword(value string) : (RawPassword, error)
+        + String() : string
+        + IsEmpty() : bool
+    }
+}
+
+package "Device" {
+
+    class DeviceIdentity <<Value Object>> {
+        - ipAddress : string
+        - os : string
+        - browser : string
+        - model : string
+        - language : string
+        - userAgent : string
+        - isMobile : bool
+        __
+        + {static} NewDeviceIdentity(ip, os, browser, model, lang, ua, isMobile) : (DeviceIdentity, error)
+        + {static} ReconstituteDeviceIdentity(ip, os, browser, model, lang, ua, isMobile) : DeviceIdentity
+        + Fingerprint() : DeviceFingerprint
+        + DisplayName() : string
+        + IPAddress() : string
+        + OS() : string
+        + Browser() : string
+        + Model() : string
+        + Language() : string
+        + UserAgent() : string
+        + IsMobile() : bool
+    }
+
+    class DeviceFingerprint <<Value Object>> {
+        - value : string
+        __
+        + {static} NewDeviceFingerprintFromIdentity(ua, ip, lang) : DeviceFingerprint
+        + {static} NewDeviceFingerprint(value string) : (DeviceFingerprint, error)
+        + String() : string
+        + Equal(other DeviceFingerprint) : bool
+    }
+
+    DeviceIdentity ..> DeviceFingerprint : derives via Fingerprint()
+}
+
+package "Time & Access" {
+
+    class Timepoint <<Value Object>> {
+        - time : time.Time
+        __
+        + {static} NewTimepoint(t time.Time) : Timepoint
+        + {static} ReconstituteTimepoint(t time.Time) : Timepoint
+        + Time() : time.Time
+        + IsBefore(other Timepoint) : bool
+        + IsAfter(other Timepoint) : bool
+        + Add(d time.Duration) : Timepoint
+        + Equal(other Timepoint) : bool
+        + String() : string
+        + IsZero() : bool
+    }
+
+    class AccessIdentity <<Value Object>> {
+        - userID : UserID
+        - sessionID : SessionID
+        - email : Email
+        - roles : []Role
+        __
+        + {static} NewAccessIdentity(userID, sessionID, email, roles) : (AccessIdentity, error)
+        + UserID() : UserID
+        + SessionID() : SessionID
+        + Email() : Email
+        + Roles() : []Role
+    }
+
+    AccessIdentity --> UserID
+    AccessIdentity --> SessionID
+    AccessIdentity --> Email
+    AccessIdentity --> Role
+}
+
+@enduml
