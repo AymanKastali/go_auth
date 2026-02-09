@@ -5,15 +5,19 @@ import (
 	"log/slog"
 	"time"
 
-	"go_auth/internal/core/application"
+	"go_auth/internal/application"
 )
 
 func (c *container) run() {
-	// Seed Super Admin
+	// Seed Roles & Super Admin
 	seedCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := c.uc.seedSA.Execute(seedCtx, application.RegisterUserCommand{
+	if err := c.application.seedRoles.Execute(seedCtx); err != nil {
+		c.logger.Warn("seed_roles_skipped", slog.Any("error", err))
+	}
+
+	err := c.application.seedSA.Execute(seedCtx, application.RegisterUserCommand{
 		Email:    c.config.Seed.AdminEmail,
 		Password: c.config.Seed.AdminPassword,
 	})

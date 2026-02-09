@@ -2,15 +2,13 @@ services:
   postgres:
     image: postgres:18
     container_name: "${GA_APP_NAME}_postgres"
-    restart: always
+    restart: unless-stopped
     volumes:
-      - postgres_db:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql
     environment:
-      POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: auth_db
-      POSTGRES_PORT: 5432
-      GA_DATABASE_URL: ${GA_DATABASE_URL}
     ports:
       - "5433:5432"
     healthcheck:
@@ -19,25 +17,27 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - goauth
 
   web:
     container_name: "${GA_APP_NAME}_app"
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.dev
-    tty: true
-    stdin_open: true
+    command: sleep infinity
     env_file:
       - .env
     environment:
       GA_EMAIL_HOST: mailhog
       GA_EMAIL_PORT: 1025
     ports:
-      - "${GA_HTTP_PORT}:${GA_HTTP_PORT}"
+      - "${GA_HTTP_PORT:-8080}:${GA_HTTP_PORT:-8080}"
       - "2345:2345"
     volumes:
       - ../:/app:cached
-      - /app/docs  # This "anonymous volume" protects the container's /docs from being overwritten by your host
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +47,8 @@ services:
       - SYS_PTRACE
     security_opt:
       - seccomp:unconfined
+    networks:
+      - goauth
 
   mailhog:
     image: mailhog/mailhog:latest
@@ -54,6 +56,14 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+    networks:
+      - goauth
+
+networks:
+  goauth:
+    driver: bridge
 
 volumes:
-  postgres_db:
+  postgres_data:
+  go_mod_cache:
+  go_build_cache:

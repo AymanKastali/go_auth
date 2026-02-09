@@ -19,7 +19,7 @@ package "Password Policy" {
         + RequireSpecial : bool
     }
 
-    class passwordPolicy {
+    class passwordPolicy <<Policy>> {
         - minLength : uint8
         - maxLength : uint8
         - requireUpper : bool
@@ -45,7 +45,7 @@ package "Registration Policy" {
         + BlockedDomains : []string
     }
 
-    class registerPolicy {
+    class registerPolicy <<Policy>> {
         - allowPublicSignUp : bool
         - blockedDomains : []string
         __
@@ -69,7 +69,7 @@ package "Session Policy" {
         + MaxActive : uint8
     }
 
-    class sessionPolicy {
+    class sessionPolicy <<Policy>> {
         - lifetime : time.Duration
         - maxActive : uint8
         __
@@ -92,7 +92,7 @@ package "Access Policy" {
         + Lifetime : time.Duration
     }
 
-    class accessPolicy {
+    class accessPolicy <<Policy>> {
         - lifetime : time.Duration
         __
         + {static} NewAccessPolicy(cfg AccessPolicyConfig) : IAccessPolicy
@@ -113,7 +113,7 @@ package "Recovery Policy" {
         + Lifetime : time.Duration
     }
 
-    class recoveryPolicy {
+    class recoveryPolicy <<Policy>> {
         - lifetime : time.Duration
         __
         + {static} NewRecoveryPolicy(cfg RecoveryPolicyConfig) : IRecoveryPolicy
@@ -122,6 +122,31 @@ package "Recovery Policy" {
 
     IRecoveryPolicy <|.. recoveryPolicy
     RecoveryPolicyConfig ..> recoveryPolicy : configures
+}
+
+package "Activation Policy" {
+
+    interface IActivationPolicy {
+        + RequiresEmailActivation() : bool
+        + GetActivationTokenLifetime() : time.Duration
+    }
+
+    class ActivationPolicyConfig <<Config>> {
+        + RequireEmail : bool
+        + TokenLifetime : time.Duration
+    }
+
+    class activationPolicy <<Policy>> {
+        - requireEmail : bool
+        - tokenLifetime : time.Duration
+        __
+        + {static} NewActivationPolicy(cfg ActivationPolicyConfig) : IActivationPolicy
+        + RequiresEmailActivation() : bool
+        + GetActivationTokenLifetime() : time.Duration
+    }
+
+    IActivationPolicy <|.. activationPolicy
+    ActivationPolicyConfig ..> activationPolicy : configures
 }
 
 @enduml

@@ -27,6 +27,7 @@ type Config struct {
 	Seed           SeedConfig
 	Email          EmailConfig
 	RecoveryPolicy RecoveryPolicyConfig
+	Activation     ActivationConfig
 }
 
 type PasswordPolicyConfig struct {
@@ -57,6 +58,7 @@ type AppConfig struct {
 type SeedConfig struct {
 	AdminEmail    string
 	AdminPassword string
+	RolesFilePath string
 }
 
 type HTTPConfig struct {
@@ -79,12 +81,18 @@ type RecoveryPolicyConfig struct {
 }
 
 type EmailConfig struct {
-	Host         string
-	Port         int
-	Username     string
-	Password     string
-	From         string
-	ResetBaseURL string
+	Host              string
+	Port              int
+	Username          string
+	Password          string
+	From              string
+	ResetBaseURL      string
+	ActivationBaseURL string
+}
+
+type ActivationConfig struct {
+	RequireEmail  bool
+	TokenLifetime time.Duration
 }
 
 type DatabaseConfig struct {
@@ -144,6 +152,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	activation, err := loadActivation()
+	if err != nil {
+		return nil, err
+	}
+
+	// If activation requires email, ActivationBaseURL is required
+	if activation.RequireEmail && email.ActivationBaseURL == "" {
+		return nil, fmt.Errorf("config: GA_EMAIL_ACTIVATION_BASE_URL is required when GA_ACTIVATION_REQUIRE_EMAIL=true")
+	}
+
 	return &Config{
 		App:            app,
 		HTTP:           http,
@@ -156,6 +174,7 @@ func Load() (*Config, error) {
 		RegisterPolicy: registerPolicy,
 		Email:          email,
 		RecoveryPolicy: recoveryPolicy,
+		Activation:     activation,
 	}, nil
 }
 
@@ -297,6 +316,7 @@ func loadSeed() (SeedConfig, error) {
 	return SeedConfig{
 		AdminEmail:    email,
 		AdminPassword: password,
+		RolesFilePath: getEnv("SEED_ROLES_PATH", "/config/seed_roles.yml"),
 	}, nil
 }
 
@@ -317,12 +337,13 @@ func loadEmail() (EmailConfig, error) {
 	}
 
 	return EmailConfig{
-		Host:         getEnv("EMAIL_HOST", "localhost"),
-		Port:         port,
-		Username:     getEnv("EMAIL_USERNAME", ""),
-		Password:     getEnv("EMAIL_PASSWORD", ""),
-		From:         from,
-		ResetBaseURL: resetBaseURL,
+		Host:              getEnv("EMAIL_HOST", "localhost"),
+		Port:              port,
+		Username:          getEnv("EMAIL_USERNAME", ""),
+		Password:          getEnv("EMAIL_PASSWORD", ""),
+		From:              from,
+		ResetBaseURL:      resetBaseURL,
+		ActivationBaseURL: getEnv("EMAIL_ACTIVATION_BASE_URL", ""),
 	}, nil
 }
 
@@ -332,6 +353,23 @@ func loadRecoveryPolicy() (RecoveryPolicyConfig, error) {
 		return RecoveryPolicyConfig{}, fmt.Errorf("config: invalid GA_RECOVERY_TOKEN_LIFETIME: %w", err)
 	}
 	return RecoveryPolicyConfig{Lifetime: lifetime}, nil
+}
+
+func loadActivation() (ActivationConfig, error) {
+	requireEmail, err := strconv.ParseBool(getEnv("ACTIVATION_REQUIRE_EMAIL", "false"))
+	if err != nil {
+		return ActivationConfig{}, fmt.Errorf("config: invalid GA_ACTIVATION_REQUIRE_EMAIL: %w", err)
+	}
+
+	tokenLifetime, err := time.ParseDuration(getEnv("ACTIVATION_TOKEN_LIFETIME", "24h"))
+	if err != nil {
+		return ActivationConfig{}, fmt.Errorf("config: invalid GA_ACTIVATION_TOKEN_LIFETIME: %w", err)
+	}
+
+	return ActivationConfig{
+		RequireEmail:  requireEmail,
+		TokenLifetime: tokenLifetime,
+	}, nil
 }
 
 // --- Helpers ---

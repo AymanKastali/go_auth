@@ -3,6 +3,30 @@
     "dockerComposeFile": "docker-compose.dev.yml",
     "service": "web",
     "workspaceFolder": "/app",
+    "forwardPorts": [
+        8080,
+        2345,
+        5433,
+        8025
+    ],
+    "portsAttributes": {
+        "8080": {
+            "label": "API Server",
+            "onAutoForward": "notify"
+        },
+        "2345": {
+            "label": "Delve Debugger",
+            "onAutoForward": "silent"
+        },
+        "5433": {
+            "label": "PostgreSQL",
+            "onAutoForward": "silent"
+        },
+        "8025": {
+            "label": "MailHog UI",
+            "onAutoForward": "notify"
+        }
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -10,14 +34,43 @@
                 "cweijan.vscode-postgresql-client2",
                 "mhutchie.git-graph",
                 "streetsidesoftware.code-spell-checker",
-                "jebbs.plantuml"
+                "jebbs.plantuml",
+                "usernamehw.errorlens",
+                "eamodio.gitlens",
+                "redhat.vscode-yaml"
             ],
             "settings": {
+                "go.toolsManagement.autoUpdate": true,
+                "go.useLanguageServer": true,
+                "go.lintTool": "golangci-lint",
+                "go.lintOnSave": "workspace",
+                "go.testFlags": [
+                    "-count=1",
+                    "-race"
+                ],
+                "go.testTimeout": "30s",
+                "gopls": {
+                    "ui.semanticTokens": true,
+                    "ui.completion.usePlaceholders": true
+                },
+                "editor.formatOnSave": true,
+                "[go]": {
+                    "editor.defaultFormatter": "golang.go",
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": "explicit"
+                    }
+                },
                 "plantuml.server": "https://www.plantuml.com/plantuml",
-                "plantuml.render": "PlantUMLServer"
+                "plantuml.render": "PlantUMLServer",
+                "files.trimTrailingWhitespace": true,
+                "files.insertFinalNewline": true,
+                "files.exclude": {
+                    "tmp": true
+                }
             }
         }
     },
-    "postCreateCommand": "bash scripts/install-hooks.sh",
-    "shutdownAction": "none"
+    "postCreateCommand": "go mod download && bash scripts/install-hooks.sh",
+    "postStartCommand": "swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs 2>/dev/null; air",
+    "shutdownAction": "stopCompose"
 }

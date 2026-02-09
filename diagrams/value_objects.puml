@@ -44,22 +44,54 @@ package "Identity" {
         + String() : string
     }
 
-    class Role <<Value Object>> {
-        - name : string
+    class ActivationTokenID <<Value Object>> {
+        - value : string
         __
-        + {static} NewRole(name string) : (Role, error)
-        + {static} ReconstituteRole(name string) : Role
-        + Name() : string
-        + Equal(other Role) : bool
+        + {static} NewActivationTokenID(v string) : (ActivationTokenID, error)
+        + {static} ReconstituteActivationTokenID(v string) : ActivationTokenID
+        + String() : string
     }
 
-    note bottom of Role
-        Predefined roles:
-        RoleSuperAdmin, RoleAdmin,
-        RoleEditor, RoleModerator,
-        RoleMember, RolePremium,
-        RoleGuest, RolePartner
+    class RoleID <<Value Object>> {
+        - value : string
+        __
+        + {static} NewRoleID(value string) : (RoleID, error)
+        + {static} ReconstituteRoleID(value string) : RoleID
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other RoleID) : bool
+    }
+
+    class RoleName <<Value Object>> {
+        - name : string
+        __
+        + {static} NewRoleName(name string) : (RoleName, error)
+        + {static} ReconstituteRoleName(name string) : RoleName
+        + Name() : string
+        + Equal(other RoleName) : bool
+        + IsEmpty() : bool
+    }
+
+    note bottom of RoleName
+        Roles are dynamic, defined via
+        seed_roles.yml and resolved at
+        runtime through IRegistrationRoleProvider.
+        No hardcoded constants in domain.
+        Validated by regex: ^[a-z][a-z0-9_]{1,49}$
     end note
+
+    class Permission <<Value Object>> {
+        - resource : string
+        - action : string
+        __
+        + {static} NewPermission(value string) : (Permission, error)
+        + {static} ReconstitutePermission(resource, action string) : Permission
+        + Resource() : string
+        + Action() : string
+        + String() : string
+        + IsEmpty() : bool
+        + Equal(other Permission) : bool
+    }
 }
 
 package "Tokens" {
@@ -90,10 +122,11 @@ package "Tokens" {
         + String() : string
     }
 
-    class RecoveryTokenRaw <<Value Object>> {
+    class ActivationTokenHash <<Value Object>> {
         - value : string
         __
-        + {static} NewRecoveryTokenRaw(v string) : (RecoveryTokenRaw, error)
+        + {static} NewActivationTokenHash(v string) : (ActivationTokenHash, error)
+        + {static} ReconstituteActivationTokenHash(v string) : ActivationTokenHash
         + String() : string
     }
 
@@ -181,19 +214,22 @@ package "Time & Access" {
         - userID : UserID
         - sessionID : SessionID
         - email : Email
-        - roles : []Role
+        - roles : []RoleName
+        - permissions : []Permission
         __
-        + {static} NewAccessIdentity(userID, sessionID, email, roles) : (AccessIdentity, error)
+        + {static} NewAccessIdentity(userID, sessionID, email, roles, permissions) : (AccessIdentity, error)
         + UserID() : UserID
         + SessionID() : SessionID
         + Email() : Email
-        + Roles() : []Role
+        + Roles() : []RoleName
+        + Permissions() : []Permission
     }
 
     AccessIdentity --> UserID
     AccessIdentity --> SessionID
     AccessIdentity --> Email
-    AccessIdentity --> Role
+    AccessIdentity --> RoleName
+    AccessIdentity --> Permission
 }
 
 @enduml

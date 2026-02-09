@@ -2,32 +2,37 @@ package main
 
 import (
 	"go_auth/internal/adapters"
-	"go_auth/internal/adapters/persistence/postgres"
-	"go_auth/internal/core/domain"
+	"go_auth/internal/adapters/outbound"
+	"go_auth/internal/adapters/outbound/postgres"
+	"go_auth/internal/domain"
 )
 
-type domainServices struct {
-	idGen             domain.IIDGenerator
-	passwordManager   domain.IPasswordManager
-	registerPolicy    domain.IRegisterPolicy
-	sessionPolicy     domain.ISessionPolicy
-	accessPolicy      domain.IAccessPolicy
-	accessSvc         domain.IAccessService
-	clock             domain.IClock
-	tokenSvc          domain.ITokenService
-	registrationSvc   domain.IRegistrationService
-	accessManager     domain.IAccessManager
-	authenticationSvc domain.IAuthenticationService
-	accountManager    domain.IUserAccountManager
-	userRepo          domain.IUserRepository
-	recoveryRepo      domain.IRecoveryTokenRepository
+type domainLayer struct {
+	idGen              domain.IIDGenerator
+	passwordManager    domain.IPasswordManager
+	registerPolicy     domain.IRegisterPolicy
+	sessionPolicy      domain.ISessionPolicy
+	accessPolicy       domain.IAccessPolicy
+	activationPolicy   domain.IActivationPolicy
+	accessSvc          domain.IAccessService
+	clock              domain.IClock
+	tokenSvc           domain.ITokenService
+	registrationSvc    domain.IRegistrationService
+	accessManager      domain.IAccessManager
+	authenticationSvc  domain.IAuthenticationService
+	accountManager     domain.IUserAccountManager
+	userRepo           domain.IUserRepository
+	sessionRepo        domain.ISessionRepository
+	recoveryRepo       domain.IRecoveryTokenRepository
+	activationRepo     domain.IActivationTokenRepository
+	roleRepo           domain.IRoleRepository
 }
 
-func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainServices {
-	idGen := adapters.NewUUIDV7Generator()
-	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
-	tokenSvc := adapters.NewTokenService()
-	accessSvc := adapters.NewJWTService(
+func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
+	idGen := outbound.NewUUIDV7Generator()
+	passwordSvc := outbound.NewPasswordService(cfg.Password.BcryptCost)
+	tokenSvc := outbound.NewTokenService()
+	accessSvc := outbound.NewJWTService(
 		cfg.JWT.Secret,
 		cfg.JWT.Issuer,
 		cfg.JWT.Audience,
@@ -48,21 +53,32 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 		MaxActive: cfg.SessionPolicy.MaxActive,
 	})
 	userRepo := pf.NewUserRepository()
+	sessionRepo := pf.NewSessionRepository()
+	roleRepo := pf.NewRoleRepository()
 	accessPolicy := domain.NewAccessPolicy(domain.AccessPolicyConfig{
 		Lifetime: cfg.JWT.AccessTTL,
 	})
-	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy)
+	activationPolicy := domain.NewActivationPolicy(domain.ActivationPolicyConfig{
+		RequireEmail:  cfg.Activation.RequireEmail,
+		TokenLifetime: cfg.Activation.TokenLifetime,
+	})
+	activationRepo := pf.NewActivationTokenRepository()
+	roleProvider := outbound.NewRegistrationRoleProvider(roleRepo)
+	registrationSvc := domain.NewRegistrationService(userRepo, roleProvider, registerPolicy, activationPolicy)
 	passwordManager := domain.NewPasswordManager(
 		passwordSvc,
 		passwordPolicy,
 	)
 	accessManager := domain.NewAccessManager(
 		userRepo,
+		sessionRepo,
+		roleRepo,
 		accessSvc,
 		accessPolicy,
 	)
 	authSvc := domain.NewAuthenticationService(
 		userRepo,
+		sessionRepo,
 		tokenSvc,
 		idGen,
 		sessionPolicy,
@@ -77,24 +93,29 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 		passwordManager,
 		idGen,
 		recoveryPolicy,
+		activationPolicy,
 	)
 
-	clock := adapters.NewClock()
+	clock := outbound.NewClock()
 
-	return domainServices{
-		userRepo:          userRepo,
-		passwordManager:   passwordManager,
-		registerPolicy:    registerPolicy,
-		sessionPolicy:     sessionPolicy,
-		accessPolicy:      accessPolicy,
-		clock:             clock,
-		accessSvc:         accessSvc,
-		tokenSvc:          tokenSvc,
-		registrationSvc:   registrationSvc,
-		accessManager:     accessManager,
-		authenticationSvc: authSvc,
-		accountManager:    accountManager,
-		idGen:             idGen,
-		recoveryRepo:      recoveryRepo,
+	return domainLayer{
+		userRepo:           userRepo,
+		sessionRepo:        sessionRepo,
+		passwordManager:    passwordManager,
+		registerPolicy:     registerPolicy,
+		sessionPolicy:      sessionPolicy,
+		accessPolicy:       accessPolicy,
+		activationPolicy:   activationPolicy,
+		clock:              clock,
+		accessSvc:          accessSvc,
+		tokenSvc:           tokenSvc,
+		registrationSvc:    registrationSvc,
+		accessManager:      accessManager,
+		authenticationSvc:  authSvc,
+		accountManager:     accountManager,
+		idGen:              idGen,
+		recoveryRepo:       recoveryRepo,
+		activationRepo:     activationRepo,
+		roleRepo:           roleRepo,
 	}
 }

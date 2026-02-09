@@ -13,27 +13,34 @@ package "User Aggregate Boundary" #E8F4FD {
         email : Email
         passwordHash : HashedPassword
         isActive : bool
-        registeredAt : Timepoint
+        roles : []RoleName
         isDeleted : bool
-    }
-
-    class Session <<Entity>> {
-        id : SessionID
-        hashedToken : HashedToken
-        identity : DeviceIdentity
-        expiresAt : Timepoint
-        lastActiveAt : Timepoint
-        isRevoked : bool
-    }
-
-    class Role <<Value Object>> {
-        name : string
+        registeredAt : Timepoint
     }
 
     together {
         class UserID <<VO>>
         class Email <<VO>>
         class HashedPassword <<VO>>
+        class RoleName <<VO>>
+    }
+
+    User *-- UserID
+    User *-- Email
+    User *-- HashedPassword
+    User *-- "0..*" RoleName : has
+}
+
+package "Session Aggregate Boundary" #E8FDE8 {
+
+    class Session <<Aggregate Root>> {
+        id : SessionID
+        userID : UserID
+        hashedToken : HashedToken
+        identity : DeviceIdentity
+        expiresAt : Timepoint
+        lastActiveAt : Timepoint
+        isRevoked : bool
     }
 
     together {
@@ -43,15 +50,28 @@ package "User Aggregate Boundary" #E8F4FD {
         class DeviceFingerprint <<VO>>
     }
 
-    User *-- "0..*" Session : owns
-    User *-- "1..*" Role : has
-    User *-- UserID
-    User *-- Email
-    User *-- HashedPassword
     Session *-- SessionID
     Session *-- HashedToken
     Session *-- DeviceIdentity
     DeviceIdentity ..> DeviceFingerprint : derives
+}
+
+package "Role Aggregate Boundary" #FDE8E8 {
+
+    class Role <<Aggregate Root>> {
+        id : RoleID
+        name : RoleName
+        description : string
+        permissions : []Permission
+    }
+
+    together {
+        class RoleID <<VO>>
+        class Permission <<VO>>
+    }
+
+    Role *-- RoleID
+    Role *-- "0..*" Permission : has
 }
 
 package "RecoveryToken Aggregate Boundary" #F3E8FD {
@@ -73,14 +93,34 @@ package "RecoveryToken Aggregate Boundary" #F3E8FD {
     RecoveryToken *-- RecoveryTokenHash
 }
 
+package "ActivationToken Aggregate Boundary" #FDF3E8 {
+
+    class ActivationToken <<Aggregate Root>> {
+        id : ActivationTokenID
+        userID : UserID
+        hashedToken : ActivationTokenHash
+        expiresAt : Timepoint
+        isUsed : bool
+    }
+
+    together {
+        class ActivationTokenID <<VO>>
+        class ActivationTokenHash <<VO>>
+    }
+
+    ActivationToken *-- ActivationTokenID
+    ActivationToken *-- ActivationTokenHash
+}
+
+Session -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
 RecoveryToken -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
+ActivationToken -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
 
 package "Shared Value Objects (not owned by aggregates)" #FFFFF0 {
     class AccessToken <<VO>>
     class AccessIdentity <<VO>>
     class RawToken <<VO>>
     class RawPassword <<VO>>
-    class RecoveryTokenRaw <<VO>>
     class Timepoint <<VO>>
 }
 
@@ -99,21 +139,33 @@ package "Domain Services (bridge aggregates)" #F0FFF0 {
 
     IRegistrationService --> User
     IAuthenticationService --> User
+    IAuthenticationService --> Session
     IAccessManager --> User
+    IAccessManager --> Session
+    IAccessManager --> Role
     IUserAccountManager --> User
     IUserAccountManager --> RecoveryToken
+    IUserAccountManager --> ActivationToken
 }
 
 package "Repository Ports" #FFF0F0 {
 
     interface IUserRepository <<port>> {
     }
-
+    interface ISessionRepository <<port>> {
+    }
+    interface IRoleRepository <<port>> {
+    }
     interface IRecoveryTokenRepository <<port>> {
+    }
+    interface IActivationTokenRepository <<port>> {
     }
 
     IUserRepository --> User : persists
+    ISessionRepository --> Session : persists
+    IRoleRepository --> Role : persists
     IRecoveryTokenRepository --> RecoveryToken : persists
+    IActivationTokenRepository --> ActivationToken : persists
 }
 
 @enduml

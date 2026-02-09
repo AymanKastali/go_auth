@@ -1,25 +1,8 @@
-FROM golang:1.25 AS dev
+FROM golang:1.25
 
-# 1. Install Delve, Swag, and golangci-lint
 RUN go install github.com/go-delve/delve/cmd/dlv@latest \
     && go install github.com/swaggo/swag/cmd/swag@latest \
+    && go install github.com/air-verse/air@latest \
     && curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
 
 WORKDIR /app
-
-# 2. Download dependencies
-COPY go.mod go.sum ./
-RUN go mod tidy
-
-# 3. Copy all source code (needed for debugging)
-COPY ./cmd ./cmd
-COPY ./internal ./internal
-
-# 4. Generate Swagger docs
-RUN swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs
-
-# 5. Expose ports
-EXPOSE 8080 2345
-
-# 6. Run Delve (exact same command you had)
-ENTRYPOINT ["dlv", "debug", "./cmd/auth/", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "--output=/tmp/__debug_bin", "--", "--port=8080"]
