@@ -1,9 +1,6 @@
 package domain
 
-var (
-	ZeroRecoveryTokenRaw = RecoveryTokenRaw{}
-	ZeroRecoveryTokenID  = RecoveryTokenID{}
-)
+var ZeroRecoveryTokenID = RecoveryTokenID{}
 
 // RecoveryTokenID is a unique identifier for the recovery record.
 type RecoveryTokenID struct{ value string }
@@ -36,5 +33,3 @@ func NewRecoveryTokenHash(v string) (RecoveryTokenHash, error) {
 func ReconstituteRecoveryTokenHash(v string) RecoveryTokenHash {
 	return RecoveryTokenHash{value: v}
 }
-
-type RecoveryTokenRaw struct{ value string }
