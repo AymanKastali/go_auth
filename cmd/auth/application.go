@@ -16,6 +16,7 @@ type applicationInfra struct {
 	txManager  application.ITransactionManager
 	dispatcher application.IEventDispatcher
 	userQuery  application.IUserQueryPort
+	seedLoader application.IRoleSeedLoader
 }
 
 func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, logger *slog.Logger) applicationInfra {
@@ -24,6 +25,7 @@ func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, 
 		txManager:  pf.NewTransactionManager(),
 		dispatcher: adapters.NewLoggingEventDispatcher(logger),
 		userQuery:  pf.NewUserQueryAdapter(),
+		seedLoader: adapters.NewYAMLRoleSeedLoader(cfg.Seed.RolesFilePath),
 	}
 }
 
@@ -44,6 +46,9 @@ type useCases struct {
 	changePassword application.IChangePasswordUseCase
 	forgotPassword application.IForgotPasswordUseCase
 	resetPassword  application.IResetPasswordUseCase
+
+	// seeding
+	seedRoles application.ISeedRolesUseCase
 
 	// policies
 	publicPolicies application.IGetPublicPoliciesUseCase
@@ -69,6 +74,7 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 		),
 		login: application.NewLoginUseCase(
 			d.userRepo,
+			d.sessionRepo,
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
@@ -76,6 +82,7 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 		),
 		refresh: application.NewRefreshTokenUseCase(
 			d.userRepo,
+			d.sessionRepo,
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
@@ -86,7 +93,7 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.clock,
 		),
 		logout: application.NewLogoutUseCase(
-			d.userRepo, d.clock, infra.dispatcher,
+			d.sessionRepo, d.clock, infra.dispatcher,
 		),
 
 		// user
@@ -105,18 +112,29 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 		),
 		changePassword: application.NewChangePasswordUseCase(
 			d.userRepo,
+			d.sessionRepo,
 			d.accountManager,
 			d.clock,
 			infra.dispatcher,
 		),
 		resetPassword: application.NewResetPasswordUseCase(
 			d.userRepo,
+			d.sessionRepo,
 			d.recoveryRepo,
 			d.tokenSvc,
 			d.accountManager,
 			infra.txManager,
 			d.clock,
 			infra.dispatcher,
+		),
+
+		// seeding
+		seedRoles: application.NewSeedRolesUseCase(
+			d.roleRepo,
+			d.idGen,
+			d.clock,
+			infra.dispatcher,
+			infra.seedLoader,
 		),
 
 		// policies

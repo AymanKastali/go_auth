@@ -11,17 +11,18 @@ type IAuthenticationService interface {
 		rawPassword RawPassword,
 		identity DeviceIdentity,
 		now Timepoint,
-	) (RawToken, Session, error)
+	) (RawToken, *Session, error)
 	RefreshSession(
 		ctx context.Context,
 		rawToken RawToken,
 		fp DeviceFingerprint,
 		now Timepoint,
-	) (*User, Session, error)
+	) (*User, *Session, error)
 }
 
 type authenticationService struct {
 	userRepo      IUserRepository
+	sessionRepo   ISessionRepository
 	tokenSvc      ITokenService
 	idGen         IIDGenerator
 	sessionPolicy ISessionPolicy
@@ -30,6 +31,7 @@ type authenticationService struct {
 
 func NewAuthenticationService(
 	userRepo IUserRepository,
+	sessionRepo ISessionRepository,
 	tokenSvc ITokenService,
 	idGen IIDGenerator,
 	sessionPolicy ISessionPolicy,
@@ -37,6 +39,7 @@ func NewAuthenticationService(
 ) IAuthenticationService {
 	return &authenticationService{
 		userRepo:      userRepo,
+		sessionRepo:   sessionRepo,
 		tokenSvc:      tokenSvc,
 		idGen:         idGen,
 		sessionPolicy: sessionPolicy,
@@ -50,44 +53,59 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 	rawPassword RawPassword,
 	identity DeviceIdentity,
 	now Timepoint,
-) (RawToken, Session, error) {
-	// 1. Verify Credentials using internal dependency
+) (RawToken, *Session, error) {
+	// 1. Verify Credentials
 	if !s.passwordMgr.Compare(rawPassword, user.HashedPassword()) {
-		return ZeroRawToken, ZeroSession, ErrAuthenticationFailed
+		return ZeroRawToken, nil, ErrAuthenticationFailed
 	}
 
-	// 2. Resolve Session ID
-	sid, found := user.FindActiveSessionByFingerprint(identity.Fingerprint())
-	if !found {
-		generatedSid, err := s.idGen.GenerateSessionID()
-		if err != nil {
-			return ZeroRawToken, ZeroSession, err
-		}
-		sid = generatedSid
-	}
-
-	// 3. Prepare Secrets
+	// 2. Prepare Secrets
 	rawToken, err := s.tokenSvc.Generate()
 	if err != nil {
-		return ZeroRawToken, ZeroSession, err
+		return ZeroRawToken, nil, err
 	}
 
 	hashedToken, err := s.tokenSvc.HashSessionToken(rawToken)
 	if err != nil {
-		return ZeroRawToken, ZeroSession, err
+		return ZeroRawToken, nil, err
 	}
 
-	// 4. Invariants and Policy Math
 	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
 
-	session, err := NewSession(sid, hashedToken, identity, expiresAt, now)
+	// 3. Check for existing session with same fingerprint
+	existing, err := s.sessionRepo.FindActiveByUserAndFingerprint(ctx, user.ID(), identity.Fingerprint())
 	if err != nil {
-		return ZeroRawToken, ZeroSession, err
+		return ZeroRawToken, nil, err
 	}
 
-	// 5. Delegate to Aggregate Root
-	if err := user.EstablishSession(session, s.sessionPolicy.GetMaxActiveSessions()); err != nil {
-		return ZeroRawToken, ZeroSession, err
+	if existing != nil {
+		existing.UpdateLogin(hashedToken, expiresAt, now)
+		return rawToken, existing, nil
+	}
+
+	// 4. Enforce session limit
+	activeSessions, err := s.sessionRepo.FindActiveByUserID(ctx, user.ID())
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	maxSessions := s.sessionPolicy.GetMaxActiveSessions()
+	if len(activeSessions) >= maxSessions && len(activeSessions) > 0 {
+		_ = activeSessions[0].Revoke(now)
+		if err := s.sessionRepo.Save(ctx, activeSessions[0]); err != nil {
+			return ZeroRawToken, nil, err
+		}
+	}
+
+	// 5. Create new session
+	sid, err := s.idGen.GenerateSessionID()
+	if err != nil {
+		return ZeroRawToken, nil, err
+	}
+
+	session, err := NewSession(sid, user.ID(), hashedToken, identity, expiresAt, now)
+	if err != nil {
+		return ZeroRawToken, nil, err
 	}
 
 	return rawToken, session, nil
@@ -98,26 +116,34 @@ func (s *authenticationService) RefreshSession(
 	rawToken RawToken,
 	fp DeviceFingerprint,
 	now Timepoint,
-) (*User, Session, error) {
-	// 1. Technical Domain Rule: Tokens are stored as hashes
+) (*User, *Session, error) {
+	// 1. Hash the token for lookup
 	hashed, err := s.tokenSvc.HashSessionToken(rawToken)
 	if err != nil {
-		return nil, ZeroSession, err
+		return nil, nil, err
 	}
 
-	// 2. Identity Resolution: Find the owner via the repository
-	user, err := s.userRepo.FindBySessionToken(ctx, hashed)
+	// 2. Find session by token
+	session, err := s.sessionRepo.FindByToken(ctx, hashed)
 	if err != nil {
-		return nil, ZeroSession, err
+		return nil, nil, err
 	}
-	if user == nil {
-		return nil, ZeroSession, ErrSessionNotFound
+	if session == nil {
+		return nil, nil, ErrSessionNotFound
 	}
 
-	// 3. Delegation to Aggregate: The Aggregate Root enforces the business rules
-	session, err := user.RefreshSession(hashed, fp, now)
+	// 3. Find the owning user
+	user, err := s.userRepo.FindByID(ctx, session.UserID())
 	if err != nil {
-		return nil, ZeroSession, err
+		return nil, nil, err
+	}
+	if user == nil || user.IsDeleted() || !user.IsActive() {
+		return nil, nil, ErrUserInactive
+	}
+
+	// 4. Delegate to session aggregate
+	if err := session.Refresh(fp, now); err != nil {
+		return nil, nil, err
 	}
 
 	return user, session, nil

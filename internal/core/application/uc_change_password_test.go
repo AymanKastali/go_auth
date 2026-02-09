@@ -16,6 +16,7 @@ func TestChangePasswordUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{},
 			&mockAccountManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -28,6 +29,7 @@ func TestChangePasswordUseCase(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAccountManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -40,6 +42,7 @@ func TestChangePasswordUseCase(t *testing.T) {
 	t.Run("user_not_found", func(t *testing.T) {
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{findByIDResult: nil},
+			&stubAppSessionRepository{},
 			&mockAccountManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -53,6 +56,7 @@ func TestChangePasswordUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{},
 			&mockAccountManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -66,6 +70,7 @@ func TestChangePasswordUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{},
 			&mockAccountManager{changeErr: domain.ErrAuthenticationFailed},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -79,6 +84,21 @@ func TestChangePasswordUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewChangePasswordUseCase(
 			&stubAppUserRepository{findByIDResult: user, saveErr: errTest},
+			&stubAppSessionRepository{},
+			&mockAccountManager{},
+			&stubClock{now: appTestNow},
+			&mockEventDispatcher{},
+		)
+
+		err := uc.Execute(authenticatedCtx("user-001", "sess-001"), validCmd)
+		assert.ErrorIs(t, err, errTest)
+	})
+
+	t.Run("session_revoke_fails", func(t *testing.T) {
+		user := testActiveUser()
+		uc := NewChangePasswordUseCase(
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{revokeAllErr: errTest},
 			&mockAccountManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},

@@ -35,19 +35,21 @@ func testActiveUser() *domain.User {
 		testEmail(),
 		testHashedPassword(),
 		true,
-		[]domain.Role{domain.RoleMember},
-		[]domain.Session{
-			domain.ReconstituteSession(
-				testSessionID(),
-				domain.ReconstituteHashedToken("hashed-tok"),
-				testDeviceIdentity(),
-				appTestFuture,
-				appTestNow,
-				false,
-			),
-		},
+		[]domain.RoleName{domain.RoleMember},
 		false,
 		appTestNow,
+	)
+}
+
+func testActiveSession() *domain.Session {
+	return domain.ReconstituteSession(
+		testSessionID(),
+		testUserID(),
+		domain.ReconstituteHashedToken("hashed-tok"),
+		testDeviceIdentity(),
+		appTestFuture,
+		appTestNow,
+		false,
 	)
 }
 
@@ -95,18 +97,18 @@ func (m *mockRegistrationService) RegisterNewSuperAdmin(_ context.Context, _ dom
 
 type mockAuthenticationService struct {
 	authRawToken domain.RawToken
-	authSession  domain.Session
+	authSession  *domain.Session
 	authErr      error
 
 	refreshUser    *domain.User
-	refreshSession domain.Session
+	refreshSession *domain.Session
 	refreshErr     error
 }
 
-func (m *mockAuthenticationService) AuthenticateAndEstablishSession(_ context.Context, _ *domain.User, _ domain.RawPassword, _ domain.DeviceIdentity, _ domain.Timepoint) (domain.RawToken, domain.Session, error) {
+func (m *mockAuthenticationService) AuthenticateAndEstablishSession(_ context.Context, _ *domain.User, _ domain.RawPassword, _ domain.DeviceIdentity, _ domain.Timepoint) (domain.RawToken, *domain.Session, error) {
 	return m.authRawToken, m.authSession, m.authErr
 }
-func (m *mockAuthenticationService) RefreshSession(_ context.Context, _ domain.RawToken, _ domain.DeviceFingerprint, _ domain.Timepoint) (*domain.User, domain.Session, error) {
+func (m *mockAuthenticationService) RefreshSession(_ context.Context, _ domain.RawToken, _ domain.DeviceFingerprint, _ domain.Timepoint) (*domain.User, *domain.Session, error) {
 	return m.refreshUser, m.refreshSession, m.refreshErr
 }
 
@@ -119,7 +121,7 @@ type mockAccessManager struct {
 	verifyErr    error
 }
 
-func (m *mockAccessManager) GrantImmediateAccess(_ *domain.User, _ domain.SessionID, _ domain.Timepoint) (domain.AccessToken, domain.Timepoint, error) {
+func (m *mockAccessManager) GrantImmediateAccess(_ context.Context, _ *domain.User, _ domain.SessionID, _ domain.Timepoint) (domain.AccessToken, domain.Timepoint, error) {
 	return m.grantToken, m.grantExpiry, m.grantErr
 }
 func (m *mockAccessManager) VerifyAccess(_ context.Context, _ domain.AccessToken, _ domain.Timepoint) (*domain.User, domain.SessionID, error) {
@@ -232,14 +234,15 @@ func (g *stubAppIDGenerator) GenerateSessionID() (domain.SessionID, error) {
 func (g *stubAppIDGenerator) GenerateRecoveryTokenID() (domain.RecoveryTokenID, error) {
 	return domain.ReconstituteRecoveryTokenID("rec-001"), nil
 }
+func (g *stubAppIDGenerator) GenerateRoleID() (domain.RoleID, error) {
+	return domain.ReconstituteRoleID("role-001"), nil
+}
 
 type stubAppUserRepository struct {
 	findByIDResult    *domain.User
 	findByIDErr       error
 	findByEmailResult *domain.User
 	findByEmailErr    error
-	findByTokenResult *domain.User
-	findByTokenErr    error
 	saveErr           error
 	deleteErr         error
 }
@@ -250,14 +253,43 @@ func (r *stubAppUserRepository) FindByID(_ context.Context, _ domain.UserID) (*d
 func (r *stubAppUserRepository) FindByEmail(_ context.Context, _ domain.Email) (*domain.User, error) {
 	return r.findByEmailResult, r.findByEmailErr
 }
-func (r *stubAppUserRepository) FindBySessionToken(_ context.Context, _ domain.HashedToken) (*domain.User, error) {
-	return r.findByTokenResult, r.findByTokenErr
-}
 func (r *stubAppUserRepository) Save(_ context.Context, _ *domain.User) error {
 	return r.saveErr
 }
 func (r *stubAppUserRepository) Delete(_ context.Context, _ domain.UserID) error {
 	return r.deleteErr
+}
+
+type stubAppSessionRepository struct {
+	findByIDResult   *domain.Session
+	findByIDErr      error
+	findByTokenResult *domain.Session
+	findByTokenErr   error
+	findByFPResult   *domain.Session
+	findByFPErr      error
+	findActiveResult []*domain.Session
+	findActiveErr    error
+	saveErr          error
+	revokeAllErr     error
+}
+
+func (r *stubAppSessionRepository) FindByID(_ context.Context, _ domain.SessionID) (*domain.Session, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubAppSessionRepository) FindByToken(_ context.Context, _ domain.HashedToken) (*domain.Session, error) {
+	return r.findByTokenResult, r.findByTokenErr
+}
+func (r *stubAppSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ domain.UserID, _ domain.DeviceFingerprint) (*domain.Session, error) {
+	return r.findByFPResult, r.findByFPErr
+}
+func (r *stubAppSessionRepository) FindActiveByUserID(_ context.Context, _ domain.UserID) ([]*domain.Session, error) {
+	return r.findActiveResult, r.findActiveErr
+}
+func (r *stubAppSessionRepository) Save(_ context.Context, _ *domain.Session) error {
+	return r.saveErr
+}
+func (r *stubAppSessionRepository) RevokeAllForUser(_ context.Context, _ domain.UserID, _ domain.Timepoint) error {
+	return r.revokeAllErr
 }
 
 type stubUserQueryPort struct {

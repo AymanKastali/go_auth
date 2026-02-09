@@ -20,7 +20,9 @@ type domainServices struct {
 	authenticationSvc domain.IAuthenticationService
 	accountManager    domain.IUserAccountManager
 	userRepo          domain.IUserRepository
+	sessionRepo       domain.ISessionRepository
 	recoveryRepo      domain.IRecoveryTokenRepository
+	roleRepo          domain.IRoleRepository
 }
 
 func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainServices {
@@ -48,6 +50,8 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 		MaxActive: cfg.SessionPolicy.MaxActive,
 	})
 	userRepo := pf.NewUserRepository()
+	sessionRepo := pf.NewSessionRepository()
+	roleRepo := pf.NewRoleRepository()
 	accessPolicy := domain.NewAccessPolicy(domain.AccessPolicyConfig{
 		Lifetime: cfg.JWT.AccessTTL,
 	})
@@ -58,11 +62,14 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 	)
 	accessManager := domain.NewAccessManager(
 		userRepo,
+		sessionRepo,
+		roleRepo,
 		accessSvc,
 		accessPolicy,
 	)
 	authSvc := domain.NewAuthenticationService(
 		userRepo,
+		sessionRepo,
 		tokenSvc,
 		idGen,
 		sessionPolicy,
@@ -83,6 +90,7 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 
 	return domainServices{
 		userRepo:          userRepo,
+		sessionRepo:       sessionRepo,
 		passwordManager:   passwordManager,
 		registerPolicy:    registerPolicy,
 		sessionPolicy:     sessionPolicy,
@@ -96,5 +104,6 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 		accountManager:    accountManager,
 		idGen:             idGen,
 		recoveryRepo:      recoveryRepo,
+		roleRepo:          roleRepo,
 	}
 }

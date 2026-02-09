@@ -11,8 +11,7 @@ type User struct {
 	email        Email
 	passwordHash HashedPassword
 	isActive     bool
-	roles        []Role
-	sessions     []Session
+	roles        []RoleName
 	isDeleted    bool
 	registeredAt Timepoint
 }
@@ -39,8 +38,7 @@ func NewUser(
 		email:        email,
 		passwordHash: passwordHash,
 		isActive:     true,
-		roles:        []Role{},
-		sessions:     []Session{},
+		roles:        []RoleName{},
 		isDeleted:    false,
 		registeredAt: registeredAt,
 	}
@@ -54,8 +52,7 @@ func ReconstituteUser(
 	email Email,
 	passwordHash HashedPassword,
 	isActive bool,
-	roles []Role,
-	sessions []Session,
+	roles []RoleName,
 	isDeleted bool,
 	registeredAt Timepoint,
 ) *User {
@@ -65,7 +62,6 @@ func ReconstituteUser(
 		passwordHash: passwordHash,
 		isActive:     isActive,
 		roles:        slices.Clone(roles),
-		sessions:     slices.Clone(sessions),
 		isDeleted:    isDeleted,
 		registeredAt: registeredAt,
 	}
@@ -75,7 +71,7 @@ func ReconstituteUser(
 
 func (u *User) Activate(now Timepoint) error {
 	if u.IsDeleted() {
-		return ErrUserDeleted // Or ErrUserDeleted if you have it
+		return ErrUserDeleted
 	}
 	if u.isActive {
 		return nil // Idempotent
@@ -86,7 +82,7 @@ func (u *User) Activate(now Timepoint) error {
 	return nil
 }
 
-func (u *User) AssignRole(role Role, now Timepoint) error {
+func (u *User) AssignRole(role RoleName, now Timepoint) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -102,127 +98,11 @@ func (u *User) AssignRole(role Role, now Timepoint) error {
 	return nil
 }
 
-func (u *User) EstablishSession(candidate Session, maxSessions int) error {
-	if u.IsDeleted() {
-		return ErrUserDeleted
-	}
-	if !u.isActive {
-		return ErrUserInactive
-	}
-
-	now := candidate.LastActiveAt()
-
-	// 1. Logic: Update existing session if fingerprint matches
-	for i := range u.sessions {
-		// IMPORTANT: Use &u.sessions[i] to get a pointer to the ACTUAL element in the slice
-		s := &u.sessions[i]
-
-		if s.Identity().Fingerprint().Equal(candidate.Identity().Fingerprint()) && !s.IsRevoked() {
-			// Internal mutation is safe because the Aggregate Root (User) is doing it
-			s.UpdateLogin(candidate.HashedToken(), candidate.ExpiresAt(), now)
-			u.RecordEvent(NewSessionEstablished(u.id, s.ID(), now))
-			return nil
-		}
-	}
-
-	// 2. Logic: Enforce session limit invariant
-	if len(u.sessions) >= maxSessions {
-		u.revokeOldestSession(now)
-	}
-
-	// 3. Logic: Add the new session value
-	u.sessions = append(u.sessions, candidate)
-	u.RecordEvent(NewSessionEstablished(u.id, candidate.ID(), now))
-	return nil
-}
-
-func (u *User) RefreshSession(hash HashedToken, currentFingerprint DeviceFingerprint, now Timepoint) (Session, error) {
-	if u.IsDeleted() || !u.isActive {
-		return ZeroSession, ErrUserInactive
-	}
-
-	for i := range u.sessions {
-		s := &u.sessions[i] // Pointer to mutate the slice element
-		if s.HashedToken().Equal(hash) {
-			// Invariant: Detect hijacking
-			if !s.ValidateFingerprint(currentFingerprint) {
-				_ = s.Revoke()
-				u.RecordEvent(NewSessionHijackDetected(u.id, s.ID(), now))
-				return ZeroSession, ErrSessionFingerprintMiss
-			}
-
-			// Invariant: Check expiry
-			if !s.IsValid(now) {
-				return ZeroSession, ErrSessionExpired
-			}
-
-			// State Update
-			s.UpdateActivity(now)
-			u.RecordEvent(NewSessionRefreshed(u.id, s.ID(), now))
-			return *s, nil // Return the updated session value
-		}
-	}
-	return ZeroSession, ErrTokenInvalid
-}
-
-func (u *User) RevokeSession(sid SessionID, now Timepoint) error {
-	if u.IsDeleted() {
-		return ErrUserDeleted
-	}
-
-	for i := range u.sessions {
-		s := &u.sessions[i]
-		if s.ID().Equal(sid) {
-			if s.IsRevoked() {
-				return ErrSessionAlreadyRevoked
-			}
-			if err := s.Revoke(); err != nil {
-				return err
-			}
-			u.RecordEvent(NewSessionRevoked(u.id, sid, now))
-			return nil
-		}
-	}
-	return ErrSessionIDRequired
-}
-
-func (u *User) ValidateIntegrity(sid SessionID, now Timepoint) error {
-	if u.IsDeleted() || !u.isActive {
-		return ErrUserInactive
-	}
-
-	for _, s := range u.sessions {
-		if s.ID().Equal(sid) {
-			if s.IsRevoked() {
-				return ErrSessionAlreadyRevoked
-			}
-			if !s.IsValid(now) {
-				return ErrSessionExpired
-			}
-			return nil
-		}
-	}
-	return ErrSessionIDRequired
-}
-
-// --- Private Helpers ---
-
-func (u *User) revokeOldestSession(now Timepoint) {
-	for i := range u.sessions {
-		if !u.sessions[i].IsRevoked() {
-			_ = u.sessions[i].Revoke()
-			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
-			break
-		}
-	}
-}
-
 func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
 
-	// If the email is the same, do nothing (idempotent)
 	if u.email.Equal(newEmail) {
 		return nil
 	}
@@ -230,9 +110,6 @@ func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 	oldEmail := u.email
 	u.email = newEmail
 	u.RecordEvent(NewEmailUpdated(u.id, oldEmail, newEmail, now))
-
-	// Note: In many systems, changing an email would also set u.isActive = false
-	// to trigger a new email verification flow.
 	return nil
 }
 
@@ -245,26 +122,8 @@ func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
 	}
 
 	u.passwordHash = newHash
-
-	// Side effect: Security invariant - Kill all sessions on password change
-	for i := range u.sessions {
-		if !u.sessions[i].IsRevoked() {
-			_ = u.sessions[i].Revoke()
-			u.RecordEvent(NewSessionRevoked(u.id, u.sessions[i].ID(), now))
-		}
-	}
-
 	u.RecordEvent(NewPasswordChanged(u.id, now))
 	return nil
-}
-
-func (u *User) FindActiveSessionByFingerprint(fp DeviceFingerprint) (SessionID, bool) {
-	for _, s := range u.sessions {
-		if !s.IsRevoked() && s.Identity().Fingerprint().Equal(fp) {
-			return s.ID(), true
-		}
-	}
-	return ZeroSessionID, false
 }
 
 // --- Getters ---
@@ -272,8 +131,7 @@ func (u *User) FindActiveSessionByFingerprint(fp DeviceFingerprint) (SessionID, 
 func (u *User) ID() UserID                     { return u.id }
 func (u *User) Email() Email                   { return u.email }
 func (u *User) HashedPassword() HashedPassword { return u.passwordHash }
-func (u *User) Roles() []Role                  { return slices.Clone(u.roles) }
-func (u *User) Sessions() []Session            { return slices.Clone(u.sessions) }
+func (u *User) Roles() []RoleName               { return slices.Clone(u.roles) }
 func (u *User) IsDeleted() bool                { return u.isDeleted }
 func (u *User) IsActive() bool                 { return u.isActive }
 func (u *User) RegisteredAt() Timepoint        { return u.registeredAt }

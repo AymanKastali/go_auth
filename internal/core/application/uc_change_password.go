@@ -8,6 +8,7 @@ import (
 
 type changePasswordUseCase struct {
 	userRepo       domain.IUserRepository
+	sessionRepo    domain.ISessionRepository
 	accountManager domain.IUserAccountManager
 	clock          domain.IClock
 	dispatcher     IEventDispatcher
@@ -15,12 +16,14 @@ type changePasswordUseCase struct {
 
 func NewChangePasswordUseCase(
 	userRepo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
 	accountManager domain.IUserAccountManager,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IChangePasswordUseCase {
 	return &changePasswordUseCase{
 		userRepo:       userRepo,
+		sessionRepo:    sessionRepo,
 		accountManager: accountManager,
 		clock:          clock,
 		dispatcher:     dispatcher,
@@ -71,6 +74,12 @@ func (uc *changePasswordUseCase) Execute(ctx context.Context, cmd ChangePassword
 	// 5. Persistence
 	if err := uc.userRepo.Save(ctx, user); err != nil {
 		logger.Error("database_save_failed", slog.Any("error", err))
+		return err
+	}
+
+	// 6. Revoke all sessions for security
+	if err := uc.sessionRepo.RevokeAllForUser(ctx, uid, now); err != nil {
+		logger.Error("session_revoke_failed", slog.Any("error", err))
 		return err
 	}
 

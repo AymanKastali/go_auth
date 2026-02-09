@@ -89,3 +89,15 @@ type IForgotPasswordUseCase interface {
 type IGetPublicPoliciesUseCase interface {
 	Execute(ctx context.Context) (PublicPoliciesResponse, error)
 }
+
+// RoleSeedDefinition represents a role with its permissions to be seeded.
+type RoleSeedDefinition struct {
+	Name        string
+	Description string
+	Permissions []string
+}
+
+// IRoleSeedLoader loads role seed definitions from an external source.
+type IRoleSeedLoader interface {
+	Load() ([]RoleSeedDefinition, error)
+}

@@ -27,9 +27,10 @@ func NewJWTService(
 }
 
 type CustomClaims struct {
-	Email string   `json:"email"`
-	Roles []string `json:"roles"`
-	SID   string   `json:"sid"`
+	Email       string   `json:"email"`
+	Roles       []string `json:"roles"`
+	Permissions []string `json:"permissions"`
+	SID         string   `json:"sid"`
 	jwt.RegisteredClaims
 }
 
@@ -37,7 +38,8 @@ func (p *jwtService) Issue(
 	userID domain.UserID,
 	email domain.Email,
 	sessionID domain.SessionID,
-	roles []domain.Role,
+	roles []domain.RoleName,
+	permissions []domain.Permission,
 	IssuedAt domain.Timepoint,
 	expiresAt domain.Timepoint,
 	notBefore domain.Timepoint,
@@ -47,10 +49,16 @@ func (p *jwtService) Issue(
 		roleNames[i] = r.Name()
 	}
 
+	permStrings := make([]string, len(permissions))
+	for i, p := range permissions {
+		permStrings[i] = p.String()
+	}
+
 	claims := CustomClaims{
-		Email: email.String(),
-		Roles: roleNames,
-		SID:   sessionID.String(),
+		Email:       email.String(),
+		Roles:       roleNames,
+		Permissions: permStrings,
+		SID:         sessionID.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(IssuedAt.Time()),
@@ -118,15 +126,24 @@ func (p *jwtService) Validate(token domain.AccessToken) (domain.AccessIdentity, 
 		return domain.ZeroAccessIdentity, err
 	}
 
-	var roles []domain.Role
+	var roles []domain.RoleName
 	for _, rName := range claims.Roles {
-		role, err := domain.NewRole(rName)
+		role, err := domain.NewRoleName(rName)
 		if err != nil {
 			return domain.ZeroAccessIdentity, err
 		}
 		roles = append(roles, role)
 	}
 
-	// 5. Build Identity VO (UserID, SessionID, Email, Roles)
-	return domain.NewAccessIdentity(uid, sid, email, roles)
+	var permissions []domain.Permission
+	for _, ps := range claims.Permissions {
+		p, err := domain.NewPermission(ps)
+		if err != nil {
+			return domain.ZeroAccessIdentity, err
+		}
+		permissions = append(permissions, p)
+	}
+
+	// 5. Build Identity VO (UserID, SessionID, Email, Roles, Permissions)
+	return domain.NewAccessIdentity(uid, sid, email, roles, permissions)
 }

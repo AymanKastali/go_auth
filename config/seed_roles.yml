@@ -1,0 +1,68 @@
+roles:
+  - name: super_admin
+    description: Full system access with all permissions
+    permissions:
+      - "users:read"
+      - "users:write"
+      - "users:delete"
+      - "users:manage"
+      - "roles:read"
+      - "roles:write"
+      - "roles:manage"
+      - "sessions:read"
+      - "sessions:revoke"
+      - "sessions:manage"
+      - "system:configure"
+      - "system:audit"
+
+  - name: admin
+    description: Administrative access for user and role management
+    permissions:
+      - "users:read"
+      - "users:write"
+      - "users:delete"
+      - "roles:read"
+      - "roles:write"
+      - "sessions:read"
+      - "sessions:revoke"
+
+  - name: editor
+    description: Content creation and editing permissions
+    permissions:
+      - "users:read"
+      - "content:read"
+      - "content:write"
+      - "content:delete"
+
+  - name: moderator
+    description: Content moderation and user oversight
+    permissions:
+      - "users:read"
+      - "content:read"
+      - "content:moderate"
+      - "sessions:read"
+
+  - name: member
+    description: Standard member with basic access
+    permissions:
+      - "users:read_self"
+      - "content:read"
+
+  - name: premium
+    description: Premium member with enhanced content access
+    permissions:
+      - "users:read_self"
+      - "content:read"
+      - "content:premium"
+
+  - name: guest
+    description: Read-only access to public content
+    permissions:
+      - "content:read"
+
+  - name: partner
+    description: External partner with limited access
+    permissions:
+      - "users:read_self"
+      - "content:read"
+      - "partner:access"

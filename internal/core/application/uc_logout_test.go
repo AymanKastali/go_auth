@@ -13,9 +13,9 @@ func TestLogoutUseCase(t *testing.T) {
 	validCmd := LogoutCommand{UserID: "user-001", SessionID: "sess-001"}
 
 	t.Run("happy_path", func(t *testing.T) {
-		user := testActiveUser()
+		session := testActiveSession()
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: session},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -26,7 +26,7 @@ func TestLogoutUseCase(t *testing.T) {
 
 	t.Run("empty_userID", func(t *testing.T) {
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -37,7 +37,7 @@ func TestLogoutUseCase(t *testing.T) {
 
 	t.Run("empty_sessionID", func(t *testing.T) {
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -46,35 +46,37 @@ func TestLogoutUseCase(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrSessionIDRequired)
 	})
 
-	t.Run("user_not_found", func(t *testing.T) {
+	t.Run("session_not_found", func(t *testing.T) {
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{findByIDResult: nil},
+			&stubAppSessionRepository{findByIDResult: nil},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
 
 		err := uc.Execute(unauthenticatedCtx(), validCmd)
-		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+		assert.ErrorIs(t, err, domain.ErrSessionNotFound)
 	})
 
 	t.Run("already_revoked", func(t *testing.T) {
-		user := testActiveUser()
+		revokedSession := domain.ReconstituteSession(
+			testSessionID(), testUserID(),
+			domain.ReconstituteHashedToken("hashed-tok"),
+			testDeviceIdentity(), appTestFuture, appTestNow, true,
+		)
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: revokedSession},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
-		// First revoke succeeds
-		_ = uc.Execute(unauthenticatedCtx(), validCmd)
-		// Second should fail
+
 		err := uc.Execute(unauthenticatedCtx(), validCmd)
 		assert.ErrorIs(t, err, domain.ErrSessionAlreadyRevoked)
 	})
 
 	t.Run("save_fails", func(t *testing.T) {
-		user := testActiveUser()
+		session := testActiveSession()
 		uc := NewLogoutUseCase(
-			&stubAppUserRepository{findByIDResult: user, saveErr: errTest},
+			&stubAppSessionRepository{findByIDResult: session, saveErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)

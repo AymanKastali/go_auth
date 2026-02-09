@@ -58,6 +58,7 @@ GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.pro
 | `GA_SESSION_MAX_ACTIVE` | Max concurrent sessions per user | `5` |
 | `GA_ADMIN_EMAIL` | Seed admin email | -- |
 | `GA_ADMIN_PASSWORD` | Seed admin password | -- |
+| `GA_SEED_ROLES_PATH` | Path to roles & permissions YAML seed file | `/config/seed_roles.yml` |
 | `GA_EMAIL_HOST` | SMTP host | `localhost` |
 | `GA_EMAIL_PORT` | SMTP port | `587` |
 | `GA_EMAIL_USERNAME` | SMTP username | -- |
@@ -68,6 +69,45 @@ GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.pro
 | `GA_REGISTER_ALLOW_PUBLIC` | Allow public registration | `true` |
 | `GA_REGISTER_BLOCKED_DOMAINS` | Comma-separated blocked email domains | -- |
 | `GA_IMAGE` | Docker image override for compose | `ghcr.io/aymankastali/go_auth:latest` |
+
+## Custom Roles & Permissions
+
+The image ships with a default `seed_roles.yml` that defines 8 roles (`super_admin`, `admin`, `editor`, `moderator`, `member`, `premium`, `guest`, `partner`) and their permissions. Roles are seeded on first startup and skipped if they already exist.
+
+To customize, create your own YAML file following the same format:
+
+```yaml
+roles:
+  - name: admin
+    description: Administrative access
+    permissions:
+      - "users:read"
+      - "users:write"
+      - "roles:read"
+```
+
+Then mount it into the container:
+
+```yaml
+# docker-compose.yml
+services:
+  auth:
+    image: ghcr.io/aymankastali/go_auth:latest
+    volumes:
+      - ./my_roles.yml:/config/seed_roles.yml
+```
+
+Or mount to a custom path and set the env var:
+
+```yaml
+services:
+  auth:
+    image: ghcr.io/aymankastali/go_auth:latest
+    volumes:
+      - ./my_roles.yml:/etc/myapp/roles.yml
+    environment:
+      - GA_SEED_ROLES_PATH=/etc/myapp/roles.yml
+```
 
 ## Versioning
 

@@ -18,15 +18,13 @@ func TestLoginUseCase(t *testing.T) {
 
 	rawTok, _ := domain.NewRawToken("refresh-tok")
 	accessTok, _ := domain.NewAccessToken("access-tok")
-	sess := domain.ReconstituteSession(
-		testSessionID(), domain.ReconstituteHashedToken("h"),
-		testDeviceIdentity(), appTestFuture, appTestNow, false,
-	)
+	sess := testActiveSession()
 
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
 			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
@@ -44,6 +42,7 @@ func TestLoginUseCase(t *testing.T) {
 	t.Run("invalid_email", func(t *testing.T) {
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -57,6 +56,7 @@ func TestLoginUseCase(t *testing.T) {
 	t.Run("empty_password", func(t *testing.T) {
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -70,6 +70,7 @@ func TestLoginUseCase(t *testing.T) {
 	t.Run("user_not_found", func(t *testing.T) {
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{findByEmailResult: nil},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -84,6 +85,7 @@ func TestLoginUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{authErr: domain.ErrAuthenticationFailed},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -98,6 +100,7 @@ func TestLoginUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewLoginUseCase(
 			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
 			&mockAccessManager{grantErr: errTest},
 			&stubClock{now: appTestNow},
@@ -108,10 +111,11 @@ func TestLoginUseCase(t *testing.T) {
 		assert.ErrorIs(t, err, errTest)
 	})
 
-	t.Run("save_fails", func(t *testing.T) {
+	t.Run("session_save_fails", func(t *testing.T) {
 		user := testActiveUser()
 		uc := NewLoginUseCase(
-			&stubAppUserRepository{findByEmailResult: user, saveErr: errTest},
+			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{saveErr: errTest},
 			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
 			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},

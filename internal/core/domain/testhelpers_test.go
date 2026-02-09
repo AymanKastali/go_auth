@@ -43,27 +43,28 @@ func differentDeviceIdentity() DeviceIdentity {
 // Aggregate builders
 // ---------------------------------------------------------------
 
-func newActiveUserWithSession() *User {
-	u := ReconstituteUser(
+func newActiveUser() *User {
+	return ReconstituteUser(
 		validUserID(),
 		validEmail(),
 		validHashedPassword(),
 		true,
-		[]Role{RoleMember},
-		[]Session{
-			ReconstituteSession(
-				validSessionID(),
-				validHashedToken(),
-				validDeviceIdentity(),
-				testFuture,
-				testNow,
-				false,
-			),
-		},
+		[]RoleName{RoleMember},
 		false,
 		testNow,
 	)
-	return u
+}
+
+func newActiveSession() *Session {
+	return ReconstituteSession(
+		validSessionID(),
+		validUserID(),
+		validHashedToken(),
+		validDeviceIdentity(),
+		testFuture,
+		testNow,
+		false,
+	)
 }
 
 func newDeletedUser() *User {
@@ -72,8 +73,7 @@ func newDeletedUser() *User {
 		validEmail(),
 		validHashedPassword(),
 		true,
-		[]Role{RoleMember},
-		nil,
+		[]RoleName{RoleMember},
 		true,
 		testNow,
 	)
@@ -85,7 +85,6 @@ func newInactiveUser() *User {
 		validEmail(),
 		validHashedPassword(),
 		false,
-		nil,
 		nil,
 		false,
 		testNow,
@@ -155,6 +154,8 @@ type stubIDGenerator struct {
 	sessionIDErr  error
 	recoveryID    RecoveryTokenID
 	recoveryIDErr error
+	roleID        RoleID
+	roleIDErr     error
 }
 
 func (s *stubIDGenerator) GenerateUserID() (UserID, error) {
@@ -165,6 +166,9 @@ func (s *stubIDGenerator) GenerateSessionID() (SessionID, error) {
 }
 func (s *stubIDGenerator) GenerateRecoveryTokenID() (RecoveryTokenID, error) {
 	return s.recoveryID, s.recoveryIDErr
+}
+func (s *stubIDGenerator) GenerateRoleID() (RoleID, error) {
+	return s.roleID, s.roleIDErr
 }
 
 type stubTokenService struct {
@@ -202,7 +206,7 @@ type stubAccessService struct {
 	validateErr  error
 }
 
-func (s *stubAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []Role, _ Timepoint, _ Timepoint, _ Timepoint) (AccessToken, Timepoint, error) {
+func (s *stubAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, _ []Permission, _ Timepoint, _ Timepoint, _ Timepoint) (AccessToken, Timepoint, error) {
 	return s.issueToken, s.issueExpiry, s.issueErr
 }
 func (s *stubAccessService) Validate(_ AccessToken) (AccessIdentity, error) {
@@ -214,8 +218,6 @@ type stubUserRepository struct {
 	findByIDErr       error
 	findByEmailResult *User
 	findByEmailErr    error
-	findByTokenResult *User
-	findByTokenErr    error
 	saveErr           error
 	deleteErr         error
 }
@@ -226,14 +228,66 @@ func (r *stubUserRepository) FindByID(_ context.Context, _ UserID) (*User, error
 func (r *stubUserRepository) FindByEmail(_ context.Context, _ Email) (*User, error) {
 	return r.findByEmailResult, r.findByEmailErr
 }
-func (r *stubUserRepository) FindBySessionToken(_ context.Context, _ HashedToken) (*User, error) {
-	return r.findByTokenResult, r.findByTokenErr
-}
 func (r *stubUserRepository) Save(_ context.Context, _ *User) error {
 	return r.saveErr
 }
 func (r *stubUserRepository) Delete(_ context.Context, _ UserID) error {
 	return r.deleteErr
+}
+
+type stubSessionRepository struct {
+	findByIDResult      *Session
+	findByIDErr         error
+	findByTokenResult   *Session
+	findByTokenErr      error
+	findByFPResult      *Session
+	findByFPErr         error
+	findActiveResult    []*Session
+	findActiveErr       error
+	saveErr             error
+	revokeAllErr        error
+}
+
+func (r *stubSessionRepository) FindByID(_ context.Context, _ SessionID) (*Session, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubSessionRepository) FindByToken(_ context.Context, _ HashedToken) (*Session, error) {
+	return r.findByTokenResult, r.findByTokenErr
+}
+func (r *stubSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ UserID, _ DeviceFingerprint) (*Session, error) {
+	return r.findByFPResult, r.findByFPErr
+}
+func (r *stubSessionRepository) FindActiveByUserID(_ context.Context, _ UserID) ([]*Session, error) {
+	return r.findActiveResult, r.findActiveErr
+}
+func (r *stubSessionRepository) Save(_ context.Context, _ *Session) error {
+	return r.saveErr
+}
+func (r *stubSessionRepository) RevokeAllForUser(_ context.Context, _ UserID, _ Timepoint) error {
+	return r.revokeAllErr
+}
+
+type stubRoleRepository struct {
+	findByIDResult   *Role
+	findByIDErr      error
+	findByNameResult *Role
+	findByNameErr    error
+	findAllResult    []*Role
+	findAllErr       error
+	saveErr          error
+}
+
+func (r *stubRoleRepository) FindByID(_ context.Context, _ RoleID) (*Role, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubRoleRepository) FindByName(_ context.Context, _ RoleName) (*Role, error) {
+	return r.findByNameResult, r.findByNameErr
+}
+func (r *stubRoleRepository) FindAll(_ context.Context) ([]*Role, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubRoleRepository) Save(_ context.Context, _ *Role) error {
+	return r.saveErr
 }
 
 type stubPasswordManager struct {

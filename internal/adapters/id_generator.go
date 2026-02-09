@@ -50,6 +50,18 @@ func (g *uuidV7Generator) GenerateRecoveryTokenID() (domain.RecoveryTokenID, err
 	return uidVO, nil
 }
 
+func (g *uuidV7Generator) GenerateRoleID() (domain.RoleID, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return domain.ZeroRoleID, domain.ErrInternal
+	}
+	roleID, err := domain.NewRoleID(id.String())
+	if err != nil {
+		return domain.ZeroRoleID, err
+	}
+	return roleID, nil
+}
+
 // ULID Generator
 type ULIDGenerator struct{}
 

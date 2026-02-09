@@ -57,6 +57,7 @@ type AppConfig struct {
 type SeedConfig struct {
 	AdminEmail    string
 	AdminPassword string
+	RolesFilePath string
 }
 
 type HTTPConfig struct {
@@ -297,6 +298,7 @@ func loadSeed() (SeedConfig, error) {
 	return SeedConfig{
 		AdminEmail:    email,
 		AdminPassword: password,
+		RolesFilePath: getEnv("SEED_ROLES_PATH", "/config/seed_roles.yml"),
 	}, nil
 }
 

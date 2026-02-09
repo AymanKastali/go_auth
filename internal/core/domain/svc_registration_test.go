@@ -41,7 +41,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 	})
 
 	t.Run("email_taken", func(t *testing.T) {
-		repo := &stubUserRepository{findByEmailResult: newActiveUserWithSession()}
+		repo := &stubUserRepository{findByEmailResult: newActiveUser()}
 		policy := &stubRegisterPolicy{}
 		svc := NewRegistrationService(repo, policy)
 
@@ -78,7 +78,7 @@ func TestRegistrationService_RegisterNewSuperAdmin(t *testing.T) {
 	})
 
 	t.Run("email_taken", func(t *testing.T) {
-		repo := &stubUserRepository{findByEmailResult: newActiveUserWithSession()}
+		repo := &stubUserRepository{findByEmailResult: newActiveUser()}
 		policy := &stubRegisterPolicy{}
 		svc := NewRegistrationService(repo, policy)
 

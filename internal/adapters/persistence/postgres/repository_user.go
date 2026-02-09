@@ -18,21 +18,30 @@ func NewPostgresUserRepository(db *gorm.DB) domain.IUserRepository {
 
 func (r *postgresUserRepository) Save(ctx context.Context, user *domain.User) error {
 	model := toUserModel(user)
+	db := getDB(r.db, ctx)
 
-	// Using getDB to support TransactionManager
-	err := getDB(r.db, ctx).
-		Session(&gorm.Session{FullSaveAssociations: true}).
-		Save(&model).Error
-
-	if err != nil {
+	// Save the user record itself (omit associations to avoid FK ordering issues)
+	if err := db.Omit("UserRoles").Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
+
+	// Replace user_roles: delete existing, insert current
+	if err := db.Where("user_id = ?", model.ID).Delete(&UserRoleModel{}).Error; err != nil {
+		return domain.ErrInternal
+	}
+	if len(model.UserRoles) > 0 {
+		if err := db.Create(&model.UserRoles).Error; err != nil {
+			return domain.ErrInternal
+		}
+	}
+
 	return nil
 }
+
 func (r *postgresUserRepository) FindByEmail(ctx context.Context, email domain.Email) (*domain.User, error) {
 	var model UserModel
 	err := getDB(r.db, ctx).
-		Preload("Sessions").
+		Preload("UserRoles").
 		Where("email = ?", email.String()).
 		First(&model).Error
 
@@ -48,7 +57,7 @@ func (r *postgresUserRepository) FindByEmail(ctx context.Context, email domain.E
 func (r *postgresUserRepository) FindByID(ctx context.Context, id domain.UserID) (*domain.User, error) {
 	var model UserModel
 	err := getDB(r.db, ctx).
-		Preload("Sessions").
+		Preload("UserRoles").
 		Where("id = ?", id.String()).
 		First(&model).Error
 
@@ -71,26 +80,4 @@ func (r *postgresUserRepository) Delete(ctx context.Context, id domain.UserID) e
 		return domain.ErrInternal
 	}
 	return nil
-}
-
-func (r *postgresUserRepository) FindBySessionToken(ctx context.Context, token domain.HashedToken) (*domain.User, error) {
-	var sessionModel SessionModel
-	// We use getDB even for reads to ensure read-your-writes consistency in transactions
-	err := getDB(r.db, ctx).
-		Where("hashed_token = ?", token.String()).
-		First(&sessionModel).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, domain.ErrInternal
-	}
-
-	uid, err := domain.NewUserID(sessionModel.UserID)
-	if err != nil {
-		return nil, domain.ErrInternal
-	}
-
-	return r.FindByID(ctx, uid)
 }

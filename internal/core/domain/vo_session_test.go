@@ -109,10 +109,10 @@ func TestNewAccessIdentity(t *testing.T) {
 	uid := ReconstituteUserID("u1")
 	sid := ReconstituteSessionID("s1")
 	email := ReconstituteEmail("a@b.com")
-	roles := []Role{RoleMember}
+	roles := []RoleName{RoleMember}
 
 	t.Run("valid", func(t *testing.T) {
-		ai, err := NewAccessIdentity(uid, sid, email, roles)
+		ai, err := NewAccessIdentity(uid, sid, email, roles, nil)
 		require.NoError(t, err)
 		assert.Equal(t, uid, ai.UserID())
 		assert.Equal(t, sid, ai.SessionID())
@@ -121,22 +121,22 @@ func TestNewAccessIdentity(t *testing.T) {
 	})
 
 	t.Run("empty_userID", func(t *testing.T) {
-		_, err := NewAccessIdentity(ZeroUserID, sid, email, roles)
+		_, err := NewAccessIdentity(ZeroUserID, sid, email, roles, nil)
 		assert.ErrorIs(t, err, ErrAccessIdentityIncomplete)
 	})
 
 	t.Run("empty_sessionID", func(t *testing.T) {
-		_, err := NewAccessIdentity(uid, ZeroSessionID, email, roles)
+		_, err := NewAccessIdentity(uid, ZeroSessionID, email, roles, nil)
 		assert.ErrorIs(t, err, ErrAccessIdentityIncomplete)
 	})
 
 	t.Run("empty_email", func(t *testing.T) {
-		_, err := NewAccessIdentity(uid, sid, ZeroEmail, roles)
+		_, err := NewAccessIdentity(uid, sid, ZeroEmail, roles, nil)
 		assert.ErrorIs(t, err, ErrAccessIdentityIncomplete)
 	})
 
 	t.Run("empty_roles", func(t *testing.T) {
-		_, err := NewAccessIdentity(uid, sid, email, nil)
+		_, err := NewAccessIdentity(uid, sid, email, nil, nil)
 		assert.ErrorIs(t, err, ErrAccessIdentityIncomplete)
 	})
 }

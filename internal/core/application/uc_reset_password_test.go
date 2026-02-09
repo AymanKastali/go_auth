@@ -25,11 +25,13 @@ func TestResetPasswordUseCase(t *testing.T) {
 
 	makeUC := func(
 		userRepo *stubAppUserRepository,
+		sessionRepo *stubAppSessionRepository,
 		recoveryRepo *stubAppRecoveryTokenRepository,
 		accountMgr *mockAccountManager,
 	) IResetPasswordUseCase {
 		return NewResetPasswordUseCase(
 			userRepo,
+			sessionRepo,
 			recoveryRepo,
 			&mockTokenService{hashRecoveryOut: recHash},
 			accountMgr,
@@ -42,6 +44,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{findByIDResult: testActiveUser()},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
 			&mockAccountManager{resetErr: nil},
 		)
@@ -53,6 +56,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("empty_token", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{},
 			&mockAccountManager{},
 		)
@@ -64,6 +68,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("empty_password", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{},
 			&mockAccountManager{},
 		)
@@ -75,6 +80,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("recovery_token_not_found", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: nil},
 			&mockAccountManager{},
 		)
@@ -86,6 +92,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("user_not_found", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{findByIDResult: nil},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
 			&mockAccountManager{},
 		)
@@ -97,6 +104,7 @@ func TestResetPasswordUseCase(t *testing.T) {
 	t.Run("domain_fails", func(t *testing.T) {
 		uc := makeUC(
 			&stubAppUserRepository{findByIDResult: testActiveUser()},
+			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
 			&mockAccountManager{resetErr: domain.ErrRecoveryTokenInvalid},
 		)

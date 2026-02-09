@@ -29,7 +29,7 @@ func TestUserAccountManager_InitiatePasswordReset(t *testing.T) {
 
 	t.Run("happy_path", func(t *testing.T) {
 		mgr := makeManager(nil, nil, nil)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 
 		rawTok, recovery, err := mgr.InitiatePasswordReset(user, testNow)
 		require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestUserAccountManager_InitiatePasswordReset(t *testing.T) {
 
 	t.Run("token_gen_fails", func(t *testing.T) {
 		mgr := makeManager(errors.New("token gen"), nil, nil)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 
 		_, _, err := mgr.InitiatePasswordReset(user, testNow)
 		assert.Error(t, err)
@@ -59,7 +59,7 @@ func TestUserAccountManager_InitiatePasswordReset(t *testing.T) {
 
 	t.Run("hash_fails", func(t *testing.T) {
 		mgr := makeManager(nil, errors.New("hash err"), nil)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 
 		_, _, err := mgr.InitiatePasswordReset(user, testNow)
 		assert.Error(t, err)
@@ -67,7 +67,7 @@ func TestUserAccountManager_InitiatePasswordReset(t *testing.T) {
 
 	t.Run("id_gen_fails", func(t *testing.T) {
 		mgr := makeManager(nil, nil, errors.New("id gen"))
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 
 		_, _, err := mgr.InitiatePasswordReset(user, testNow)
 		assert.Error(t, err)
@@ -90,7 +90,7 @@ func TestUserAccountManager_ChangePassword(t *testing.T) {
 
 	t.Run("happy_path", func(t *testing.T) {
 		mgr := makeManager(true, nil)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		old, _ := NewRawPassword("oldpass")
 		new_, _ := NewRawPassword("newpass")
 
@@ -101,7 +101,7 @@ func TestUserAccountManager_ChangePassword(t *testing.T) {
 
 	t.Run("wrong_old_password", func(t *testing.T) {
 		mgr := makeManager(false, nil)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		old, _ := NewRawPassword("wrong")
 		new_, _ := NewRawPassword("newpass")
 
@@ -111,7 +111,7 @@ func TestUserAccountManager_ChangePassword(t *testing.T) {
 
 	t.Run("new_password_policy_fails", func(t *testing.T) {
 		mgr := makeManager(true, ErrPasswordTooShort)
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		old, _ := NewRawPassword("oldpass")
 		new_, _ := NewRawPassword("s")
 
@@ -125,7 +125,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	recHash := ReconstituteRecoveryTokenHash("recovery-hash")
 
 	t.Run("happy_path", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, false)
 
 		mgr := NewUserAccountManager(
@@ -145,7 +145,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	})
 
 	t.Run("recovery_expired", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		// Token expired in the past
 		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testPast, false)
 
@@ -162,7 +162,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	})
 
 	t.Run("recovery_already_used", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, true)
 
 		mgr := NewUserAccountManager(
@@ -178,7 +178,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	})
 
 	t.Run("user_id_mismatch", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		otherUserID := ReconstituteUserID("other-user")
 		recovery := ReconstituteRecoveryToken(recID, otherUserID, recHash, testFuture, false)
 
@@ -195,7 +195,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 	})
 
 	t.Run("password_policy_fails", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
 		recovery := ReconstituteRecoveryToken(recID, validUserID(), recHash, testFuture, false)
 
 		mgr := NewUserAccountManager(

@@ -7,20 +7,20 @@ import (
 )
 
 type logoutUseCase struct {
-	userRepo   domain.IUserRepository
-	clock      domain.IClock
-	dispatcher IEventDispatcher
+	sessionRepo domain.ISessionRepository
+	clock       domain.IClock
+	dispatcher  IEventDispatcher
 }
 
 func NewLogoutUseCase(
-	repo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) ILogoutUseCase {
 	return &logoutUseCase{
-		userRepo:   repo,
-		clock:      clock,
-		dispatcher: dispatcher,
+		sessionRepo: sessionRepo,
+		clock:       clock,
+		dispatcher:  dispatcher,
 	}
 }
 
@@ -28,7 +28,7 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 	logger := GetLogger(ctx).With(slog.String("use_case", "Logout"))
 
 	// 1. VO Conversion (Fail Fast)
-	uid, err := domain.NewUserID(cmd.UserID)
+	_, err := domain.NewUserID(cmd.UserID)
 	if err != nil {
 		logger.Warn("invalid_user_id", slog.Any("error", err))
 		return err
@@ -40,20 +40,20 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 		return err
 	}
 
-	// 2. Identity Resolution
-	user, err := uc.userRepo.FindByID(ctx, uid)
+	// 2. Fetch Session Aggregate
+	session, err := uc.sessionRepo.FindByID(ctx, sid)
 	if err != nil {
-		logger.Error("user_lookup_failed", slog.Any("error", err))
+		logger.Error("session_lookup_failed", slog.Any("error", err))
 		return err
 	}
-	if user == nil {
-		logger.Warn("user_not_found")
-		return domain.ErrUserNotFound
+	if session == nil {
+		logger.Warn("session_not_found")
+		return domain.ErrSessionNotFound
 	}
 
-	// 3. Domain Logic (Direct Aggregate Method)
+	// 3. Domain Logic
 	now := uc.clock.Now()
-	if err := user.RevokeSession(sid, now); err != nil {
+	if err := session.Revoke(now); err != nil {
 		logger.Warn("logout_rejected_by_aggregate",
 			slog.String("session_id", sid.String()),
 			slog.Any("error", err),
@@ -62,12 +62,12 @@ func (uc *logoutUseCase) Execute(ctx context.Context, cmd LogoutCommand) error {
 	}
 
 	// 4. Persistence
-	if err := uc.userRepo.Save(ctx, user); err != nil {
-		logger.Error("database_save_failed", slog.Any("error", err))
+	if err := uc.sessionRepo.Save(ctx, session); err != nil {
+		logger.Error("session_save_failed", slog.Any("error", err))
 		return err
 	}
 
-	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
+	uc.dispatcher.Dispatch(ctx, session.CollectEvents())
 
 	logger.Info("logout_success", slog.String("session_id", sid.String()))
 

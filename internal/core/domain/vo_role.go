@@ -2,23 +2,38 @@ package domain
 
 import "strings"
 
-var ZeroRole = Role{}
+var ZeroRoleName = RoleName{}
+var ZeroRoleID = RoleID{}
 
-// --- Role ---
-type Role struct{ name string }
+// --- RoleID ---
+type RoleID struct{ value string }
+
+func NewRoleID(value string) (RoleID, error) {
+	if value == "" {
+		return ZeroRoleID, ErrRoleIDRequired
+	}
+	return RoleID{value: value}, nil
+}
+func ReconstituteRoleID(value string) RoleID  { return RoleID{value: value} }
+func (vo RoleID) String() string              { return vo.value }
+func (vo RoleID) IsEmpty() bool               { return vo.value == "" }
+func (vo RoleID) Equal(other RoleID) bool     { return vo.value == other.value }
+
+// --- RoleName ---
+type RoleName struct{ name string }
 
 var (
-	RoleSuperAdmin = Role{name: "super_admin"}
-	RoleAdmin      = Role{name: "admin"}
-	RoleEditor     = Role{name: "editor"}
-	RoleModerator  = Role{name: "moderator"}
-	RoleMember     = Role{name: "member"}
-	RolePremium    = Role{name: "premium"}
-	RoleGuest      = Role{name: "guest"}
-	RolePartner    = Role{name: "partner"}
+	RoleSuperAdmin = RoleName{name: "super_admin"}
+	RoleAdmin      = RoleName{name: "admin"}
+	RoleEditor     = RoleName{name: "editor"}
+	RoleModerator  = RoleName{name: "moderator"}
+	RoleMember     = RoleName{name: "member"}
+	RolePremium    = RoleName{name: "premium"}
+	RoleGuest      = RoleName{name: "guest"}
+	RolePartner    = RoleName{name: "partner"}
 )
 
-var nameToRole = map[string]Role{
+var nameToRoleName = map[string]RoleName{
 	"super_admin": RoleSuperAdmin,
 	"admin":       RoleAdmin,
 	"editor":      RoleEditor,
@@ -29,20 +44,29 @@ var nameToRole = map[string]Role{
 	"partner":     RolePartner,
 }
 
-func NewRole(name string) (Role, error) {
+func NewRoleName(name string) (RoleName, error) {
 	canonicalName := strings.ToLower(strings.TrimSpace(name))
-	role, exists := nameToRole[canonicalName]
+	role, exists := nameToRoleName[canonicalName]
 	if !exists {
-		return ZeroRole, ErrRoleNotRecognized
+		return ZeroRoleName, ErrRoleNotRecognized
 	}
 	return role, nil
 }
-func ReconstituteRole(name string) Role {
-	role, exists := nameToRole[name]
+func ReconstituteRoleName(name string) RoleName {
+	role, exists := nameToRoleName[name]
 	if !exists {
-		return Role{name: name}
+		return RoleName{name: name}
 	}
 	return role
 }
-func (r Role) Name() string          { return r.name }
-func (r Role) Equal(other Role) bool { return r.name == other.name }
+func (r RoleName) Name() string              { return r.name }
+func (r RoleName) Equal(other RoleName) bool { return r.name == other.name }
+func (r RoleName) IsEmpty() bool             { return r.name == "" }
+
+// AllRoleNames returns all predefined role names.
+func AllRoleNames() []RoleName {
+	return []RoleName{
+		RoleSuperAdmin, RoleAdmin, RoleEditor, RoleModerator,
+		RoleMember, RolePremium, RoleGuest, RolePartner,
+	}
+}

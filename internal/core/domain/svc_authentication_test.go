@@ -14,9 +14,13 @@ func TestAuthenticationService_AuthenticateAndEstablishSession(t *testing.T) {
 	ctx := context.Background()
 	identity := validDeviceIdentity()
 
-	makeService := func(pwdMatch bool, idGenErr, tokenGenErr, hashErr error) IAuthenticationService {
+	makeService := func(pwdMatch bool, sessionRepo *stubSessionRepository, idGenErr, tokenGenErr, hashErr error) IAuthenticationService {
+		if sessionRepo == nil {
+			sessionRepo = &stubSessionRepository{}
+		}
 		return NewAuthenticationService(
 			&stubUserRepository{},
+			sessionRepo,
 			&stubTokenService{
 				generateToken:  validRawToken(),
 				generateErr:    tokenGenErr,
@@ -33,19 +37,20 @@ func TestAuthenticationService_AuthenticateAndEstablishSession(t *testing.T) {
 	}
 
 	t.Run("happy_path", func(t *testing.T) {
-		svc := makeService(true, nil, nil, nil)
-		user := newActiveUserWithSession()
+		svc := makeService(true, &stubSessionRepository{}, nil, nil, nil)
+		user := newActiveUser()
 		raw, _ := NewRawPassword("pass")
 
 		rawTok, sess, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, differentDeviceIdentity(), testNow)
 		require.NoError(t, err)
 		assert.False(t, rawTok.IsEmpty())
 		assert.False(t, sess.ID().IsEmpty())
+		assert.Equal(t, user.ID(), sess.UserID())
 	})
 
 	t.Run("wrong_password", func(t *testing.T) {
-		svc := makeService(false, nil, nil, nil)
-		user := newActiveUserWithSession()
+		svc := makeService(false, nil, nil, nil, nil)
+		user := newActiveUser()
 		raw, _ := NewRawPassword("wrong")
 
 		_, _, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, identity, testNow)
@@ -53,19 +58,20 @@ func TestAuthenticationService_AuthenticateAndEstablishSession(t *testing.T) {
 	})
 
 	t.Run("existing_fingerprint_session_updated", func(t *testing.T) {
-		svc := makeService(true, nil, nil, nil)
-		user := newActiveUserWithSession()
+		existingSession := newActiveSession()
+		svc := makeService(true, &stubSessionRepository{findByFPResult: existingSession}, nil, nil, nil)
+		user := newActiveUser()
 		raw, _ := NewRawPassword("pass")
 
 		// Same device -> existing session gets updated
-		_, _, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, identity, testNow)
+		_, sess, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, identity, testNow)
 		require.NoError(t, err)
-		assert.Len(t, user.Sessions(), 1)
+		assert.Equal(t, existingSession.ID(), sess.ID())
 	})
 
 	t.Run("id_gen_fails", func(t *testing.T) {
-		svc := makeService(true, errors.New("id gen failed"), nil, nil)
-		user := newActiveUserWithSession()
+		svc := makeService(true, &stubSessionRepository{}, errors.New("id gen failed"), nil, nil)
+		user := newActiveUser()
 		raw, _ := NewRawPassword("pass")
 
 		_, _, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, differentDeviceIdentity(), testNow)
@@ -73,8 +79,8 @@ func TestAuthenticationService_AuthenticateAndEstablishSession(t *testing.T) {
 	})
 
 	t.Run("token_gen_fails", func(t *testing.T) {
-		svc := makeService(true, nil, errors.New("token gen failed"), nil)
-		user := newActiveUserWithSession()
+		svc := makeService(true, nil, nil, errors.New("token gen failed"), nil)
+		user := newActiveUser()
 		raw, _ := NewRawPassword("pass")
 
 		_, _, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, identity, testNow)
@@ -82,8 +88,8 @@ func TestAuthenticationService_AuthenticateAndEstablishSession(t *testing.T) {
 	})
 
 	t.Run("hash_fails", func(t *testing.T) {
-		svc := makeService(true, nil, nil, errors.New("hash failed"))
-		user := newActiveUserWithSession()
+		svc := makeService(true, nil, nil, nil, errors.New("hash failed"))
+		user := newActiveUser()
 		raw, _ := NewRawPassword("pass")
 
 		_, _, err := svc.AuthenticateAndEstablishSession(ctx, user, raw, identity, testNow)
@@ -95,9 +101,11 @@ func TestAuthenticationService_RefreshSession(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("happy_path", func(t *testing.T) {
-		user := newActiveUserWithSession()
+		user := newActiveUser()
+		session := newActiveSession()
 		svc := NewAuthenticationService(
-			&stubUserRepository{findByTokenResult: user},
+			&stubUserRepository{findByIDResult: user},
+			&stubSessionRepository{findByTokenResult: session},
 			&stubTokenService{hashSessionOut: validHashedToken()},
 			&stubIDGenerator{},
 			&stubSessionPolicy{lifetime: 24 * time.Hour, maxActive: 5},
@@ -114,6 +122,7 @@ func TestAuthenticationService_RefreshSession(t *testing.T) {
 	t.Run("hash_fails", func(t *testing.T) {
 		svc := NewAuthenticationService(
 			&stubUserRepository{},
+			&stubSessionRepository{},
 			&stubTokenService{hashSessionErr: errors.New("hash err")},
 			&stubIDGenerator{},
 			&stubSessionPolicy{},
@@ -125,9 +134,10 @@ func TestAuthenticationService_RefreshSession(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("user_not_found", func(t *testing.T) {
+	t.Run("session_not_found", func(t *testing.T) {
 		svc := NewAuthenticationService(
-			&stubUserRepository{findByTokenResult: nil},
+			&stubUserRepository{},
+			&stubSessionRepository{findByTokenResult: nil},
 			&stubTokenService{hashSessionOut: validHashedToken()},
 			&stubIDGenerator{},
 			&stubSessionPolicy{},
@@ -139,10 +149,28 @@ func TestAuthenticationService_RefreshSession(t *testing.T) {
 		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
-	t.Run("fingerprint_mismatch_propagated", func(t *testing.T) {
-		user := newActiveUserWithSession()
+	t.Run("user_not_found", func(t *testing.T) {
+		session := newActiveSession()
 		svc := NewAuthenticationService(
-			&stubUserRepository{findByTokenResult: user},
+			&stubUserRepository{findByIDResult: nil},
+			&stubSessionRepository{findByTokenResult: session},
+			&stubTokenService{hashSessionOut: validHashedToken()},
+			&stubIDGenerator{},
+			&stubSessionPolicy{},
+			&stubPasswordManager{},
+		)
+
+		fp := validDeviceIdentity().Fingerprint()
+		_, _, err := svc.RefreshSession(ctx, validRawToken(), fp, testNow)
+		assert.ErrorIs(t, err, ErrUserInactive)
+	})
+
+	t.Run("fingerprint_mismatch_propagated", func(t *testing.T) {
+		user := newActiveUser()
+		session := newActiveSession()
+		svc := NewAuthenticationService(
+			&stubUserRepository{findByIDResult: user},
+			&stubSessionRepository{findByTokenResult: session},
 			&stubTokenService{hashSessionOut: validHashedToken()},
 			&stubIDGenerator{},
 			&stubSessionPolicy{},

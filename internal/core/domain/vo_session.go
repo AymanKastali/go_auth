@@ -62,25 +62,28 @@ func (vo AccessToken) String() string { return vo.value }
 
 // --- AccessIdentity ---
 type AccessIdentity struct {
-	userID    UserID
-	sessionID SessionID
-	email     Email
-	roles     []Role
+	userID      UserID
+	sessionID   SessionID
+	email       Email
+	roles       []RoleName
+	permissions []Permission
 }
 
-func NewAccessIdentity(userID UserID, sessionID SessionID, email Email, roles []Role) (AccessIdentity, error) {
+func NewAccessIdentity(userID UserID, sessionID SessionID, email Email, roles []RoleName, permissions []Permission) (AccessIdentity, error) {
 	if userID.IsEmpty() || sessionID.IsEmpty() || email.IsEmpty() || len(roles) == 0 {
 		return ZeroAccessIdentity, ErrAccessIdentityIncomplete
 	}
 	return AccessIdentity{
-		userID:    userID,
-		sessionID: sessionID,
-		email:     email,
-		roles:     roles,
+		userID:      userID,
+		sessionID:   sessionID,
+		email:       email,
+		roles:       roles,
+		permissions: permissions,
 	}, nil
 }
 
-func (vo AccessIdentity) UserID() UserID       { return vo.userID }
-func (vo AccessIdentity) SessionID() SessionID { return vo.sessionID }
-func (vo AccessIdentity) Email() Email         { return vo.email }
-func (vo AccessIdentity) Roles() []Role        { return vo.roles }
+func (vo AccessIdentity) UserID() UserID           { return vo.userID }
+func (vo AccessIdentity) SessionID() SessionID     { return vo.sessionID }
+func (vo AccessIdentity) Email() Email             { return vo.email }
+func (vo AccessIdentity) Roles() []RoleName        { return vo.roles }
+func (vo AccessIdentity) Permissions() []Permission { return vo.permissions }

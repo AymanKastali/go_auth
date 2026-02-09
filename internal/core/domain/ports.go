@@ -17,6 +17,7 @@ type IIDGenerator interface {
 	GenerateUserID() (UserID, error)
 	GenerateSessionID() (SessionID, error)
 	GenerateRecoveryTokenID() (RecoveryTokenID, error)
+	GenerateRoleID() (RoleID, error)
 }
 type ITokenService interface {
 	Generate() (RawToken, error)
@@ -32,7 +33,8 @@ type IAccessService interface {
 		userID UserID,
 		email Email,
 		sessionID SessionID,
-		roles []Role,
+		roles []RoleName,
+		permissions []Permission,
 		IssuedAt Timepoint,
 		expiresAt Timepoint,
 		notBefore Timepoint,
@@ -47,7 +49,22 @@ type IUserRepository interface {
 	FindByEmail(ctx context.Context, email Email) (*User, error)
 	Save(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id UserID) error
-	FindBySessionToken(ctx context.Context, token HashedToken) (*User, error)
+}
+
+type ISessionRepository interface {
+	FindByID(ctx context.Context, id SessionID) (*Session, error)
+	FindByToken(ctx context.Context, token HashedToken) (*Session, error)
+	FindActiveByUserAndFingerprint(ctx context.Context, userID UserID, fp DeviceFingerprint) (*Session, error)
+	FindActiveByUserID(ctx context.Context, userID UserID) ([]*Session, error)
+	Save(ctx context.Context, session *Session) error
+	RevokeAllForUser(ctx context.Context, userID UserID, now Timepoint) error
+}
+
+type IRoleRepository interface {
+	FindByID(ctx context.Context, id RoleID) (*Role, error)
+	FindByName(ctx context.Context, name RoleName) (*Role, error)
+	FindAll(ctx context.Context) ([]*Role, error)
+	Save(ctx context.Context, role *Role) error
 }
 
 type IRecoveryTokenRepository interface {

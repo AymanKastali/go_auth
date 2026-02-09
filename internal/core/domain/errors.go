@@ -59,8 +59,14 @@ var (
 	ErrTokenInvalid         = NewError(KindUnauthorized, "provided token is invalid or expired")
 	ErrTokenRevoked         = NewError(KindConflict, "token has been revoked")
 	ErrRoleNotRecognized    = NewError(KindValidation, "provided user role is not supported")
+	ErrRoleIDRequired       = NewError(KindValidation, "role identifier is required")
+	ErrRoleAlreadyExists    = NewError(KindConflict, "role with this name already exists")
+	ErrRoleNotFound         = NewError(KindNotFound, "role was not found")
+	ErrPermissionInvalid    = NewError(KindValidation, "permission must be in 'resource:action' format")
+	ErrPermissionNotFound   = NewError(KindNotFound, "permission was not found on this role")
 
 	// --- Session Context ---
+	ErrSessionUserIDRequired  = NewError(KindValidation, "session user identifier is required")
 	ErrSessionIDRequired      = NewError(KindValidation, "session identifier is required")
 	ErrSessionExpired         = NewError(KindForbidden, "session has expired")
 	ErrSessionAlreadyRevoked  = NewError(KindConflict, "session is already in a revoked state")

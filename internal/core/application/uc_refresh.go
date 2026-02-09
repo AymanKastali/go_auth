@@ -9,6 +9,7 @@ import (
 // --- Refresh Token Use Case ---
 type refreshTokenUseCase struct {
 	userRepo      domain.IUserRepository
+	sessionRepo   domain.ISessionRepository
 	authSvc       domain.IAuthenticationService
 	accessManager domain.IAccessManager
 	clock         domain.IClock
@@ -17,6 +18,7 @@ type refreshTokenUseCase struct {
 
 func NewRefreshTokenUseCase(
 	userRepo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
 	authSvc domain.IAuthenticationService,
 	accessManager domain.IAccessManager,
 	clock domain.IClock,
@@ -24,6 +26,7 @@ func NewRefreshTokenUseCase(
 ) IRefreshTokenUseCase {
 	return &refreshTokenUseCase{
 		userRepo:      userRepo,
+		sessionRepo:   sessionRepo,
 		authSvc:       authSvc,
 		accessManager: accessManager,
 		clock:         clock,
@@ -56,19 +59,19 @@ func (uc *refreshTokenUseCase) Execute(ctx context.Context, cmd RefreshTokenComm
 	}
 
 	// 3. Access Manager Coordination
-	accessToken, accessExpiry, err := uc.accessManager.GrantImmediateAccess(user, session.ID(), now)
+	accessToken, accessExpiry, err := uc.accessManager.GrantImmediateAccess(ctx, user, session.ID(), now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	// 4. Atomic Persistence
-	if err := uc.userRepo.Save(ctx, user); err != nil {
-		logger.Error("database_save_failed", slog.Any("error", err))
+	// 4. Persistence
+	if err := uc.sessionRepo.Save(ctx, session); err != nil {
+		logger.Error("session_save_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
+	uc.dispatcher.Dispatch(ctx, session.CollectEvents())
 
 	logger.Info("refresh_token_success",
 		slog.String("user_id", user.ID().String()),

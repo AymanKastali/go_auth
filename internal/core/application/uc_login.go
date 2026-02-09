@@ -9,6 +9,7 @@ import (
 // --- Login Use Case ---
 type loginUseCase struct {
 	userRepo      domain.IUserRepository
+	sessionRepo   domain.ISessionRepository
 	authSvc       domain.IAuthenticationService
 	accessManager domain.IAccessManager
 	clock         domain.IClock
@@ -17,6 +18,7 @@ type loginUseCase struct {
 
 func NewLoginUseCase(
 	userRepo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
 	authSvc domain.IAuthenticationService,
 	accessManager domain.IAccessManager,
 	clock domain.IClock,
@@ -24,6 +26,7 @@ func NewLoginUseCase(
 ) ILoginUseCase {
 	return &loginUseCase{
 		userRepo:      userRepo,
+		sessionRepo:   sessionRepo,
 		authSvc:       authSvc,
 		accessManager: accessManager,
 		clock:         clock,
@@ -72,19 +75,19 @@ func (uc *loginUseCase) Execute(ctx context.Context, cmd LoginCommand) (LoginRes
 	}
 
 	// 4. Grant Access (Domain Service)
-	accessToken, accessExpiry, err := uc.accessManager.GrantImmediateAccess(user, session.ID(), now)
+	accessToken, accessExpiry, err := uc.accessManager.GrantImmediateAccess(ctx, user, session.ID(), now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
 	// 5. Persistence
-	if err := uc.userRepo.Save(ctx, user); err != nil {
-		logger.Error("database_save_failed", slog.Any("error", err))
+	if err := uc.sessionRepo.Save(ctx, session); err != nil {
+		logger.Error("session_save_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
+	uc.dispatcher.Dispatch(ctx, session.CollectEvents())
 
 	logger.Info("login_success", slog.String("user_id", user.ID().String()))
 

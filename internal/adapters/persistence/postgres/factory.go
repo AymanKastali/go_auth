@@ -33,6 +33,14 @@ func (f *PersistenceFactory) NewUserRepository() domain.IUserRepository {
 	return NewPostgresUserRepository(f.db)
 }
 
+func (f *PersistenceFactory) NewSessionRepository() domain.ISessionRepository {
+	return NewPostgresSessionRepository(f.db)
+}
+
+func (f *PersistenceFactory) NewRoleRepository() domain.IRoleRepository {
+	return NewPostgresRoleRepository(f.db)
+}
+
 func (f *PersistenceFactory) NewRecoveryTokenRepository() domain.IRecoveryTokenRepository {
 	return NewPostgresRecoveryTokenRepository(f.db)
 }

@@ -6,6 +6,7 @@ RUN go mod download
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 COPY ./docs ./docs
+COPY ./config ./config
 ARG VERSION=dev
 RUN go build -ldflags="-s -w -X main.version=${VERSION}" -o /main ./cmd/auth/
 
@@ -14,5 +15,6 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /
 COPY --from=builder /main /main
+COPY --from=builder /app/config /config
 EXPOSE 8080
 ENTRYPOINT ["/main"]

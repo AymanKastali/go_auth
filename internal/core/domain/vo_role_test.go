@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRole(t *testing.T) {
+func TestNewRoleName(t *testing.T) {
 	validRoles := []struct {
 		input    string
-		expected Role
+		expected RoleName
 	}{
 		{"super_admin", RoleSuperAdmin},
 		{"admin", RoleAdmin},
@@ -23,30 +23,30 @@ func TestNewRole(t *testing.T) {
 	}
 	for _, tt := range validRoles {
 		t.Run("valid_"+tt.input, func(t *testing.T) {
-			role, err := NewRole(tt.input)
+			role, err := NewRoleName(tt.input)
 			require.NoError(t, err)
 			assert.True(t, role.Equal(tt.expected))
 		})
 	}
 
 	t.Run("case_insensitive", func(t *testing.T) {
-		role, err := NewRole("  ADMIN  ")
+		role, err := NewRoleName("  ADMIN  ")
 		require.NoError(t, err)
 		assert.True(t, role.Equal(RoleAdmin))
 	})
 
 	t.Run("unrecognized", func(t *testing.T) {
-		_, err := NewRole("wizard")
+		_, err := NewRoleName("wizard")
 		assert.ErrorIs(t, err, ErrRoleNotRecognized)
 	})
 }
 
-func TestRole_Equal(t *testing.T) {
+func TestRoleName_Equal(t *testing.T) {
 	assert.True(t, RoleMember.Equal(RoleMember))
 	assert.False(t, RoleMember.Equal(RoleAdmin))
 }
 
-func TestRole_Name(t *testing.T) {
+func TestRoleName_Name(t *testing.T) {
 	assert.Equal(t, "super_admin", RoleSuperAdmin.Name())
 	assert.Equal(t, "member", RoleMember.Name())
 }

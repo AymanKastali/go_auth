@@ -21,6 +21,7 @@ func NewPostgresUserQueryAdapter(db *gorm.DB) application.IUserQueryPort {
 func (q *postgresUserQueryAdapter) FindByID(ctx context.Context, id string) (application.UserReadModel, error) {
 	var model UserModel
 	err := getDB(q.db, ctx).
+		Preload("UserRoles").
 		Where("id = ?", id).
 		First(&model).Error
 
@@ -37,6 +38,7 @@ func (q *postgresUserQueryAdapter) FindByID(ctx context.Context, id string) (app
 func (q *postgresUserQueryAdapter) FindByEmail(ctx context.Context, email string) (application.UserReadModel, error) {
 	var model UserModel
 	err := getDB(q.db, ctx).
+		Preload("UserRoles").
 		Where("email = ?", email).
 		First(&model).Error
 
@@ -51,11 +53,16 @@ func (q *postgresUserQueryAdapter) FindByEmail(ctx context.Context, email string
 }
 
 func toUserReadModel(m UserModel) application.UserReadModel {
+	roles := make([]string, len(m.UserRoles))
+	for i, ur := range m.UserRoles {
+		roles[i] = ur.RoleName
+	}
+
 	return application.UserReadModel{
 		ID:           m.ID,
 		Email:        m.Email,
 		IsActive:     m.IsActive,
-		Roles:        m.Roles,
+		Roles:        roles,
 		RegisteredAt: m.RegisteredAt,
 		UpdatedAt:    m.UpdatedAt,
 	}

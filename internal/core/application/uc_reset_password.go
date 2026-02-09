@@ -9,6 +9,7 @@ import (
 // Reset Password
 type resetPasswordUseCase struct {
 	userRepo     domain.IUserRepository
+	sessionRepo  domain.ISessionRepository
 	recoveryRepo domain.IRecoveryTokenRepository
 	tokenSvc     domain.ITokenService
 	accountMgr   domain.IUserAccountManager
@@ -19,6 +20,7 @@ type resetPasswordUseCase struct {
 
 func NewResetPasswordUseCase(
 	userRepo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
 	recoveryRepo domain.IRecoveryTokenRepository,
 	tokenSvc domain.ITokenService,
 	accountMgr domain.IUserAccountManager,
@@ -28,6 +30,7 @@ func NewResetPasswordUseCase(
 ) IResetPasswordUseCase {
 	return &resetPasswordUseCase{
 		userRepo:     userRepo,
+		sessionRepo:  sessionRepo,
 		recoveryRepo: recoveryRepo,
 		tokenSvc:     tokenSvc,
 		accountMgr:   accountMgr,
@@ -86,7 +89,7 @@ func (uc *resetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCo
 			return domain.ErrUserNotFound
 		}
 
-		// 3c. Domain logic (stateless)
+		// 3c. Domain logic
 		if err := uc.accountMgr.ResetPasswordByToken(user, recovery, rawPassword, now); err != nil {
 			return err
 		}
@@ -95,7 +98,12 @@ func (uc *resetPasswordUseCase) Execute(ctx context.Context, cmd ResetPasswordCo
 		if err := uc.userRepo.Save(txCtx, user); err != nil {
 			return err
 		}
-		return uc.recoveryRepo.Save(txCtx, recovery)
+		if err := uc.recoveryRepo.Save(txCtx, recovery); err != nil {
+			return err
+		}
+
+		// 3e. Revoke all sessions for security
+		return uc.sessionRepo.RevokeAllForUser(txCtx, user.ID(), now)
 	})
 	if err != nil {
 		logger.Warn("reset_password_failed", slog.Any("error", err))

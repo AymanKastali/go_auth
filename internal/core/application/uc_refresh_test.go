@@ -17,15 +17,13 @@ func TestRefreshTokenUseCase(t *testing.T) {
 	}
 
 	accessTok, _ := domain.NewAccessToken("access-tok")
-	sess := domain.ReconstituteSession(
-		testSessionID(), domain.ReconstituteHashedToken("h"),
-		testDeviceIdentity(), appTestFuture, appTestNow, false,
-	)
+	sess := testActiveSession()
 
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		uc := NewRefreshTokenUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
 			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
@@ -41,6 +39,7 @@ func TestRefreshTokenUseCase(t *testing.T) {
 	t.Run("invalid_token", func(t *testing.T) {
 		uc := NewRefreshTokenUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -54,6 +53,7 @@ func TestRefreshTokenUseCase(t *testing.T) {
 	t.Run("invalid_fingerprint", func(t *testing.T) {
 		uc := NewRefreshTokenUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -67,6 +67,7 @@ func TestRefreshTokenUseCase(t *testing.T) {
 	t.Run("refresh_fails_hijack", func(t *testing.T) {
 		uc := NewRefreshTokenUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{refreshErr: domain.ErrSessionFingerprintMiss},
 			&mockAccessManager{},
 			&stubClock{now: appTestNow},
@@ -81,6 +82,7 @@ func TestRefreshTokenUseCase(t *testing.T) {
 		user := testActiveUser()
 		uc := NewRefreshTokenUseCase(
 			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
 			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
 			&mockAccessManager{grantErr: errTest},
 			&stubClock{now: appTestNow},
@@ -91,10 +93,11 @@ func TestRefreshTokenUseCase(t *testing.T) {
 		assert.ErrorIs(t, err, errTest)
 	})
 
-	t.Run("save_fails", func(t *testing.T) {
+	t.Run("session_save_fails", func(t *testing.T) {
 		user := testActiveUser()
 		uc := NewRefreshTokenUseCase(
-			&stubAppUserRepository{saveErr: errTest},
+			&stubAppUserRepository{},
+			&stubAppSessionRepository{saveErr: errTest},
 			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
 			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
