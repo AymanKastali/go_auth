@@ -2,11 +2,12 @@ package main
 
 import (
 	"go_auth/internal/adapters"
-	"go_auth/internal/adapters/persistence/postgres"
-	"go_auth/internal/core/domain"
+	"go_auth/internal/adapters/outbound"
+	"go_auth/internal/adapters/outbound/postgres"
+	"go_auth/internal/domain"
 )
 
-type domainServices struct {
+type domainLayer struct {
 	idGen             domain.IIDGenerator
 	passwordManager   domain.IPasswordManager
 	registerPolicy    domain.IRegisterPolicy
@@ -25,11 +26,11 @@ type domainServices struct {
 	roleRepo          domain.IRoleRepository
 }
 
-func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainServices {
-	idGen := adapters.NewUUIDV7Generator()
-	passwordSvc := adapters.NewPasswordService(cfg.Password.BcryptCost)
-	tokenSvc := adapters.NewTokenService()
-	accessSvc := adapters.NewJWTService(
+func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
+	idGen := outbound.NewUUIDV7Generator()
+	passwordSvc := outbound.NewPasswordService(cfg.Password.BcryptCost)
+	tokenSvc := outbound.NewTokenService()
+	accessSvc := outbound.NewJWTService(
 		cfg.JWT.Secret,
 		cfg.JWT.Issuer,
 		cfg.JWT.Audience,
@@ -86,9 +87,9 @@ func newDomainServices(cfg *adapters.Config, pf *postgres.PersistenceFactory) do
 		recoveryPolicy,
 	)
 
-	clock := adapters.NewClock()
+	clock := outbound.NewClock()
 
-	return domainServices{
+	return domainLayer{
 		userRepo:          userRepo,
 		sessionRepo:       sessionRepo,
 		passwordManager:   passwordManager,

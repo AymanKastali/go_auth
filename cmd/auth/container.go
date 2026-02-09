@@ -4,21 +4,19 @@ import (
 	"log/slog"
 
 	"go_auth/internal/adapters"
-	"go_auth/internal/adapters/persistence/postgres"
 
 	"github.com/gofiber/fiber/v3"
 )
 
 type container struct {
-	config      *adapters.Config
-	logger      *slog.Logger
-	persistence *postgres.PersistenceFactory
+	config *adapters.Config
+	logger *slog.Logger
 
-	domain   domainServices
-	appInfra applicationInfra
-	uc       useCases
-	handlers handlers
-	app      *fiber.App
+	outbound    outboundAdapters
+	domain      domainLayer
+	application applicationLayer
+	inbound     inboundAdapters
+	app         *fiber.App
 }
 
 func newContainer() (*container, error) {
@@ -31,13 +29,12 @@ func newContainer() (*container, error) {
 	c.config = cfg
 
 	c.logger = setupLogger(c.config.App.LogLevel)
-	c.persistence = setupDatabase(c.config.Database.URL)
-	c.domain = newDomainServices(c.config, c.persistence)
-	c.appInfra = newApplicationInfra(c.config, c.persistence, c.logger)
-	c.uc = newUseCases(c.domain, c.appInfra, c.config)
-	c.handlers = newHandlers(c.uc)
+	c.outbound = newOutboundAdapters(c.config, c.logger)
+	c.domain = newDomainLayer(c.config, c.outbound.persistence)
+	c.application = newApplicationLayer(c.domain, c.outbound, c.config)
+	c.inbound = newInboundAdapters(c.application)
 
-	c.app, c.handlers = newApp(c.config.App, c.handlers, c.logger)
+	c.app = newApp(c.config.App, c.inbound.fiber, c.logger)
 
 	return c, nil
 }

@@ -1,35 +1,12 @@
 package main
 
 import (
-	"log/slog"
-
 	"go_auth/internal/adapters"
-	"go_auth/internal/adapters/persistence/postgres"
-	"go_auth/internal/core/application"
-	"go_auth/internal/core/domain"
+	"go_auth/internal/application"
+	"go_auth/internal/domain"
 )
 
-// applicationInfra holds adapter implementations of application-layer ports
-// (e.g. email, transactions). These are NOT domain services.
-type applicationInfra struct {
-	emailSvc   application.IEmailService
-	txManager  application.ITransactionManager
-	dispatcher application.IEventDispatcher
-	userQuery  application.IUserQueryPort
-	seedLoader application.IRoleSeedLoader
-}
-
-func newApplicationInfra(cfg *adapters.Config, pf *postgres.PersistenceFactory, logger *slog.Logger) applicationInfra {
-	return applicationInfra{
-		emailSvc:   adapters.NewEmailService(cfg.Email),
-		txManager:  pf.NewTransactionManager(),
-		dispatcher: adapters.NewLoggingEventDispatcher(logger),
-		userQuery:  pf.NewUserQueryAdapter(),
-		seedLoader: adapters.NewYAMLRoleSeedLoader(cfg.Seed.RolesFilePath),
-	}
-}
-
-type useCases struct {
+type applicationLayer struct {
 	// auth
 	seedSA   application.ISeedSuperAdminUseCase
 	register application.IRegisterUseCase
@@ -54,15 +31,15 @@ type useCases struct {
 	publicPolicies application.IGetPublicPoliciesUseCase
 }
 
-func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config) useCases {
-	return useCases{
+func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Config) applicationLayer {
+	return applicationLayer{
 		register: application.NewRegisterUseCase(
 			d.userRepo,
 			d.registrationSvc,
 			d.passwordManager,
 			d.idGen,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		seedSA: application.NewSeedSuperAdminUseCase(
 			d.userRepo,
@@ -70,7 +47,7 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.passwordManager,
 			d.idGen,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		login: application.NewLoginUseCase(
 			d.userRepo,
@@ -78,7 +55,7 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		refresh: application.NewRefreshTokenUseCase(
 			d.userRepo,
@@ -86,36 +63,36 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.authenticationSvc,
 			d.accessManager,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		validate: application.NewValidateAccessUseCase(
 			d.accessManager,
 			d.clock,
 		),
 		logout: application.NewLogoutUseCase(
-			d.sessionRepo, d.clock, infra.dispatcher,
+			d.sessionRepo, d.clock, out.dispatcher,
 		),
 
 		// user
-		findByEmail: application.NewFindUserByEmailUseCase(infra.userQuery),
-		getByID:     application.NewGetUserByIDUseCase(infra.userQuery),
-		getMe:       application.NewGetMeUseCase(infra.userQuery),
-		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock, infra.dispatcher),
+		findByEmail: application.NewFindUserByEmailUseCase(out.userQuery),
+		getByID:     application.NewGetUserByIDUseCase(out.userQuery),
+		getMe:       application.NewGetMeUseCase(out.userQuery),
+		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock, out.dispatcher),
 		forgotPassword: application.NewForgotPasswordUseCase(
 			d.userRepo,
 			d.recoveryRepo,
 			d.accountManager,
-			infra.emailSvc,
-			infra.txManager,
+			out.emailSvc,
+			out.txManager,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		changePassword: application.NewChangePasswordUseCase(
 			d.userRepo,
 			d.sessionRepo,
 			d.accountManager,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 		resetPassword: application.NewResetPasswordUseCase(
 			d.userRepo,
@@ -123,9 +100,9 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.recoveryRepo,
 			d.tokenSvc,
 			d.accountManager,
-			infra.txManager,
+			out.txManager,
 			d.clock,
-			infra.dispatcher,
+			out.dispatcher,
 		),
 
 		// seeding
@@ -133,8 +110,8 @@ func newUseCases(d domainServices, infra applicationInfra, cfg *adapters.Config)
 			d.roleRepo,
 			d.idGen,
 			d.clock,
-			infra.dispatcher,
-			infra.seedLoader,
+			out.dispatcher,
+			out.seedLoader,
 		),
 
 		// policies

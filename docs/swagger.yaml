@@ -1,6 +1,6 @@
 basePath: /
 definitions:
-  internal_adapters_http_fiberapp.ChangePasswordRequest:
+  internal_adapters_inbound_fiberapp.ChangePasswordRequest:
     properties:
       new_password:
         type: string
@@ -10,7 +10,7 @@ definitions:
     - new_password
     - old_password
     type: object
-  internal_adapters_http_fiberapp.ErrorResponse:
+  internal_adapters_inbound_fiberapp.ErrorResponse:
     properties:
       code:
         example: VALIDATION
@@ -25,7 +25,7 @@ definitions:
         example: req-12345
         type: string
     type: object
-  internal_adapters_http_fiberapp.LoginRequest:
+  internal_adapters_inbound_fiberapp.LoginRequest:
     properties:
       email:
         type: string
@@ -35,7 +35,7 @@ definitions:
     - email
     - password
     type: object
-  internal_adapters_http_fiberapp.LoginResponse:
+  internal_adapters_inbound_fiberapp.LoginResponse:
     properties:
       access_exp:
         type: string
@@ -46,7 +46,7 @@ definitions:
       refresh_token:
         type: string
     type: object
-  internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse:
+  internal_adapters_inbound_fiberapp.PasswordPolicyHTTPResponse:
     properties:
       max_length:
         example: 64
@@ -64,21 +64,21 @@ definitions:
         example: true
         type: boolean
     type: object
-  internal_adapters_http_fiberapp.PolicyHTTPResponse:
+  internal_adapters_inbound_fiberapp.PolicyHTTPResponse:
     properties:
       password:
-        $ref: '#/definitions/internal_adapters_http_fiberapp.PasswordPolicyHTTPResponse'
+        $ref: '#/definitions/internal_adapters_inbound_fiberapp.PasswordPolicyHTTPResponse'
       registration:
-        $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse'
+        $ref: '#/definitions/internal_adapters_inbound_fiberapp.RegisterPolicyHTTPResponse'
     type: object
-  internal_adapters_http_fiberapp.RefreshRequest:
+  internal_adapters_inbound_fiberapp.RefreshRequest:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
     type: object
-  internal_adapters_http_fiberapp.RegisterPolicyHTTPResponse:
+  internal_adapters_inbound_fiberapp.RegisterPolicyHTTPResponse:
     properties:
       allow_public:
         example: true
@@ -88,7 +88,7 @@ definitions:
           type: string
         type: array
     type: object
-  internal_adapters_http_fiberapp.RegisterRequest:
+  internal_adapters_inbound_fiberapp.RegisterRequest:
     properties:
       email:
         type: string
@@ -98,28 +98,28 @@ definitions:
     - email
     - password
     type: object
-  internal_adapters_http_fiberapp.RegisterUserResponse:
+  internal_adapters_inbound_fiberapp.RegisterUserResponse:
     properties:
       email:
         type: string
       id:
         type: string
     type: object
-  internal_adapters_http_fiberapp.SuccessResponse:
+  internal_adapters_inbound_fiberapp.SuccessResponse:
     properties:
       data: {}
       message:
         example: humanized success message
         type: string
     type: object
-  internal_adapters_http_fiberapp.UpdateMeRequest:
+  internal_adapters_inbound_fiberapp.UpdateMeRequest:
     properties:
       email:
         type: string
     required:
     - email
     type: object
-  internal_adapters_http_fiberapp.UserResponse:
+  internal_adapters_inbound_fiberapp.UserResponse:
     properties:
       email:
         type: string
@@ -154,7 +154,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_fiberapp.LoginRequest'
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.LoginRequest'
       produces:
       - application/json
       responses:
@@ -162,15 +162,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.LoginResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: User Login
       tags:
       - Auth
@@ -183,7 +183,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Logout
@@ -200,7 +200,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_fiberapp.RefreshRequest'
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.RefreshRequest'
       produces:
       - application/json
       responses:
@@ -208,15 +208,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.LoginResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.LoginResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: Refresh Access Token
       tags:
       - Auth
@@ -231,7 +231,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterRequest'
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -239,15 +239,15 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.RegisterUserResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.RegisterUserResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: Register a new user
       tags:
       - Auth
@@ -261,15 +261,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.PolicyHTTPResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.PolicyHTTPResponse'
               type: object
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: Get public policies
       tags:
       - Policies
@@ -291,19 +291,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.UserResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Find user by email
@@ -327,19 +327,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.UserResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get user by ID
@@ -357,15 +357,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_adapters_http_fiberapp.UserResponse'
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.UserResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get current user
@@ -381,18 +381,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_fiberapp.UpdateMeRequest'
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.UpdateMeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.SuccessResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update Current User Profile
@@ -409,7 +409,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_adapters_http_fiberapp.ChangePasswordRequest'
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.ChangePasswordRequest'
       produces:
       - application/json
       responses:
@@ -418,7 +418,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_adapters_http_fiberapp.ErrorResponse'
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Change Password
