@@ -39,6 +39,24 @@ func (e UserActivated) EventName() string    { return "UserActivated" }
 func (e UserActivated) OccurredAt() Timepoint { return e.occurredAt }
 func (e UserActivated) AggregateID() string   { return e.aggregateID }
 
+// --- UserDeactivated ---
+
+type UserDeactivated struct {
+	occurredAt  Timepoint
+	aggregateID string
+}
+
+func NewUserDeactivated(userID UserID, now Timepoint) UserDeactivated {
+	return UserDeactivated{
+		occurredAt:  now,
+		aggregateID: userID.String(),
+	}
+}
+
+func (e UserDeactivated) EventName() string    { return "UserDeactivated" }
+func (e UserDeactivated) OccurredAt() Timepoint { return e.occurredAt }
+func (e UserDeactivated) AggregateID() string   { return e.aggregateID }
+
 // --- RoleAssigned ---
 
 type RoleAssigned struct {

@@ -10,6 +10,13 @@ definitions:
     - new_password
     - old_password
     type: object
+  internal_adapters_inbound_fiberapp.ConfirmActivationRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
   internal_adapters_inbound_fiberapp.ErrorResponse:
     properties:
       code:
@@ -105,6 +112,13 @@ definitions:
       id:
         type: string
     type: object
+  internal_adapters_inbound_fiberapp.ResendActivationRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   internal_adapters_inbound_fiberapp.SuccessResponse:
     properties:
       data: {}
@@ -143,6 +157,36 @@ info:
   title: Auth Service API
   version: "1.0"
 paths:
+  /api/v1/auth/activate:
+    post:
+      consumes:
+      - application/json
+      description: Activate a user account using the activation token
+      parameters:
+      - description: Activation Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.ConfirmActivationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      summary: Confirm account activation
+      tags:
+      - Auth
   /api/v1/auth/login:
     post:
       consumes:
@@ -249,6 +293,32 @@ paths:
           schema:
             $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: Register a new user
+      tags:
+      - Auth
+  /api/v1/auth/resend-activation:
+    post:
+      consumes:
+      - application/json
+      description: Resend the activation email to the user
+      parameters:
+      - description: Email Address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.ResendActivationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      summary: Resend activation email
       tags:
       - Auth
   /api/v1/policies:
@@ -424,6 +494,36 @@ paths:
       summary: Change Password
       tags:
       - Users
+  /health:
+    get:
+      description: Returns 200 if the service is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+      summary: Liveness check
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Returns 200 if the service is ready to accept traffic, 503 if not
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      summary: Readiness check
+      tags:
+      - Health
 securityDefinitions:
   ApiKeyAuth:
     in: header

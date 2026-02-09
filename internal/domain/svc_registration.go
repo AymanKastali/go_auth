@@ -22,17 +22,20 @@ type IRegistrationService interface {
 }
 
 type registrationService struct {
-	userRepo       IUserRepository
-	registerPolicy IRegisterPolicy
+	userRepo         IUserRepository
+	registerPolicy   IRegisterPolicy
+	activationPolicy IActivationPolicy
 }
 
 func NewRegistrationService(
 	userRepo IUserRepository,
 	registerPolicy IRegisterPolicy,
+	activationPolicy IActivationPolicy,
 ) *registrationService {
 	return &registrationService{
-		userRepo:       userRepo,
-		registerPolicy: registerPolicy,
+		userRepo:         userRepo,
+		registerPolicy:   registerPolicy,
+		activationPolicy: activationPolicy,
 	}
 }
 
@@ -62,6 +65,12 @@ func (s *registrationService) RegisterNewMember(
 
 	if err := user.AssignRole(RoleMember, now); err != nil {
 		return nil, err
+	}
+
+	if s.activationPolicy.RequiresEmailActivation() {
+		if err := user.Deactivate(now); err != nil {
+			return nil, err
+		}
 	}
 
 	return user, nil

@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"context"
+
 	"go_auth/internal/application"
 	"go_auth/internal/domain"
 
@@ -45,12 +47,24 @@ func (f *PersistenceFactory) NewRecoveryTokenRepository() domain.IRecoveryTokenR
 	return NewPostgresRecoveryTokenRepository(f.db)
 }
 
+func (f *PersistenceFactory) NewActivationTokenRepository() domain.IActivationTokenRepository {
+	return NewPostgresActivationTokenRepository(f.db)
+}
+
 func (f *PersistenceFactory) NewUserQueryAdapter() application.IUserQueryPort {
 	return NewPostgresUserQueryAdapter(f.db)
 }
 
 func (f *PersistenceFactory) NewTransactionManager() application.ITransactionManager {
 	return NewTransactionManager(f.db)
+}
+
+func (f *PersistenceFactory) Ping(ctx context.Context) error {
+	sqlDB, err := f.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
 }
 
 func (f *PersistenceFactory) Close() error {

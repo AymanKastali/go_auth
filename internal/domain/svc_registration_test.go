@@ -18,7 +18,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		repo := &stubUserRepository{findByEmailResult: nil}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		user, err := svc.RegisterNewMember(ctx, uid, email, hash, testNow)
 		require.NoError(t, err)
@@ -34,7 +34,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 	t.Run("policy_rejects", func(t *testing.T) {
 		repo := &stubUserRepository{}
 		policy := &stubRegisterPolicy{err: ErrRegistrationDisabled}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		_, err := svc.RegisterNewMember(ctx, uid, email, hash, testNow)
 		assert.ErrorIs(t, err, ErrRegistrationDisabled)
@@ -43,7 +43,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 	t.Run("email_taken", func(t *testing.T) {
 		repo := &stubUserRepository{findByEmailResult: newActiveUser()}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		_, err := svc.RegisterNewMember(ctx, uid, email, hash, testNow)
 		assert.ErrorIs(t, err, ErrUserEmailTaken)
@@ -53,7 +53,7 @@ func TestRegistrationService_RegisterNewMember(t *testing.T) {
 		repoErr := errors.New("db down")
 		repo := &stubUserRepository{findByEmailErr: repoErr}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		_, err := svc.RegisterNewMember(ctx, uid, email, hash, testNow)
 		assert.ErrorIs(t, err, repoErr)
@@ -69,7 +69,7 @@ func TestRegistrationService_RegisterNewSuperAdmin(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		repo := &stubUserRepository{findByEmailResult: nil}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		user, err := svc.RegisterNewSuperAdmin(ctx, uid, email, hash, testNow)
 		require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestRegistrationService_RegisterNewSuperAdmin(t *testing.T) {
 	t.Run("email_taken", func(t *testing.T) {
 		repo := &stubUserRepository{findByEmailResult: newActiveUser()}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegistrationService(repo, policy)
+		svc := NewRegistrationService(repo, policy, &stubActivationPolicy{})
 
 		_, err := svc.RegisterNewSuperAdmin(ctx, uid, email, hash, testNow)
 		assert.ErrorIs(t, err, ErrUserEmailTaken)

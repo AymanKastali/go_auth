@@ -167,6 +167,9 @@ func (s *stubIDGenerator) GenerateSessionID() (SessionID, error) {
 func (s *stubIDGenerator) GenerateRecoveryTokenID() (RecoveryTokenID, error) {
 	return s.recoveryID, s.recoveryIDErr
 }
+func (s *stubIDGenerator) GenerateActivationTokenID() (ActivationTokenID, error) {
+	return ReconstituteActivationTokenID("act-001"), nil
+}
 func (s *stubIDGenerator) GenerateRoleID() (RoleID, error) {
 	return s.roleID, s.roleIDErr
 }
@@ -196,6 +199,12 @@ func (s *stubTokenService) CompareSession(_ RawToken, _ HashedToken) bool {
 }
 func (s *stubTokenService) CompareRecovery(_ RawToken, _ RecoveryTokenHash) bool {
 	return s.compareRecOut
+}
+func (s *stubTokenService) HashActivationToken(_ RawToken) (ActivationTokenHash, error) {
+	return ReconstituteActivationTokenHash("hashed-activation"), nil
+}
+func (s *stubTokenService) CompareActivation(_ RawToken, _ ActivationTokenHash) bool {
+	return false
 }
 
 type stubAccessService struct {
@@ -322,3 +331,11 @@ type stubRecoveryPolicy struct {
 }
 
 func (p *stubRecoveryPolicy) GetRecoveryTokenLifetime() time.Duration { return p.lifetime }
+
+type stubActivationPolicy struct {
+	requireEmail  bool
+	tokenLifetime time.Duration
+}
+
+func (p *stubActivationPolicy) RequiresEmailActivation() bool       { return p.requireEmail }
+func (p *stubActivationPolicy) GetActivationTokenLifetime() time.Duration { return p.tokenLifetime }

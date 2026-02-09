@@ -44,6 +44,7 @@ type fiberHandlers struct {
 	auth      *fiberapp.AuthHandler
 	user      *fiberapp.UserHandler
 	policy    *fiberapp.PolicyHandler
+	health    *fiberapp.HealthHandler
 	authGuard fiber.Handler
 }
 
@@ -52,7 +53,7 @@ type inboundAdapters struct {
 	fiber fiberHandlers
 }
 
-func newInboundAdapters(uc applicationLayer) inboundAdapters {
+func newInboundAdapters(uc applicationLayer, out outboundAdapters) inboundAdapters {
 	validate := fiberapp.NewValidator()
 
 	return inboundAdapters{
@@ -66,6 +67,8 @@ func newInboundAdapters(uc applicationLayer) inboundAdapters {
 				uc.validate,
 				uc.forgotPassword,
 				uc.resetPassword,
+				uc.confirmActivation,
+				uc.resendActivation,
 			),
 			user: fiberapp.NewUserHandler(
 				validate,
@@ -76,6 +79,7 @@ func newInboundAdapters(uc applicationLayer) inboundAdapters {
 				uc.changePassword,
 			),
 			policy:    fiberapp.NewPolicyHandler(uc.publicPolicies),
+			health:    fiberapp.NewHealthHandler(out.persistence),
 			authGuard: fiberapp.Protected(uc.validate),
 		},
 	}
@@ -98,6 +102,7 @@ func newApp(
 		h.auth,
 		h.user,
 		h.policy,
+		h.health,
 		h.authGuard,
 	)
 	return app

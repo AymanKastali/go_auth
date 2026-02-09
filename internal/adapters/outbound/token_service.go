@@ -48,6 +48,18 @@ func (s *tokenService) CompareRecovery(raw domain.RawToken, hashed domain.Recove
 	return s.secureCompare(actualHash, hashed.String())
 }
 
+// --- Activation Context ---
+
+func (s *tokenService) HashActivationToken(raw domain.RawToken) (domain.ActivationTokenHash, error) {
+	hash := s.computeHash(raw)
+	return domain.NewActivationTokenHash(hash)
+}
+
+func (s *tokenService) CompareActivation(raw domain.RawToken, hashed domain.ActivationTokenHash) bool {
+	actualHash := s.computeHash(raw)
+	return s.secureCompare(actualHash, hashed.String())
+}
+
 // --- Private Helpers (DRY the technical implementation) ---
 
 func (s *tokenService) computeHash(raw domain.RawToken) string {

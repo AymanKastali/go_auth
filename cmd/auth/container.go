@@ -32,7 +32,7 @@ func newContainer() (*container, error) {
 	c.outbound = newOutboundAdapters(c.config, c.logger)
 	c.domain = newDomainLayer(c.config, c.outbound.persistence)
 	c.application = newApplicationLayer(c.domain, c.outbound, c.config)
-	c.inbound = newInboundAdapters(c.application)
+	c.inbound = newInboundAdapters(c.application, c.outbound)
 
 	c.app = newApp(c.config.App, c.inbound.fiber, c.logger)
 

@@ -121,3 +121,13 @@ type PublicPoliciesResponse struct {
 	Password     PasswordPolicyDTO
 	Registration RegisterPolicyDTO
 }
+
+// ConfirmActivationCommand
+type ConfirmActivationCommand struct {
+	Token string
+}
+
+// ResendActivationCommand
+type ResendActivationCommand struct {
+	Email string
+}

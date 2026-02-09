@@ -145,6 +145,12 @@ func (m *mockAccountManager) ChangePassword(_ *domain.User, _ domain.RawPassword
 func (m *mockAccountManager) ResetPasswordByToken(_ *domain.User, _ *domain.RecoveryToken, _ domain.RawPassword, _ domain.Timepoint) error {
 	return m.resetErr
 }
+func (m *mockAccountManager) InitiateActivation(_ *domain.User, _ domain.Timepoint) (domain.RawToken, *domain.ActivationToken, error) {
+	return domain.RawToken{}, nil, nil
+}
+func (m *mockAccountManager) ConfirmActivation(_ *domain.User, _ *domain.ActivationToken, _ domain.Timepoint) error {
+	return nil
+}
 
 type mockTokenService struct {
 	hashRecoveryOut domain.RecoveryTokenHash
@@ -164,6 +170,12 @@ func (m *mockTokenService) CompareSession(_ domain.RawToken, _ domain.HashedToke
 	return false
 }
 func (m *mockTokenService) CompareRecovery(_ domain.RawToken, _ domain.RecoveryTokenHash) bool {
+	return false
+}
+func (m *mockTokenService) HashActivationToken(_ domain.RawToken) (domain.ActivationTokenHash, error) {
+	return domain.ActivationTokenHash{}, nil
+}
+func (m *mockTokenService) CompareActivation(_ domain.RawToken, _ domain.ActivationTokenHash) bool {
 	return false
 }
 
@@ -209,6 +221,9 @@ func (m *mockEmailService) SendResetLink(toEmail, rawToken string) error {
 	m.sentToken = rawToken
 	return m.err
 }
+func (m *mockEmailService) SendActivationLink(toEmail, rawToken string) error {
+	return m.err
+}
 
 // ---------------------------------------------------------------
 // Infrastructure stubs
@@ -233,6 +248,9 @@ func (g *stubAppIDGenerator) GenerateSessionID() (domain.SessionID, error) {
 }
 func (g *stubAppIDGenerator) GenerateRecoveryTokenID() (domain.RecoveryTokenID, error) {
 	return domain.ReconstituteRecoveryTokenID("rec-001"), nil
+}
+func (g *stubAppIDGenerator) GenerateActivationTokenID() (domain.ActivationTokenID, error) {
+	return domain.ReconstituteActivationTokenID("act-001"), nil
 }
 func (g *stubAppIDGenerator) GenerateRoleID() (domain.RoleID, error) {
 	return domain.ReconstituteRoleID("role-001"), nil

@@ -91,3 +91,8 @@ func SendUnauthorized(c fiber.Ctx, message string) error {
 func SendInternalError(c fiber.Ctx, message string) error {
 	return SendError(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message, nil)
 }
+
+// SendServiceUnavailable handles 503 errors (e.g., dependency not ready)
+func SendServiceUnavailable(c fiber.Ctx, message string) error {
+	return SendError(c, fiber.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", message, nil)
+}

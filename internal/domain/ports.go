@@ -17,6 +17,7 @@ type IIDGenerator interface {
 	GenerateUserID() (UserID, error)
 	GenerateSessionID() (SessionID, error)
 	GenerateRecoveryTokenID() (RecoveryTokenID, error)
+	GenerateActivationTokenID() (ActivationTokenID, error)
 	GenerateRoleID() (RoleID, error)
 }
 type ITokenService interface {
@@ -24,9 +25,11 @@ type ITokenService interface {
 
 	HashSessionToken(raw RawToken) (HashedToken, error)
 	HashRecoveryToken(raw RawToken) (RecoveryTokenHash, error)
+	HashActivationToken(raw RawToken) (ActivationTokenHash, error)
 
 	CompareSession(raw RawToken, hashed HashedToken) bool
 	CompareRecovery(raw RawToken, hashed RecoveryTokenHash) bool
+	CompareActivation(raw RawToken, hashed ActivationTokenHash) bool
 }
 type IAccessService interface {
 	Issue(
@@ -70,5 +73,11 @@ type IRoleRepository interface {
 type IRecoveryTokenRepository interface {
 	FindByHash(ctx context.Context, hash RecoveryTokenHash) (*RecoveryToken, error)
 	Save(ctx context.Context, token *RecoveryToken) error
+	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+}
+
+type IActivationTokenRepository interface {
+	FindByHash(ctx context.Context, hash ActivationTokenHash) (*ActivationToken, error)
+	Save(ctx context.Context, token *ActivationToken) error
 	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
 }

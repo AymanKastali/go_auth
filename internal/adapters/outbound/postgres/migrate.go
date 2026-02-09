@@ -8,6 +8,7 @@ func Migrate(db *gorm.DB) error {
 		&UserRoleModel{},
 		&SessionModel{},
 		&RecoveryTokenModel{},
+		&ActivationTokenModel{},
 		&RoleModel{},
 		&PermissionModel{},
 	)

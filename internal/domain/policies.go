@@ -14,10 +14,6 @@ type IRegisterPolicy interface {
 	Validate(email Email) error
 }
 
-type IAccessPolicy interface {
-	GetAccessLifetime() time.Duration
-}
-
 type ISessionPolicy interface {
 	GetSessionLifetime() time.Duration
 	GetMaxActiveSessions() int
@@ -147,6 +143,10 @@ func (p *sessionPolicy) GetMaxActiveSessions() int {
 	return int(p.maxActive)
 }
 
+type IAccessPolicy interface {
+	GetAccessLifetime() time.Duration
+}
+
 // AccessPolicyConfig holds the configuration for access token rules.
 type AccessPolicyConfig struct {
 	Lifetime time.Duration
@@ -185,4 +185,40 @@ func NewRecoveryPolicy(cfg RecoveryPolicyConfig) IRecoveryPolicy {
 
 func (p *recoveryPolicy) GetRecoveryTokenLifetime() time.Duration {
 	return p.lifetime
+}
+
+// IActivationPolicy defines the business rules for account activation.
+type IActivationPolicy interface {
+	RequiresEmailActivation() bool
+	GetActivationTokenLifetime() time.Duration
+}
+
+// ActivationPolicyConfig holds the configuration for activation rules.
+type ActivationPolicyConfig struct {
+	RequireEmail  bool
+	TokenLifetime time.Duration
+}
+
+type activationPolicy struct {
+	requireEmail  bool
+	tokenLifetime time.Duration
+}
+
+func NewActivationPolicy(cfg ActivationPolicyConfig) IActivationPolicy {
+	lifetime := cfg.TokenLifetime
+	if lifetime <= 0 {
+		lifetime = 24 * time.Hour // Safe default
+	}
+	return &activationPolicy{
+		requireEmail:  cfg.RequireEmail,
+		tokenLifetime: lifetime,
+	}
+}
+
+func (p *activationPolicy) RequiresEmailActivation() bool {
+	return p.requireEmail
+}
+
+func (p *activationPolicy) GetActivationTokenLifetime() time.Duration {
+	return p.tokenLifetime
 }

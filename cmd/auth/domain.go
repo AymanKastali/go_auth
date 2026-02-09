@@ -8,22 +8,24 @@ import (
 )
 
 type domainLayer struct {
-	idGen             domain.IIDGenerator
-	passwordManager   domain.IPasswordManager
-	registerPolicy    domain.IRegisterPolicy
-	sessionPolicy     domain.ISessionPolicy
-	accessPolicy      domain.IAccessPolicy
-	accessSvc         domain.IAccessService
-	clock             domain.IClock
-	tokenSvc          domain.ITokenService
-	registrationSvc   domain.IRegistrationService
-	accessManager     domain.IAccessManager
-	authenticationSvc domain.IAuthenticationService
-	accountManager    domain.IUserAccountManager
-	userRepo          domain.IUserRepository
-	sessionRepo       domain.ISessionRepository
-	recoveryRepo      domain.IRecoveryTokenRepository
-	roleRepo          domain.IRoleRepository
+	idGen              domain.IIDGenerator
+	passwordManager    domain.IPasswordManager
+	registerPolicy     domain.IRegisterPolicy
+	sessionPolicy      domain.ISessionPolicy
+	accessPolicy       domain.IAccessPolicy
+	activationPolicy   domain.IActivationPolicy
+	accessSvc          domain.IAccessService
+	clock              domain.IClock
+	tokenSvc           domain.ITokenService
+	registrationSvc    domain.IRegistrationService
+	accessManager      domain.IAccessManager
+	authenticationSvc  domain.IAuthenticationService
+	accountManager     domain.IUserAccountManager
+	userRepo           domain.IUserRepository
+	sessionRepo        domain.ISessionRepository
+	recoveryRepo       domain.IRecoveryTokenRepository
+	activationRepo     domain.IActivationTokenRepository
+	roleRepo           domain.IRoleRepository
 }
 
 func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
@@ -56,7 +58,12 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 	accessPolicy := domain.NewAccessPolicy(domain.AccessPolicyConfig{
 		Lifetime: cfg.JWT.AccessTTL,
 	})
-	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy)
+	activationPolicy := domain.NewActivationPolicy(domain.ActivationPolicyConfig{
+		RequireEmail:  cfg.Activation.RequireEmail,
+		TokenLifetime: cfg.Activation.TokenLifetime,
+	})
+	activationRepo := pf.NewActivationTokenRepository()
+	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy, activationPolicy)
 	passwordManager := domain.NewPasswordManager(
 		passwordSvc,
 		passwordPolicy,
@@ -85,26 +92,29 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 		passwordManager,
 		idGen,
 		recoveryPolicy,
+		activationPolicy,
 	)
 
 	clock := outbound.NewClock()
 
 	return domainLayer{
-		userRepo:          userRepo,
-		sessionRepo:       sessionRepo,
-		passwordManager:   passwordManager,
-		registerPolicy:    registerPolicy,
-		sessionPolicy:     sessionPolicy,
-		accessPolicy:      accessPolicy,
-		clock:             clock,
-		accessSvc:         accessSvc,
-		tokenSvc:          tokenSvc,
-		registrationSvc:   registrationSvc,
-		accessManager:     accessManager,
-		authenticationSvc: authSvc,
-		accountManager:    accountManager,
-		idGen:             idGen,
-		recoveryRepo:      recoveryRepo,
-		roleRepo:          roleRepo,
+		userRepo:           userRepo,
+		sessionRepo:        sessionRepo,
+		passwordManager:    passwordManager,
+		registerPolicy:     registerPolicy,
+		sessionPolicy:      sessionPolicy,
+		accessPolicy:       accessPolicy,
+		activationPolicy:   activationPolicy,
+		clock:              clock,
+		accessSvc:          accessSvc,
+		tokenSvc:           tokenSvc,
+		registrationSvc:    registrationSvc,
+		accessManager:      accessManager,
+		authenticationSvc:  authSvc,
+		accountManager:     accountManager,
+		idGen:              idGen,
+		recoveryRepo:       recoveryRepo,
+		activationRepo:     activationRepo,
+		roleRepo:           roleRepo,
 	}
 }

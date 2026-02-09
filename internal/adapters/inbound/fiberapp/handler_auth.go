@@ -9,14 +9,16 @@ import (
 )
 
 type AuthHandler struct {
-	validate         *validator.Validate
-	registerUC       application.IRegisterUseCase
-	loginUC          application.ILoginUseCase
-	refreshUC        application.IRefreshTokenUseCase
-	logoutUC         application.ILogoutUseCase
-	validateAccess   application.IValidateAccessUseCase
-	forgotPasswordUC application.IForgotPasswordUseCase
-	resetPassword    application.IResetPasswordUseCase
+	validate           *validator.Validate
+	registerUC         application.IRegisterUseCase
+	loginUC            application.ILoginUseCase
+	refreshUC          application.IRefreshTokenUseCase
+	logoutUC           application.ILogoutUseCase
+	validateAccess     application.IValidateAccessUseCase
+	forgotPasswordUC   application.IForgotPasswordUseCase
+	resetPassword      application.IResetPasswordUseCase
+	confirmActivationUC application.IConfirmActivationUseCase
+	resendActivationUC  application.IResendActivationUseCase
 }
 
 func NewAuthHandler(
@@ -28,17 +30,21 @@ func NewAuthHandler(
 	val application.IValidateAccessUseCase,
 	forgotPasswordUC application.IForgotPasswordUseCase,
 	resetPassword application.IResetPasswordUseCase,
+	confirmActivationUC application.IConfirmActivationUseCase,
+	resendActivationUC application.IResendActivationUseCase,
 ) *AuthHandler {
 
 	return &AuthHandler{
-		validate:         validate,
-		registerUC:       reg,
-		loginUC:          log,
-		refreshUC:        ref,
-		logoutUC:         out,
-		validateAccess:   val,
-		forgotPasswordUC: forgotPasswordUC,
-		resetPassword:    resetPassword,
+		validate:            validate,
+		registerUC:          reg,
+		loginUC:             log,
+		refreshUC:           ref,
+		logoutUC:            out,
+		validateAccess:      val,
+		forgotPasswordUC:    forgotPasswordUC,
+		resetPassword:       resetPassword,
+		confirmActivationUC: confirmActivationUC,
+		resendActivationUC:  resendActivationUC,
 	}
 
 }
@@ -263,4 +269,65 @@ func (h *AuthHandler) ResetPassword(c fiber.Ctx) error {
 	}
 
 	return SendOK(c, "Password has been reset successfully. You can now log in with your new credentials.", nil)
+}
+
+// @Summary Confirm account activation
+// @Description Activate a user account using the activation token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ConfirmActivationRequest true "Activation Token"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v1/auth/activate [post]
+func (h *AuthHandler) ConfirmActivation(c fiber.Ctx) error {
+	var req ConfirmActivationRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := h.validate.Struct(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ConfirmActivationCommand{
+		Token: req.Token,
+	}
+
+	if err := h.confirmActivationUC.Execute(c.Context(), cmd); err != nil {
+		return err
+	}
+
+	return SendOK(c, "Account has been activated successfully. You can now log in.", nil)
+}
+
+// @Summary Resend activation email
+// @Description Resend the activation email to the user
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ResendActivationRequest true "Email Address"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/auth/resend-activation [post]
+func (h *AuthHandler) ResendActivation(c fiber.Ctx) error {
+	var req ResendActivationRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return SendBadRequest(c, "invalid request body", nil)
+	}
+
+	if err := h.validate.Struct(req); err != nil {
+		return SendBadRequest(c, err.Error(), nil)
+	}
+
+	cmd := application.ResendActivationCommand{
+		Email: req.Email,
+	}
+
+	if err := h.resendActivationUC.Execute(c.Context(), cmd); err != nil {
+		return err
+	}
+
+	return SendOK(c, "If your account requires activation, a new activation link has been sent.", nil)
 }

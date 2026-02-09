@@ -24,6 +24,7 @@ func TestUserAccountManager_InitiatePasswordReset(t *testing.T) {
 				recoveryIDErr: idGenErr,
 			},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 	}
 
@@ -85,6 +86,7 @@ func TestUserAccountManager_ChangePassword(t *testing.T) {
 			},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 	}
 
@@ -135,6 +137,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 			},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 
 		newPwd, _ := NewRawPassword("NewPass1!")
@@ -154,6 +157,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 			&stubPasswordManager{},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 
 		newPwd, _ := NewRawPassword("pass")
@@ -170,6 +174,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 			&stubPasswordManager{},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 
 		newPwd, _ := NewRawPassword("pass")
@@ -187,6 +192,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 			&stubPasswordManager{},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 
 		newPwd, _ := NewRawPassword("pass")
@@ -203,6 +209,7 @@ func TestUserAccountManager_ResetPasswordByToken(t *testing.T) {
 			&stubPasswordManager{validateHashErr: ErrPasswordTooShort},
 			&stubIDGenerator{},
 			&stubRecoveryPolicy{lifetime: 15 * time.Minute},
+			&stubActivationPolicy{},
 		)
 
 		newPwd, _ := NewRawPassword("s")

@@ -8,12 +8,14 @@ import (
 
 type applicationLayer struct {
 	// auth
-	seedSA   application.ISeedSuperAdminUseCase
-	register application.IRegisterUseCase
-	login    application.ILoginUseCase
-	refresh  application.IRefreshTokenUseCase
-	logout   application.ILogoutUseCase
-	validate application.IValidateAccessUseCase
+	seedSA             application.ISeedSuperAdminUseCase
+	register           application.IRegisterUseCase
+	login              application.ILoginUseCase
+	refresh            application.IRefreshTokenUseCase
+	logout             application.ILogoutUseCase
+	validate           application.IValidateAccessUseCase
+	confirmActivation  application.IConfirmActivationUseCase
+	resendActivation   application.IResendActivationUseCase
 
 	// user
 	findByEmail    application.IFindUserByEmailUseCase
@@ -40,6 +42,9 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 			d.idGen,
 			d.clock,
 			out.dispatcher,
+			d.accountManager,
+			d.activationRepo,
+			out.emailSvc,
 		),
 		seedSA: application.NewSeedSuperAdminUseCase(
 			d.userRepo,
@@ -100,6 +105,24 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 			d.recoveryRepo,
 			d.tokenSvc,
 			d.accountManager,
+			out.txManager,
+			d.clock,
+			out.dispatcher,
+		),
+		confirmActivation: application.NewConfirmActivationUseCase(
+			d.userRepo,
+			d.activationRepo,
+			d.tokenSvc,
+			d.accountManager,
+			out.txManager,
+			d.clock,
+			out.dispatcher,
+		),
+		resendActivation: application.NewResendActivationUseCase(
+			d.userRepo,
+			d.activationRepo,
+			d.accountManager,
+			out.emailSvc,
 			out.txManager,
 			d.clock,
 			out.dispatcher,

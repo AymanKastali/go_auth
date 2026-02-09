@@ -38,12 +38,3 @@ func ReconstituteRecoveryTokenHash(v string) RecoveryTokenHash {
 }
 
 type RecoveryTokenRaw struct{ value string }
-
-func NewRecoveryTokenRaw(v string) (RecoveryTokenRaw, error) {
-	if v == "" {
-		return ZeroRecoveryTokenRaw, ErrRecoveryTokenInvalid
-	}
-	return RecoveryTokenRaw{value: v}, nil
-}
-
-func (vo RecoveryTokenRaw) String() string { return vo.value }

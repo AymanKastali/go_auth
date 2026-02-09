@@ -82,6 +82,19 @@ func (u *User) Activate(now Timepoint) error {
 	return nil
 }
 
+func (u *User) Deactivate(now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+	if !u.isActive {
+		return nil // Idempotent
+	}
+
+	u.isActive = false
+	u.RecordEvent(NewUserDeactivated(u.id, now))
+	return nil
+}
+
 func (u *User) AssignRole(role RoleName, now Timepoint) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted

@@ -14,6 +14,9 @@ type registerUseCase struct {
 	idGen           domain.IIDGenerator
 	clock           domain.IClock
 	dispatcher      IEventDispatcher
+	accountManager  domain.IUserAccountManager
+	activationRepo  domain.IActivationTokenRepository
+	emailSvc        IEmailService
 }
 
 func NewRegisterUseCase(
@@ -23,6 +26,9 @@ func NewRegisterUseCase(
 	idGen domain.IIDGenerator,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
+	accountManager domain.IUserAccountManager,
+	activationRepo domain.IActivationTokenRepository,
+	emailSvc IEmailService,
 ) IRegisterUseCase {
 	return &registerUseCase{
 		userRepo:        userRepo,
@@ -31,6 +37,9 @@ func NewRegisterUseCase(
 		idGen:           idGen,
 		clock:           clock,
 		dispatcher:      dispatcher,
+		accountManager:  accountManager,
+		activationRepo:  activationRepo,
+		emailSvc:        emailSvc,
 	}
 }
 
@@ -78,6 +87,27 @@ func (uc *registerUseCase) Execute(ctx context.Context, cmd RegisterUserCommand)
 	}
 
 	uc.dispatcher.Dispatch(ctx, user.CollectEvents())
+
+	// If user requires email activation, initiate the activation flow
+	if !user.IsActive() && uc.activationRepo != nil {
+		rawToken, activationToken, err := uc.accountManager.InitiateActivation(user, now)
+		if err != nil {
+			logger.Error("activation_initiation_failed", slog.Any("error", err))
+			return ZeroRegisterUserResponse, err
+		}
+
+		if err := uc.activationRepo.Save(ctx, activationToken); err != nil {
+			logger.Error("activation_token_save_failed", slog.Any("error", err))
+			return ZeroRegisterUserResponse, err
+		}
+
+		uc.dispatcher.Dispatch(ctx, activationToken.CollectEvents())
+
+		if err := uc.emailSvc.SendActivationLink(user.Email().String(), rawToken.String()); err != nil {
+			logger.Error("activation_email_send_failed", slog.Any("error", err))
+			return ZeroRegisterUserResponse, err
+		}
+	}
 
 	logger.Info("register_success", slog.String("user_id", user.ID().String()))
 

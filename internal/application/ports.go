@@ -17,6 +17,8 @@ type IEventDispatcher interface {
 type IEmailService interface {
 	// SendResetLink sends the raw recovery token to the user's email
 	SendResetLink(toEmail string, rawToken string) error
+	// SendActivationLink sends the raw activation token to the user's email
+	SendActivationLink(toEmail string, rawToken string) error
 }
 
 type IUserQueryPort interface {
@@ -95,6 +97,21 @@ type RoleSeedDefinition struct {
 	Name        string
 	Description string
 	Permissions []string
+}
+
+// IConfirmActivationUseCase defines the boundary for confirming user activation.
+type IConfirmActivationUseCase interface {
+	Execute(ctx context.Context, cmd ConfirmActivationCommand) error
+}
+
+// IResendActivationUseCase defines the boundary for resending activation emails.
+type IResendActivationUseCase interface {
+	Execute(ctx context.Context, cmd ResendActivationCommand) error
+}
+
+// IHealthChecker defines the boundary for checking infrastructure health.
+type IHealthChecker interface {
+	Ping(ctx context.Context) error
 }
 
 // IRoleSeedLoader loads role seed definitions from an external source.

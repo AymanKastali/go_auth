@@ -93,4 +93,11 @@ var (
 	ErrInvalidRecoveryAttempt = NewError(KindBusinessRule, "this recovery token does not belong to the specified user")
 
 	ErrRecoveryTokenAlreadyUsed = NewError(KindConflict, "recovery token has already been consumed")
+
+	// --- Activation Token Context ---
+	ErrActivationTokenIDRequired  = NewError(KindValidation, "activation token identifier is required")
+	ErrActivationTokenInvalid     = NewError(KindUnauthorized, "activation token is invalid or not found")
+	ErrActivationTokenExpired     = NewError(KindForbidden, "activation token has expired")
+	ErrActivationTokenAlreadyUsed = NewError(KindConflict, "activation token has already been consumed")
+	ErrUserAlreadyActive          = NewError(KindConflict, "user account is already active")
 )

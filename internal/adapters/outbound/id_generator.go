@@ -50,6 +50,18 @@ func (g *uuidV7Generator) GenerateRecoveryTokenID() (domain.RecoveryTokenID, err
 	return uidVO, nil
 }
 
+func (g *uuidV7Generator) GenerateActivationTokenID() (domain.ActivationTokenID, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return domain.ZeroActivationTokenID, domain.ErrInternal
+	}
+	uidVO, err := domain.NewActivationTokenID(id.String())
+	if err != nil {
+		return domain.ZeroActivationTokenID, err
+	}
+	return uidVO, nil
+}
+
 func (g *uuidV7Generator) GenerateRoleID() (domain.RoleID, error) {
 	id, err := uuid.NewV7()
 	if err != nil {

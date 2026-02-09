@@ -22,6 +22,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		resp, err := uc.Execute(unauthenticatedCtx(), validCmd)
@@ -38,6 +41,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), RegisterUserCommand{Email: "bad", Password: "Str0ng!Pass"})
@@ -52,6 +58,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), RegisterUserCommand{Email: "a@b.com", Password: ""})
@@ -66,6 +75,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), validCmd)
@@ -80,6 +92,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{userIDErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), validCmd)
@@ -94,6 +109,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), validCmd)
@@ -109,6 +127,9 @@ func TestRegisterUseCase(t *testing.T) {
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
+			&mockAccountManager{},
+			nil,
+			&mockEmailService{},
 		)
 
 		_, err := uc.Execute(context.Background(), validCmd)

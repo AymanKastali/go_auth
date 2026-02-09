@@ -54,6 +54,17 @@ type RecoveryTokenModel struct {
 
 func (RecoveryTokenModel) TableName() string { return "recovery_tokens" }
 
+type ActivationTokenModel struct {
+	ID          string    `gorm:"primaryKey;column:id"`
+	UserID      string    `gorm:"index;column:user_id;not null"`
+	HashedToken string    `gorm:"uniqueIndex;column:hashed_token;not null"`
+	ExpiresAt   time.Time `gorm:"column:expires_at;not null"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	IsUsed      bool      `gorm:"column:is_used"`
+}
+
+func (ActivationTokenModel) TableName() string { return "activation_tokens" }
+
 type RoleModel struct {
 	ID          string            `gorm:"primaryKey;column:id"`
 	Name        string            `gorm:"uniqueIndex;column:name;not null"`

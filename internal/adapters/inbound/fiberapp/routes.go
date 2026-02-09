@@ -12,8 +12,13 @@ func RegisterRoutes(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
 	policyHandler *PolicyHandler,
+	healthHandler *HealthHandler,
 	authGuard fiber.Handler,
 ) {
+	// Health endpoints (outside /api/v1)
+	app.Get("/health", healthHandler.Health)
+	app.Get("/ready", healthHandler.Ready)
+
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	api := app.Group("/api/v1")
@@ -27,6 +32,8 @@ func RegisterRoutes(
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/login", authHandler.Login)
 	auth.Post("/refresh", authHandler.Refresh)
+	auth.Post("/activate", authHandler.ConfirmActivation)
+	auth.Post("/resend-activation", authHandler.ResendActivation)
 
 	// Protected
 	auth.Post("/logout", authGuard, authHandler.Logout)
@@ -36,12 +43,9 @@ func RegisterRoutes(
 	// Users
 	users := api.Group("/users")
 	users.Use(authGuard)
-	users.Get("/me", userHandler.GetMe)      // Get own profile
-	users.Patch("/me", userHandler.UpdateMe) // Update own profile
+	users.Get("/me", userHandler.GetMe)
+	users.Patch("/me", userHandler.UpdateMe)
 	users.Put("/me/password", userHandler.ChangePassword)
 	users.Get("", userHandler.FindByEmail)
 	users.Get("/:id", userHandler.GetByID)
-
-	// Recovery Flow
-	// auth.Post("/verify-email", authHandler.VerifyEmail) // Usually a GET or POST with token
 }

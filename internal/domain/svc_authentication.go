@@ -59,7 +59,12 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 		return ZeroRawToken, nil, ErrAuthenticationFailed
 	}
 
-	// 2. Prepare Secrets
+	// 2. Check if user is active
+	if !user.IsActive() {
+		return ZeroRawToken, nil, ErrUserInactive
+	}
+
+	// 3. Prepare Secrets
 	rawToken, err := s.tokenSvc.Generate()
 	if err != nil {
 		return ZeroRawToken, nil, err
@@ -72,7 +77,7 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 
 	expiresAt := now.Add(s.sessionPolicy.GetSessionLifetime())
 
-	// 3. Check for existing session with same fingerprint
+	// 4. Check for existing session with same fingerprint
 	existing, err := s.sessionRepo.FindActiveByUserAndFingerprint(ctx, user.ID(), identity.Fingerprint())
 	if err != nil {
 		return ZeroRawToken, nil, err
@@ -83,7 +88,7 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 		return rawToken, existing, nil
 	}
 
-	// 4. Enforce session limit
+	// 5. Enforce session limit
 	activeSessions, err := s.sessionRepo.FindActiveByUserID(ctx, user.ID())
 	if err != nil {
 		return ZeroRawToken, nil, err
@@ -97,7 +102,7 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 		}
 	}
 
-	// 5. Create new session
+	// 6. Create new session
 	sid, err := s.idGen.GenerateSessionID()
 	if err != nil {
 		return ZeroRawToken, nil, err
