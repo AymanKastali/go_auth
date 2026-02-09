@@ -12,44 +12,49 @@ package "Domain Services" {
         + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
     }
 
-    class registrationService {
+    class registrationService <<Domain Service>> {
         - userRepo : IUserRepository
+        - roleProvider : IRegistrationRoleProvider
         - registerPolicy : IRegisterPolicy
+        - activationPolicy : IActivationPolicy
         __
-        + {static} NewRegistrationService(userRepo, registerPolicy) : *registrationService
+        + {static} NewRegistrationService(userRepo, roleProvider, registerPolicy, activationPolicy) : *registrationService
         + RegisterNewMember(ctx, id, email, pwd, now) : (*User, error)
         + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
     }
 
     interface IAuthenticationService {
-        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, Session, error)
-        + RefreshSession(ctx, rawToken, fp, now) : (*User, Session, error)
+        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, *Session, error)
+        + RefreshSession(ctx, rawToken, fp, now) : (*User, *Session, error)
     }
 
-    class authenticationService {
+    class authenticationService <<Domain Service>> {
         - userRepo : IUserRepository
+        - sessionRepo : ISessionRepository
         - tokenSvc : ITokenService
         - idGen : IIDGenerator
         - sessionPolicy : ISessionPolicy
         - passwordMgr : IPasswordManager
         __
-        + {static} NewAuthenticationService(userRepo, tokenSvc, idGen, sessionPolicy, passwordMgr) : IAuthenticationService
-        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, Session, error)
-        + RefreshSession(ctx, rawToken, fp, now) : (*User, Session, error)
+        + {static} NewAuthenticationService(userRepo, sessionRepo, tokenSvc, idGen, sessionPolicy, passwordMgr) : IAuthenticationService
+        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, *Session, error)
+        + RefreshSession(ctx, rawToken, fp, now) : (*User, *Session, error)
     }
 
     interface IAccessManager {
-        + GrantImmediateAccess(user, sid, now) : (AccessToken, Timepoint, error)
+        + GrantImmediateAccess(ctx, user, sid, now) : (AccessToken, Timepoint, error)
         + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
     }
 
-    class accessManager {
+    class accessManager <<Domain Service>> {
         - userRepo : IUserRepository
+        - sessionRepo : ISessionRepository
+        - roleRepo : IRoleRepository
         - accessSvc : IAccessService
         - accessPolicy : IAccessPolicy
         __
-        + {static} NewAccessManager(userRepo, accessSvc, accessPolicy) : IAccessManager
-        + GrantImmediateAccess(user, sid, now) : (AccessToken, Timepoint, error)
+        + {static} NewAccessManager(userRepo, sessionRepo, roleRepo, accessSvc, accessPolicy) : IAccessManager
+        + GrantImmediateAccess(ctx, user, sid, now) : (AccessToken, Timepoint, error)
         + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
     }
 
@@ -57,18 +62,23 @@ package "Domain Services" {
         + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
         + ChangePassword(user, oldPass, newPass, now) : error
         + ResetPasswordByToken(user, recovery, newPassword, now) : error
+        + InitiateActivation(user, now) : (RawToken, *ActivationToken, error)
+        + ConfirmActivation(user, activation, now) : error
     }
 
-    class userAccountManager {
+    class userAccountManager <<Domain Service>> {
         - tokenSvc : ITokenService
         - passwordMgr : IPasswordManager
         - idGen : IIDGenerator
         - recoveryPolicy : IRecoveryPolicy
+        - activationPolicy : IActivationPolicy
         __
-        + {static} NewUserAccountManager(tokenSvc, passwordMgr, idGen, recoveryPolicy) : IUserAccountManager
+        + {static} NewUserAccountManager(tokenSvc, passwordMgr, idGen, recoveryPolicy, activationPolicy) : IUserAccountManager
         + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
         + ChangePassword(user, oldPass, newPass, now) : error
         + ResetPasswordByToken(user, recovery, newPassword, now) : error
+        + InitiateActivation(user, now) : (RawToken, *ActivationToken, error)
+        + ConfirmActivation(user, activation, now) : error
     }
 
     interface IPasswordManager {
@@ -76,7 +86,7 @@ package "Domain Services" {
         + Compare(raw RawPassword, hashed HashedPassword) : bool
     }
 
-    class passwordManager {
+    class passwordManager <<Domain Service>> {
         - svc : IPasswordService
         - policy : IPasswordPolicy
         __
@@ -94,10 +104,13 @@ package "Domain Services" {
 
 package "Ports" <<Cloud>> {
     interface IUserRepository <<port>>
+    interface ISessionRepository <<port>>
+    interface IRoleRepository <<port>>
     interface ITokenService <<port>>
     interface IIDGenerator <<port>>
     interface IAccessService <<port>>
     interface IPasswordService <<port>>
+    interface IRegistrationRoleProvider <<port>>
 }
 
 package "Policies" <<Cloud>> {
@@ -105,19 +118,25 @@ package "Policies" <<Cloud>> {
     interface ISessionPolicy <<policy>>
     interface IAccessPolicy <<policy>>
     interface IRecoveryPolicy <<policy>>
+    interface IActivationPolicy <<policy>>
     interface IPasswordPolicy <<policy>>
 }
 
 registrationService --> IUserRepository
+registrationService --> IRegistrationRoleProvider
 registrationService --> IRegisterPolicy
+registrationService --> IActivationPolicy
 
 authenticationService --> IUserRepository
+authenticationService --> ISessionRepository
 authenticationService --> ITokenService
 authenticationService --> IIDGenerator
 authenticationService --> ISessionPolicy
 authenticationService --> IPasswordManager
 
 accessManager --> IUserRepository
+accessManager --> ISessionRepository
+accessManager --> IRoleRepository
 accessManager --> IAccessService
 accessManager --> IAccessPolicy
 
@@ -125,6 +144,7 @@ userAccountManager --> ITokenService
 userAccountManager --> IPasswordManager
 userAccountManager --> IIDGenerator
 userAccountManager --> IRecoveryPolicy
+userAccountManager --> IActivationPolicy
 
 passwordManager --> IPasswordService
 passwordManager --> IPasswordPolicy

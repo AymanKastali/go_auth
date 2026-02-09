@@ -3,22 +3,45 @@
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
 
-title Ports — Repository & Infrastructure Interfaces
+title Ports — Repository, Infrastructure & Domain Service Interfaces
 
 package "Repository Ports" {
 
     interface IUserRepository <<port>> {
-        + FindByID(ctx context.Context, id UserID) : (*User, error)
-        + FindByEmail(ctx context.Context, email Email) : (*User, error)
-        + Save(ctx context.Context, user *User) : error
-        + Delete(ctx context.Context, id UserID) : error
-        + FindBySessionToken(ctx context.Context, token HashedToken) : (*User, error)
+        + FindByID(ctx, id UserID) : (*User, error)
+        + FindByEmail(ctx, email Email) : (*User, error)
+        + FindAll(ctx, offset, limit int) : ([]*User, error)
+        + Count(ctx) : (int64, error)
+        + Save(ctx, user *User) : error
+        + Delete(ctx, id UserID) : error
+    }
+
+    interface ISessionRepository <<port>> {
+        + FindByID(ctx, id SessionID) : (*Session, error)
+        + FindByToken(ctx, token HashedToken) : (*Session, error)
+        + FindActiveByUserAndFingerprint(ctx, userID, fp) : (*Session, error)
+        + FindActiveByUserID(ctx, userID) : ([]*Session, error)
+        + Save(ctx, session *Session) : error
+        + RevokeAllForUser(ctx, userID, now) : error
+    }
+
+    interface IRoleRepository <<port>> {
+        + FindByID(ctx, id RoleID) : (*Role, error)
+        + FindByName(ctx, name RoleName) : (*Role, error)
+        + FindAll(ctx) : ([]*Role, error)
+        + Save(ctx, role *Role) : error
     }
 
     interface IRecoveryTokenRepository <<port>> {
-        + FindByHash(ctx context.Context, hash RecoveryTokenHash) : (*RecoveryToken, error)
-        + Save(ctx context.Context, token *RecoveryToken) : error
-        + RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) : error
+        + FindByHash(ctx, hash RecoveryTokenHash) : (*RecoveryToken, error)
+        + Save(ctx, token *RecoveryToken) : error
+        + RevokeAllForUser(ctx, uid UserID, now Timepoint) : error
+    }
+
+    interface IActivationTokenRepository <<port>> {
+        + FindByHash(ctx, hash ActivationTokenHash) : (*ActivationToken, error)
+        + Save(ctx, token *ActivationToken) : error
+        + RevokeAllForUser(ctx, uid UserID, now Timepoint) : error
     }
 }
 
@@ -37,20 +60,40 @@ package "Infrastructure Ports" {
         + GenerateUserID() : (UserID, error)
         + GenerateSessionID() : (SessionID, error)
         + GenerateRecoveryTokenID() : (RecoveryTokenID, error)
+        + GenerateActivationTokenID() : (ActivationTokenID, error)
+        + GenerateRoleID() : (RoleID, error)
     }
 
     interface ITokenService <<port>> {
         + Generate() : (RawToken, error)
         + HashSessionToken(raw RawToken) : (HashedToken, error)
         + HashRecoveryToken(raw RawToken) : (RecoveryTokenHash, error)
+        + HashActivationToken(raw RawToken) : (ActivationTokenHash, error)
         + CompareSession(raw RawToken, hashed HashedToken) : bool
         + CompareRecovery(raw RawToken, hashed RecoveryTokenHash) : bool
+        + CompareActivation(raw RawToken, hashed ActivationTokenHash) : bool
     }
 
     interface IAccessService <<port>> {
-        + Issue(userID, email, sessionID, roles, issuedAt, expiresAt, notBefore) : (AccessToken, Timepoint, error)
+        + Issue(userID, email, sessionID, roles, permissions, issuedAt, expiresAt, notBefore) : (AccessToken, Timepoint, error)
         + Validate(token AccessToken) : (AccessIdentity, error)
     }
+}
+
+package "Domain Service Ports" {
+
+    interface IRegistrationRoleProvider <<port>> {
+        + DefaultMemberRole(ctx) : (RoleName, error)
+        + DefaultAdminRole(ctx) : (RoleName, error)
+    }
+
+    note bottom of IRegistrationRoleProvider
+        Adapter wraps IRoleRepository.
+        Role name strings ("member", "super_admin")
+        live only in the adapter, outside domain.
+        DB (seeded from seed_roles.yml) is the
+        single source of truth.
+    end note
 }
 
 package "Value Objects (produced / consumed)" <<Cloud>> {
@@ -60,11 +103,16 @@ package "Value Objects (produced / consumed)" <<Cloud>> {
     class UserID <<VO>>
     class SessionID <<VO>>
     class RecoveryTokenID <<VO>>
+    class ActivationTokenID <<VO>>
+    class RoleID <<VO>>
+    class RoleName <<VO>>
     class RawToken <<VO>>
     class HashedToken <<VO>>
     class RecoveryTokenHash <<VO>>
+    class ActivationTokenHash <<VO>>
     class AccessToken <<VO>>
     class AccessIdentity <<VO>>
+    class Permission <<VO>>
 }
 
 IClock ..> Timepoint : produces
@@ -73,13 +121,20 @@ IPasswordService ..> HashedPassword : produces
 IIDGenerator ..> UserID : produces
 IIDGenerator ..> SessionID : produces
 IIDGenerator ..> RecoveryTokenID : produces
+IIDGenerator ..> ActivationTokenID : produces
+IIDGenerator ..> RoleID : produces
 ITokenService ..> RawToken : produces
 ITokenService ..> HashedToken : produces
 ITokenService ..> RecoveryTokenHash : produces
+ITokenService ..> ActivationTokenHash : produces
 IAccessService ..> AccessToken : produces
 IAccessService ..> AccessIdentity : produces
+IRegistrationRoleProvider ..> RoleName : produces
 
 IUserRepository ..> User : manages
+ISessionRepository ..> Session : manages
+IRoleRepository ..> Role : manages
 IRecoveryTokenRepository ..> RecoveryToken : manages
+IActivationTokenRepository ..> ActivationToken : manages
 
 @enduml

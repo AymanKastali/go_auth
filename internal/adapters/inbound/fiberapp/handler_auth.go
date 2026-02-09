@@ -9,14 +9,14 @@ import (
 )
 
 type AuthHandler struct {
-	validate           *validator.Validate
-	registerUC         application.IRegisterUseCase
-	loginUC            application.ILoginUseCase
-	refreshUC          application.IRefreshTokenUseCase
-	logoutUC           application.ILogoutUseCase
-	validateAccess     application.IValidateAccessUseCase
-	forgotPasswordUC   application.IForgotPasswordUseCase
-	resetPassword      application.IResetPasswordUseCase
+	validate            *validator.Validate
+	registerUC          application.IRegisterUseCase
+	loginUC             application.ILoginUseCase
+	refreshUC           application.IRefreshTokenUseCase
+	logoutUC            application.ILogoutUseCase
+	validateAccess      application.IValidateAccessUseCase
+	forgotPasswordUC    application.IForgotPasswordUseCase
+	resetPassword       application.IResetPasswordUseCase
 	confirmActivationUC application.IConfirmActivationUseCase
 	resendActivationUC  application.IResendActivationUseCase
 }
@@ -105,7 +105,6 @@ func (h *AuthHandler) Register(c fiber.Ctx) error {
 // @Router /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c fiber.Ctx) error {
 	logger := application.GetLogger(c.Context())
-
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
 		logger.Warn("login_binding_failed", slog.Any("error", err))
