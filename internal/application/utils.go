@@ -14,6 +14,7 @@ var appCtxKey = ctxKey{}
 type UserContext struct {
 	UserID    domain.UserID
 	SessionID domain.SessionID
+	Roles     []string
 }
 
 type ClientContext struct {
@@ -28,6 +29,7 @@ type AppContext struct {
 
 func NewAppContext(
 	userID, sessionID string,
+	roles []string,
 	ua, ip, os, browser, model, lang string,
 	isMobile bool,
 	logger *slog.Logger,
@@ -59,6 +61,7 @@ func NewAppContext(
 		appCtx.User = &UserContext{
 			UserID:    uid,
 			SessionID: sid,
+			Roles:     roles,
 		}
 
 		// Enrich logger with user details
@@ -121,6 +124,17 @@ func GetLogger(ctx context.Context) *slog.Logger {
 		return appCtx.Logger
 	}
 	return slog.Default()
+}
+
+// GetRoles returns the user's roles from the context or an empty slice.
+func GetRoles(ctx context.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	if appCtx, ok := FromContext(ctx); ok && appCtx != nil && appCtx.User != nil {
+		return appCtx.User.Roles
+	}
+	return nil
 }
 
 // IsAuthenticated is a quick helper to check if a user is present.

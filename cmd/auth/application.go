@@ -31,6 +31,21 @@ type applicationLayer struct {
 
 	// policies
 	publicPolicies application.IGetPublicPoliciesUseCase
+
+	// admin - roles
+	listRoles        application.IListRolesUseCase
+	getRole          application.IGetRoleUseCase
+	createRole       application.ICreateRoleUseCase
+	assignPermission application.IAssignPermissionUseCase
+	revokePermission application.IRevokePermissionUseCase
+
+	// admin - users
+	listUsers       application.IListUsersUseCase
+	assignUserRole  application.IAssignUserRoleUseCase
+	revokeUserRole  application.IRevokeUserRoleUseCase
+	adminActivate   application.IAdminActivateUserUseCase
+	adminDeactivate application.IAdminDeactivateUserUseCase
+	adminDelete     application.IAdminDeleteUserUseCase
 }
 
 func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Config) applicationLayer {
@@ -150,6 +165,38 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 				AllowPublic:    cfg.RegisterPolicy.AllowPublic,
 				BlockedDomains: cfg.RegisterPolicy.BlockedDomains,
 			},
+			cfg.Activation.RequireEmail,
+		),
+
+		// admin - roles
+		listRoles: application.NewListRolesUseCase(d.roleRepo),
+		getRole:   application.NewGetRoleUseCase(d.roleRepo),
+		createRole: application.NewCreateRoleUseCase(
+			d.roleRepo, d.idGen, d.clock, out.dispatcher,
+		),
+		assignPermission: application.NewAssignPermissionUseCase(
+			d.roleRepo, d.clock, out.dispatcher,
+		),
+		revokePermission: application.NewRevokePermissionUseCase(
+			d.roleRepo, d.clock, out.dispatcher,
+		),
+
+		// admin - users
+		listUsers: application.NewListUsersUseCase(out.userQuery),
+		assignUserRole: application.NewAssignUserRoleUseCase(
+			d.userRepo, d.roleRepo, d.clock, out.dispatcher,
+		),
+		revokeUserRole: application.NewRevokeUserRoleUseCase(
+			d.userRepo, d.clock, out.dispatcher,
+		),
+		adminActivate: application.NewAdminActivateUserUseCase(
+			d.userRepo, d.clock, out.dispatcher,
+		),
+		adminDeactivate: application.NewAdminDeactivateUserUseCase(
+			d.userRepo, d.clock, out.dispatcher,
+		),
+		adminDelete: application.NewAdminDeleteUserUseCase(
+			d.userRepo, d.sessionRepo, d.clock, out.dispatcher,
 		),
 	}
 }

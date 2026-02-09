@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"go_auth/internal/domain"
+	"time"
 )
 
 func toUserModel(u *domain.User) UserModel {
@@ -13,7 +14,7 @@ func toUserModel(u *domain.User) UserModel {
 		}
 	}
 
-	return UserModel{
+	model := UserModel{
 		ID:           u.ID().String(),
 		Email:        u.Email().String(),
 		PasswordHash: u.HashedPassword().String(),
@@ -21,6 +22,13 @@ func toUserModel(u *domain.User) UserModel {
 		UserRoles:    userRoles,
 		RegisteredAt: u.RegisteredAt().Time(),
 	}
+
+	if u.IsDeleted() {
+		now := time.Now()
+		model.DeletedAt = &now
+	}
+
+	return model
 }
 
 func toUserDomain(m UserModel) (*domain.User, error) {

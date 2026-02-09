@@ -39,5 +39,8 @@ func (h *PolicyHandler) GetPublicPolicies(c fiber.Ctx) error {
 			AllowPublic:    resp.Registration.AllowPublic,
 			BlockedDomains: resp.Registration.BlockedDomains,
 		},
+		Activation: ActivationPolicyHTTPResponse{
+			RequireEmail: resp.Activation.RequireEmail,
+		},
 	})
 }

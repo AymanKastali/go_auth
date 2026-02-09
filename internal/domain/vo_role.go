@@ -1,6 +1,9 @@
 package domain
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 var ZeroRoleName = RoleName{}
 var ZeroRoleID = RoleID{}
@@ -22,51 +25,18 @@ func (vo RoleID) Equal(other RoleID) bool     { return vo.value == other.value }
 // --- RoleName ---
 type RoleName struct{ name string }
 
-var (
-	RoleSuperAdmin = RoleName{name: "super_admin"}
-	RoleAdmin      = RoleName{name: "admin"}
-	RoleEditor     = RoleName{name: "editor"}
-	RoleModerator  = RoleName{name: "moderator"}
-	RoleMember     = RoleName{name: "member"}
-	RolePremium    = RoleName{name: "premium"}
-	RoleGuest      = RoleName{name: "guest"}
-	RolePartner    = RoleName{name: "partner"}
-)
-
-var nameToRoleName = map[string]RoleName{
-	"super_admin": RoleSuperAdmin,
-	"admin":       RoleAdmin,
-	"editor":      RoleEditor,
-	"moderator":   RoleModerator,
-	"member":      RoleMember,
-	"premium":     RolePremium,
-	"guest":       RoleGuest,
-	"partner":     RolePartner,
-}
+var roleNameRegex = regexp.MustCompile(`^[a-z][a-z0-9_]{1,49}$`)
 
 func NewRoleName(name string) (RoleName, error) {
 	canonicalName := strings.ToLower(strings.TrimSpace(name))
-	role, exists := nameToRoleName[canonicalName]
-	if !exists {
-		return ZeroRoleName, ErrRoleNotRecognized
+	if !roleNameRegex.MatchString(canonicalName) {
+		return ZeroRoleName, ErrRoleNameInvalid
 	}
-	return role, nil
+	return RoleName{name: canonicalName}, nil
 }
 func ReconstituteRoleName(name string) RoleName {
-	role, exists := nameToRoleName[name]
-	if !exists {
-		return RoleName{name: name}
-	}
-	return role
+	return RoleName{name: name}
 }
 func (r RoleName) Name() string              { return r.name }
 func (r RoleName) Equal(other RoleName) bool { return r.name == other.name }
 func (r RoleName) IsEmpty() bool             { return r.name == "" }
-
-// AllRoleNames returns all predefined role names.
-func AllRoleNames() []RoleName {
-	return []RoleName{
-		RoleSuperAdmin, RoleAdmin, RoleEditor, RoleModerator,
-		RoleMember, RolePremium, RoleGuest, RolePartner,
-	}
-}

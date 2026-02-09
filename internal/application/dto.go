@@ -8,6 +8,8 @@ var (
 	ZeroValidateAccessResponse  = ValidateAccessResponse{}
 	ZeroUserReadModel           = UserReadModel{}
 	ZeroPublicPoliciesResponse  = PublicPoliciesResponse{}
+	ZeroRoleReadModel           = RoleReadModel{}
+	ZeroListUsersResponse       = ListUsersResponse{}
 )
 
 // RegisterUserCommand
@@ -116,10 +118,16 @@ type RegisterPolicyDTO struct {
 	BlockedDomains []string
 }
 
+// ActivationPolicyDTO exposes activation requirements to clients.
+type ActivationPolicyDTO struct {
+	RequireEmail bool
+}
+
 // PublicPoliciesResponse is the aggregate response for the public policies endpoint.
 type PublicPoliciesResponse struct {
 	Password     PasswordPolicyDTO
 	Registration RegisterPolicyDTO
+	Activation   ActivationPolicyDTO
 }
 
 // ConfirmActivationCommand
@@ -130,4 +138,53 @@ type ConfirmActivationCommand struct {
 // ResendActivationCommand
 type ResendActivationCommand struct {
 	Email string
+}
+
+// --- Admin: Role Management ---
+
+type CreateRoleCommand struct {
+	Name        string
+	Description string
+	Permissions []string
+}
+
+type AssignPermissionCommand struct {
+	RoleID     string
+	Permission string
+}
+
+type RevokePermissionCommand struct {
+	RoleID     string
+	Permission string
+}
+
+// --- Admin: User Management ---
+
+type AssignUserRoleCommand struct {
+	UserID   string
+	RoleName string
+}
+
+type RevokeUserRoleCommand struct {
+	UserID   string
+	RoleName string
+}
+
+type ListUsersQuery struct {
+	Offset int
+	Limit  int
+}
+
+// --- Admin: Response Models ---
+
+type RoleReadModel struct {
+	ID          string
+	Name        string
+	Description string
+	Permissions []string
+}
+
+type ListUsersResponse struct {
+	Users []UserReadModel
+	Total int64
 }

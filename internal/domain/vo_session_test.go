@@ -109,7 +109,7 @@ func TestNewAccessIdentity(t *testing.T) {
 	uid := ReconstituteUserID("u1")
 	sid := ReconstituteSessionID("s1")
 	email := ReconstituteEmail("a@b.com")
-	roles := []RoleName{RoleMember}
+	roles := []RoleName{ReconstituteRoleName("member")}
 
 	t.Run("valid", func(t *testing.T) {
 		ai, err := NewAccessIdentity(uid, sid, email, roles, nil)

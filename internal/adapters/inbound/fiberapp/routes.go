@@ -13,6 +13,7 @@ func RegisterRoutes(
 	userHandler *UserHandler,
 	policyHandler *PolicyHandler,
 	healthHandler *HealthHandler,
+	adminHandler *AdminHandler,
 	authGuard fiber.Handler,
 ) {
 	// Health endpoints (outside /api/v1)
@@ -35,6 +36,9 @@ func RegisterRoutes(
 	auth.Post("/activate", authHandler.ConfirmActivation)
 	auth.Post("/resend-activation", authHandler.ResendActivation)
 
+	// Token validation (public — used by other services)
+	auth.Post("/validate", adminHandler.ValidateToken)
+
 	// Protected
 	auth.Post("/logout", authGuard, authHandler.Logout)
 	auth.Post("/reset-password", authHandler.ResetPassword)
@@ -48,4 +52,28 @@ func RegisterRoutes(
 	users.Put("/me/password", userHandler.ChangePassword)
 	users.Get("", userHandler.FindByEmail)
 	users.Get("/:id", userHandler.GetByID)
+
+	// Admin panel (protected + role guard)
+	admin := api.Group("/admin")
+	admin.Use(authGuard)
+	admin.Use(RequireRole("super_admin", "admin"))
+
+	// Role management
+	admin.Get("/roles", adminHandler.ListRoles)
+	admin.Get("/roles/:id", adminHandler.GetRole)
+	admin.Post("/roles", adminHandler.CreateRole)
+	admin.Post("/roles/:id/permissions", adminHandler.AssignPermission)
+	admin.Delete("/roles/:id/permissions", adminHandler.RevokePermission)
+
+	// User management
+	admin.Get("/users", adminHandler.ListUsers)
+	admin.Get("/users/:id", adminHandler.AdminGetUser)
+	admin.Post("/users/:id/roles", adminHandler.AssignUserRole)
+	admin.Delete("/users/:id/roles", adminHandler.RevokeUserRole)
+	admin.Post("/users/:id/activate", adminHandler.ActivateUser)
+	admin.Post("/users/:id/deactivate", adminHandler.DeactivateUser)
+	admin.Delete("/users/:id", adminHandler.DeleteUser)
+
+	// Seeding
+	admin.Post("/seed/roles", adminHandler.SeedRoles)
 }

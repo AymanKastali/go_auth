@@ -32,7 +32,7 @@ func NewRequestContext(id, ip, lang, uaRaw string, logger *slog.Logger) (*Reques
 
 	// Building AppContext immediately enforces domain rules (e.g. required IP/UA)
 	appCtx, err := application.NewAppContext(
-		"", "", // Unauthenticated initially
+		"", "", nil, // Unauthenticated initially
 		uaRaw, ip, ua.OS(), browser, ua.Model(), lang, ua.Mobile(),
 		logger.With(slog.String("req_id", id)),
 	)
@@ -59,14 +59,15 @@ func FromContext(ctx context.Context) (*RequestContext, error) {
 	return rc, nil
 }
 
-// UpdateUser performs a "mutation via replacement" to upgrade the AppContext with User info.
-func (rc *RequestContext) AttachUser(userID, sessionID string) error {
+// AttachUser performs a "mutation via replacement" to upgrade the AppContext with User info.
+func (rc *RequestContext) AttachUser(userID, sessionID string, roles []string) error {
 	identity := rc.appCtx.Client.Identity
 
 	// Re-construct using the domain factory to ensure the UserID/SessionID are valid
 	newAppCtx, err := application.NewAppContext(
 		userID,
 		sessionID,
+		roles,
 		identity.UserAgent(),
 		identity.IPAddress(),
 		identity.OS(),

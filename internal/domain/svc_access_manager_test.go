@@ -80,7 +80,7 @@ func TestAccessManager_GrantImmediateAccess(t *testing.T) {
 	t.Run("permissions_resolved_from_roles", func(t *testing.T) {
 		memberRole := ReconstituteRoleAggregate(
 			ReconstituteRoleID("role-001"),
-			RoleMember,
+			ReconstituteRoleName("member"),
 			"Standard member",
 			[]Permission{ReconstitutePermission("users", "read_self"), ReconstitutePermission("content", "read")},
 		)
@@ -125,7 +125,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		user := newActiveUser()
 		session := newActiveSession()
-		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{RoleMember}, nil)
+		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{ReconstituteRoleName("member")}, nil)
 		mgr := NewAccessManager(
 			&stubUserRepository{findByIDResult: user},
 			&stubSessionRepository{findByIDResult: session},
@@ -156,7 +156,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 	})
 
 	t.Run("user_not_found", func(t *testing.T) {
-		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{RoleMember}, nil)
+		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{ReconstituteRoleName("member")}, nil)
 		mgr := NewAccessManager(
 			&stubUserRepository{findByIDResult: nil},
 			&stubSessionRepository{},
@@ -172,7 +172,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 
 	t.Run("session_not_found", func(t *testing.T) {
 		user := newActiveUser()
-		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{RoleMember}, nil)
+		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{ReconstituteRoleName("member")}, nil)
 		mgr := NewAccessManager(
 			&stubUserRepository{findByIDResult: user},
 			&stubSessionRepository{findByIDResult: nil},
@@ -189,7 +189,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 	t.Run("session_revoked", func(t *testing.T) {
 		user := newActiveUser()
 		revokedSession := ReconstituteSession(validSessionID(), validUserID(), validHashedToken(), validDeviceIdentity(), testFuture, testNow, true)
-		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{RoleMember}, nil)
+		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{ReconstituteRoleName("member")}, nil)
 		mgr := NewAccessManager(
 			&stubUserRepository{findByIDResult: user},
 			&stubSessionRepository{findByIDResult: revokedSession},
@@ -206,7 +206,7 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 	t.Run("session_expired", func(t *testing.T) {
 		user := newActiveUser()
 		expiredSession := ReconstituteSession(validSessionID(), validUserID(), validHashedToken(), validDeviceIdentity(), testPast, testPast, false)
-		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{RoleMember}, nil)
+		ai, _ := NewAccessIdentity(validUserID(), validSessionID(), validEmail(), []RoleName{ReconstituteRoleName("member")}, nil)
 		mgr := NewAccessManager(
 			&stubUserRepository{findByIDResult: user},
 			&stubSessionRepository{findByIDResult: expiredSession},

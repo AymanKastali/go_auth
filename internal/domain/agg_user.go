@@ -111,6 +111,33 @@ func (u *User) AssignRole(role RoleName, now Timepoint) error {
 	return nil
 }
 
+func (u *User) RemoveRole(role RoleName, now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
+	for i, r := range u.roles {
+		if r.Equal(role) {
+			u.roles = append(u.roles[:i], u.roles[i+1:]...)
+			u.RecordEvent(NewRoleRevokedFromUser(u.id, role, now))
+			return nil
+		}
+	}
+
+	return ErrRoleNotAssigned
+}
+
+func (u *User) MarkDeleted(now Timepoint) error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
+	u.isDeleted = true
+	u.isActive = false
+	u.RecordEvent(NewUserDeleted(u.id, now))
+	return nil
+}
+
 func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted

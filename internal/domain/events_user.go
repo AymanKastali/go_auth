@@ -119,3 +119,42 @@ func NewPasswordChanged(userID UserID, now Timepoint) PasswordChanged {
 func (e PasswordChanged) EventName() string    { return "PasswordChanged" }
 func (e PasswordChanged) OccurredAt() Timepoint { return e.occurredAt }
 func (e PasswordChanged) AggregateID() string   { return e.aggregateID }
+
+// --- RoleRevokedFromUser ---
+
+type RoleRevokedFromUser struct {
+	occurredAt  Timepoint
+	aggregateID string
+	roleName    string
+}
+
+func NewRoleRevokedFromUser(userID UserID, role RoleName, now Timepoint) RoleRevokedFromUser {
+	return RoleRevokedFromUser{
+		occurredAt:  now,
+		aggregateID: userID.String(),
+		roleName:    role.Name(),
+	}
+}
+
+func (e RoleRevokedFromUser) EventName() string    { return "RoleRevokedFromUser" }
+func (e RoleRevokedFromUser) OccurredAt() Timepoint { return e.occurredAt }
+func (e RoleRevokedFromUser) AggregateID() string   { return e.aggregateID }
+func (e RoleRevokedFromUser) RoleName() string      { return e.roleName }
+
+// --- UserDeleted ---
+
+type UserDeleted struct {
+	occurredAt  Timepoint
+	aggregateID string
+}
+
+func NewUserDeleted(userID UserID, now Timepoint) UserDeleted {
+	return UserDeleted{
+		occurredAt:  now,
+		aggregateID: userID.String(),
+	}
+}
+
+func (e UserDeleted) EventName() string    { return "UserDeleted" }
+func (e UserDeleted) OccurredAt() Timepoint { return e.occurredAt }
+func (e UserDeleted) AggregateID() string   { return e.aggregateID }

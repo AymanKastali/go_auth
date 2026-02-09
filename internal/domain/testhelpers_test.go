@@ -49,7 +49,7 @@ func newActiveUser() *User {
 		validEmail(),
 		validHashedPassword(),
 		true,
-		[]RoleName{RoleMember},
+		[]RoleName{ReconstituteRoleName("member")},
 		false,
 		testNow,
 	)
@@ -73,7 +73,7 @@ func newDeletedUser() *User {
 		validEmail(),
 		validHashedPassword(),
 		true,
-		[]RoleName{RoleMember},
+		[]RoleName{ReconstituteRoleName("member")},
 		true,
 		testNow,
 	)
@@ -227,6 +227,10 @@ type stubUserRepository struct {
 	findByIDErr       error
 	findByEmailResult *User
 	findByEmailErr    error
+	findAllResult     []*User
+	findAllErr        error
+	countResult       int64
+	countErr          error
 	saveErr           error
 	deleteErr         error
 }
@@ -236,6 +240,12 @@ func (r *stubUserRepository) FindByID(_ context.Context, _ UserID) (*User, error
 }
 func (r *stubUserRepository) FindByEmail(_ context.Context, _ Email) (*User, error) {
 	return r.findByEmailResult, r.findByEmailErr
+}
+func (r *stubUserRepository) FindAll(_ context.Context, _, _ int) ([]*User, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubUserRepository) Count(_ context.Context) (int64, error) {
+	return r.countResult, r.countErr
 }
 func (r *stubUserRepository) Save(_ context.Context, _ *User) error {
 	return r.saveErr

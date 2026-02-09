@@ -35,7 +35,7 @@ func testActiveUser() *domain.User {
 		testEmail(),
 		testHashedPassword(),
 		true,
-		[]domain.RoleName{domain.RoleMember},
+		[]domain.RoleName{domain.ReconstituteRoleName("member")},
 		false,
 		appTestNow,
 	)
@@ -261,6 +261,10 @@ type stubAppUserRepository struct {
 	findByIDErr       error
 	findByEmailResult *domain.User
 	findByEmailErr    error
+	findAllResult     []*domain.User
+	findAllErr        error
+	countResult       int64
+	countErr          error
 	saveErr           error
 	deleteErr         error
 }
@@ -270,6 +274,12 @@ func (r *stubAppUserRepository) FindByID(_ context.Context, _ domain.UserID) (*d
 }
 func (r *stubAppUserRepository) FindByEmail(_ context.Context, _ domain.Email) (*domain.User, error) {
 	return r.findByEmailResult, r.findByEmailErr
+}
+func (r *stubAppUserRepository) FindAll(_ context.Context, _, _ int) ([]*domain.User, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubAppUserRepository) Count(_ context.Context) (int64, error) {
+	return r.countResult, r.countErr
 }
 func (r *stubAppUserRepository) Save(_ context.Context, _ *domain.User) error {
 	return r.saveErr
@@ -315,6 +325,9 @@ type stubUserQueryPort struct {
 	findByIDErr       error
 	findByEmailResult UserReadModel
 	findByEmailErr    error
+	findAllResult     []UserReadModel
+	findAllTotal      int64
+	findAllErr        error
 }
 
 func (s *stubUserQueryPort) FindByID(_ context.Context, _ string) (UserReadModel, error) {
@@ -322,6 +335,9 @@ func (s *stubUserQueryPort) FindByID(_ context.Context, _ string) (UserReadModel
 }
 func (s *stubUserQueryPort) FindByEmail(_ context.Context, _ string) (UserReadModel, error) {
 	return s.findByEmailResult, s.findByEmailErr
+}
+func (s *stubUserQueryPort) FindAll(_ context.Context, _, _ int) ([]UserReadModel, int64, error) {
+	return s.findAllResult, s.findAllTotal, s.findAllErr
 }
 
 type stubAppRecoveryTokenRepository struct {

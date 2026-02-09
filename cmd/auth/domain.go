@@ -63,7 +63,8 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 		TokenLifetime: cfg.Activation.TokenLifetime,
 	})
 	activationRepo := pf.NewActivationTokenRepository()
-	registrationSvc := domain.NewRegistrationService(userRepo, registerPolicy, activationPolicy)
+	roleProvider := outbound.NewRegistrationRoleProvider(roleRepo)
+	registrationSvc := domain.NewRegistrationService(userRepo, roleProvider, registerPolicy, activationPolicy)
 	passwordManager := domain.NewPasswordManager(
 		passwordSvc,
 		passwordPolicy,

@@ -1,5 +1,42 @@
 basePath: /
 definitions:
+  internal_adapters_inbound_fiberapp.ActivationPolicyHTTPResponse:
+    properties:
+      require_email:
+        example: false
+        type: boolean
+    type: object
+  internal_adapters_inbound_fiberapp.AdminUserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      registered_at:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+    type: object
+  internal_adapters_inbound_fiberapp.AssignPermissionRequest:
+    properties:
+      permission:
+        type: string
+    required:
+    - permission
+    type: object
+  internal_adapters_inbound_fiberapp.AssignUserRoleRequest:
+    properties:
+      role_name:
+        type: string
+    required:
+    - role_name
+    type: object
   internal_adapters_inbound_fiberapp.ChangePasswordRequest:
     properties:
       new_password:
@@ -17,6 +54,19 @@ definitions:
     required:
     - token
     type: object
+  internal_adapters_inbound_fiberapp.CreateRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
   internal_adapters_inbound_fiberapp.ErrorResponse:
     properties:
       code:
@@ -31,6 +81,19 @@ definitions:
       trace_id:
         example: req-12345
         type: string
+    type: object
+  internal_adapters_inbound_fiberapp.ListUsersHTTPResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.AdminUserResponse'
+        type: array
     type: object
   internal_adapters_inbound_fiberapp.LoginRequest:
     properties:
@@ -73,6 +136,8 @@ definitions:
     type: object
   internal_adapters_inbound_fiberapp.PolicyHTTPResponse:
     properties:
+      activation:
+        $ref: '#/definitions/internal_adapters_inbound_fiberapp.ActivationPolicyHTTPResponse'
       password:
         $ref: '#/definitions/internal_adapters_inbound_fiberapp.PasswordPolicyHTTPResponse'
       registration:
@@ -119,6 +184,33 @@ definitions:
     required:
     - email
     type: object
+  internal_adapters_inbound_fiberapp.RevokePermissionRequest:
+    properties:
+      permission:
+        type: string
+    required:
+    - permission
+    type: object
+  internal_adapters_inbound_fiberapp.RevokeUserRoleRequest:
+    properties:
+      role_name:
+        type: string
+    required:
+    - role_name
+    type: object
+  internal_adapters_inbound_fiberapp.RoleHTTPResponse:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+    type: object
   internal_adapters_inbound_fiberapp.SuccessResponse:
     properties:
       data: {}
@@ -144,6 +236,24 @@ definitions:
       updated_at:
         type: string
     type: object
+  internal_adapters_inbound_fiberapp.ValidateTokenRequest:
+    properties:
+      access_token:
+        type: string
+    required:
+    - access_token
+    type: object
+  internal_adapters_inbound_fiberapp.ValidateTokenResponse:
+    properties:
+      roles:
+        items:
+          type: string
+        type: array
+      session_id:
+        type: string
+      user_id:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -157,6 +267,402 @@ info:
   title: Auth Service API
   version: "1.0"
 paths:
+  /api/v1/admin/roles:
+    get:
+      description: Returns all roles with their permissions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List all roles
+      tags:
+      - Admin - Roles
+    post:
+      consumes:
+      - application/json
+      description: Creates a role with optional permissions
+      parameters:
+      - description: Role Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new role
+      tags:
+      - Admin - Roles
+  /api/v1/admin/roles/{id}:
+    get:
+      description: Returns a single role with its permissions
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get role by ID
+      tags:
+      - Admin - Roles
+  /api/v1/admin/roles/{id}/permissions:
+    delete:
+      consumes:
+      - application/json
+      description: Removes a permission from an existing role
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permission
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.RevokePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Revoke permission from role
+      tags:
+      - Admin - Roles
+    post:
+      consumes:
+      - application/json
+      description: Adds a permission to an existing role
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permission
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.AssignPermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Assign permission to role
+      tags:
+      - Admin - Roles
+  /api/v1/admin/seed/roles:
+    post:
+      description: Seeds roles from the YAML configuration file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Seed roles
+      tags:
+      - Admin - Seed
+  /api/v1/admin/users:
+    get:
+      description: Returns a paginated list of users
+      parameters:
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.ListUsersHTTPResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List users (paginated)
+      tags:
+      - Admin - Users
+  /api/v1/admin/users/{id}:
+    delete:
+      description: Admin soft-deletes a user and revokes all sessions
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete user (soft)
+      tags:
+      - Admin - Users
+    get:
+      description: Returns full user details including roles and status
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.AdminUserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID (admin)
+      tags:
+      - Admin - Users
+  /api/v1/admin/users/{id}/activate:
+    post:
+      description: Admin activates a user account
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Activate user
+      tags:
+      - Admin - Users
+  /api/v1/admin/users/{id}/deactivate:
+    post:
+      description: Admin deactivates a user account
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Deactivate user
+      tags:
+      - Admin - Users
+  /api/v1/admin/users/{id}/roles:
+    delete:
+      consumes:
+      - application/json
+      description: Removes a role from the specified user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.RevokeUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Revoke role from user
+      tags:
+      - Admin - Users
+    post:
+      consumes:
+      - application/json
+      description: Assigns a role to the specified user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.AssignUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Assign role to user
+      tags:
+      - Admin - Users
   /api/v1/auth/activate:
     post:
       consumes:
@@ -319,6 +825,38 @@ paths:
           schema:
             $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
       summary: Resend activation email
+      tags:
+      - Auth
+  /api/v1/auth/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validates an access token and returns the associated user info
+        (service-to-service)
+      parameters:
+      - description: Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapters_inbound_fiberapp.ValidateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_adapters_inbound_fiberapp.ValidateTokenResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse'
+      summary: Validate access token
       tags:
       - Auth
   /api/v1/policies:

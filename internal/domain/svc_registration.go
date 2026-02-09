@@ -23,17 +23,20 @@ type IRegistrationService interface {
 
 type registrationService struct {
 	userRepo         IUserRepository
+	roleProvider     IRegistrationRoleProvider
 	registerPolicy   IRegisterPolicy
 	activationPolicy IActivationPolicy
 }
 
 func NewRegistrationService(
 	userRepo IUserRepository,
+	roleProvider IRegistrationRoleProvider,
 	registerPolicy IRegisterPolicy,
 	activationPolicy IActivationPolicy,
 ) *registrationService {
 	return &registrationService{
 		userRepo:         userRepo,
+		roleProvider:     roleProvider,
 		registerPolicy:   registerPolicy,
 		activationPolicy: activationPolicy,
 	}
@@ -63,7 +66,11 @@ func (s *registrationService) RegisterNewMember(
 		return nil, err
 	}
 
-	if err := user.AssignRole(RoleMember, now); err != nil {
+	roleName, err := s.roleProvider.DefaultMemberRole(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := user.AssignRole(roleName, now); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +107,11 @@ func (s *registrationService) RegisterNewSuperAdmin(
 		return nil, err
 	}
 
-	if err := user.AssignRole(RoleAdmin, now); err != nil {
+	roleName, err := s.roleProvider.DefaultAdminRole(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := user.AssignRole(roleName, now); err != nil {
 		return nil, err
 	}
 

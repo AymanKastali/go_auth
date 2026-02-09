@@ -33,7 +33,7 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 			return err
 		}
 
-		if err := rc.AttachUser(access.UserID, access.SessionID); err != nil {
+		if err := rc.AttachUser(access.UserID, access.SessionID, access.Roles); err != nil {
 			logger.Error("failed_to_attach_user_to_context", slog.Any("error", err))
 			return err
 		}

@@ -39,3 +39,35 @@ type ConfirmActivationRequest struct {
 type ResendActivationRequest struct {
 	Email string `json:"email" validate:"required,email"`
 }
+
+// --- Admin: Role Management ---
+
+type CreateRoleRequest struct {
+	Name        string   `json:"name" validate:"required"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+}
+
+type AssignPermissionRequest struct {
+	Permission string `json:"permission" validate:"required"`
+}
+
+type RevokePermissionRequest struct {
+	Permission string `json:"permission" validate:"required"`
+}
+
+// --- Admin: User Management ---
+
+type AssignUserRoleRequest struct {
+	RoleName string `json:"role_name" validate:"required"`
+}
+
+type RevokeUserRoleRequest struct {
+	RoleName string `json:"role_name" validate:"required"`
+}
+
+// --- Token Validation ---
+
+type ValidateTokenRequest struct {
+	AccessToken string `json:"access_token" validate:"required"`
+}

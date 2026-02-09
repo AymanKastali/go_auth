@@ -76,7 +76,7 @@ func TestUser_Activate(t *testing.T) {
 func TestUser_AssignRole(t *testing.T) {
 	t.Run("assign_new_role", func(t *testing.T) {
 		u := newActiveUser()
-		err := u.AssignRole(RoleAdmin, testNow)
+		err := u.AssignRole(ReconstituteRoleName("admin"), testNow)
 		require.NoError(t, err)
 		assert.Len(t, u.Roles(), 2)
 		assertEventRecorded(t, u.CollectEvents(), "RoleAssigned")
@@ -84,17 +84,74 @@ func TestUser_AssignRole(t *testing.T) {
 
 	t.Run("deleted_user", func(t *testing.T) {
 		u := newDeletedUser()
-		err := u.AssignRole(RoleAdmin, testNow)
+		err := u.AssignRole(ReconstituteRoleName("admin"), testNow)
 		assert.ErrorIs(t, err, ErrUserDeleted)
 	})
 
 	t.Run("duplicate_role_idempotent", func(t *testing.T) {
 		u := newActiveUser()
-		err := u.AssignRole(RoleMember, testNow) // already has Member
+		err := u.AssignRole(ReconstituteRoleName("member"), testNow) // already has Member
 		require.NoError(t, err)
 		assert.Len(t, u.Roles(), 1)
 		events := u.CollectEvents()
 		assertEventNotRecorded(t, events, "RoleAssigned")
+	})
+}
+
+// ---------------------------------------------------------------
+// RemoveRole
+// ---------------------------------------------------------------
+
+func TestUser_RemoveRole(t *testing.T) {
+	t.Run("remove_existing_role", func(t *testing.T) {
+		u := newActiveUser() // has ReconstituteRoleName("member")
+		_ = u.CollectEvents()
+
+		err := u.RemoveRole(ReconstituteRoleName("member"), testNow)
+		require.NoError(t, err)
+		assert.Empty(t, u.Roles())
+
+		events := u.CollectEvents()
+		assertEventRecorded(t, events, "RoleRevokedFromUser")
+		assertEventCount(t, events, 1)
+	})
+
+	t.Run("role_not_assigned", func(t *testing.T) {
+		u := newActiveUser() // has ReconstituteRoleName("member"), not ReconstituteRoleName("admin")
+		err := u.RemoveRole(ReconstituteRoleName("admin"), testNow)
+		assert.ErrorIs(t, err, ErrRoleNotAssigned)
+	})
+
+	t.Run("deleted_user", func(t *testing.T) {
+		u := newDeletedUser()
+		err := u.RemoveRole(ReconstituteRoleName("member"), testNow)
+		assert.ErrorIs(t, err, ErrUserDeleted)
+	})
+}
+
+// ---------------------------------------------------------------
+// MarkDeleted
+// ---------------------------------------------------------------
+
+func TestUser_MarkDeleted(t *testing.T) {
+	t.Run("happy_path", func(t *testing.T) {
+		u := newActiveUser()
+		_ = u.CollectEvents()
+
+		err := u.MarkDeleted(testNow)
+		require.NoError(t, err)
+		assert.True(t, u.IsDeleted())
+		assert.False(t, u.IsActive())
+
+		events := u.CollectEvents()
+		assertEventRecorded(t, events, "UserDeleted")
+		assertEventCount(t, events, 1)
+	})
+
+	t.Run("already_deleted", func(t *testing.T) {
+		u := newDeletedUser()
+		err := u.MarkDeleted(testNow)
+		assert.ErrorIs(t, err, ErrUserDeleted)
 	})
 }
 

@@ -45,6 +45,7 @@ type fiberHandlers struct {
 	user      *fiberapp.UserHandler
 	policy    *fiberapp.PolicyHandler
 	health    *fiberapp.HealthHandler
+	admin     *fiberapp.AdminHandler
 	authGuard fiber.Handler
 }
 
@@ -78,8 +79,17 @@ func newInboundAdapters(uc applicationLayer, out outboundAdapters) inboundAdapte
 				uc.updateMe,
 				uc.changePassword,
 			),
-			policy:    fiberapp.NewPolicyHandler(uc.publicPolicies),
-			health:    fiberapp.NewHealthHandler(out.persistence),
+			policy: fiberapp.NewPolicyHandler(uc.publicPolicies),
+			health: fiberapp.NewHealthHandler(out.persistence),
+			admin: fiberapp.NewAdminHandler(
+				validate,
+				uc.listRoles, uc.getRole, uc.createRole,
+				uc.assignPermission, uc.revokePermission,
+				uc.listUsers, uc.getByID,
+				uc.assignUserRole, uc.revokeUserRole,
+				uc.adminActivate, uc.adminDeactivate, uc.adminDelete,
+				uc.seedRoles, uc.validate,
+			),
 			authGuard: fiberapp.Protected(uc.validate),
 		},
 	}
@@ -103,6 +113,7 @@ func newApp(
 		h.user,
 		h.policy,
 		h.health,
+		h.admin,
 		h.authGuard,
 	)
 	return app

@@ -52,6 +52,28 @@ func (q *postgresUserQueryAdapter) FindByEmail(ctx context.Context, email string
 	return toUserReadModel(model), nil
 }
 
+func (q *postgresUserQueryAdapter) FindAll(ctx context.Context, offset, limit int) ([]application.UserReadModel, int64, error) {
+	var models []UserModel
+	var total int64
+
+	db := getDB(q.db, ctx)
+
+	if err := db.Model(&UserModel{}).Count(&total).Error; err != nil {
+		return nil, 0, domain.ErrInternal
+	}
+
+	if err := db.Preload("UserRoles").Offset(offset).Limit(limit).Find(&models).Error; err != nil {
+		return nil, 0, domain.ErrInternal
+	}
+
+	result := make([]application.UserReadModel, len(models))
+	for i, m := range models {
+		result[i] = toUserReadModel(m)
+	}
+
+	return result, total, nil
+}
+
 func toUserReadModel(m UserModel) application.UserReadModel {
 	roles := make([]string, len(m.UserRoles))
 	for i, ur := range m.UserRoles {

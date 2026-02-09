@@ -24,6 +24,7 @@ type IEmailService interface {
 type IUserQueryPort interface {
 	FindByID(ctx context.Context, id string) (UserReadModel, error)
 	FindByEmail(ctx context.Context, email string) (UserReadModel, error)
+	FindAll(ctx context.Context, offset, limit int) ([]UserReadModel, int64, error)
 }
 
 // IRegisterUseCase defines the boundary for creating a new user.
@@ -117,4 +118,57 @@ type IHealthChecker interface {
 // IRoleSeedLoader loads role seed definitions from an external source.
 type IRoleSeedLoader interface {
 	Load() ([]RoleSeedDefinition, error)
+}
+
+// ISeedRolesUseCase handles seeding roles from a YAML file.
+type ISeedRolesUseCase interface {
+	Execute(ctx context.Context) error
+}
+
+// --- Role Management Use Cases ---
+
+type IListRolesUseCase interface {
+	Execute(ctx context.Context) ([]RoleReadModel, error)
+}
+
+type IGetRoleUseCase interface {
+	Execute(ctx context.Context, id string) (RoleReadModel, error)
+}
+
+type ICreateRoleUseCase interface {
+	Execute(ctx context.Context, cmd CreateRoleCommand) (RoleReadModel, error)
+}
+
+type IAssignPermissionUseCase interface {
+	Execute(ctx context.Context, cmd AssignPermissionCommand) error
+}
+
+type IRevokePermissionUseCase interface {
+	Execute(ctx context.Context, cmd RevokePermissionCommand) error
+}
+
+// --- Admin User Management Use Cases ---
+
+type IListUsersUseCase interface {
+	Execute(ctx context.Context, query ListUsersQuery) (ListUsersResponse, error)
+}
+
+type IAssignUserRoleUseCase interface {
+	Execute(ctx context.Context, cmd AssignUserRoleCommand) error
+}
+
+type IRevokeUserRoleUseCase interface {
+	Execute(ctx context.Context, cmd RevokeUserRoleCommand) error
+}
+
+type IAdminActivateUserUseCase interface {
+	Execute(ctx context.Context, id string) error
+}
+
+type IAdminDeactivateUserUseCase interface {
+	Execute(ctx context.Context, id string) error
+}
+
+type IAdminDeleteUserUseCase interface {
+	Execute(ctx context.Context, id string) error
 }

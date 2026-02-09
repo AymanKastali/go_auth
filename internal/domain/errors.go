@@ -58,12 +58,15 @@ var (
 	ErrAuthenticationFailed = NewError(KindUnauthorized, "invalid email or password")
 	ErrTokenInvalid         = NewError(KindUnauthorized, "provided token is invalid or expired")
 	ErrTokenRevoked         = NewError(KindConflict, "token has been revoked")
-	ErrRoleNotRecognized    = NewError(KindValidation, "provided user role is not supported")
+	ErrRoleNotRecognized    = NewError(KindValidation, "role name is required")
+	ErrRoleNameInvalid      = NewError(KindValidation, "role name must be 2-50 lowercase letters, digits, or underscores, starting with a letter")
 	ErrRoleIDRequired       = NewError(KindValidation, "role identifier is required")
 	ErrRoleAlreadyExists    = NewError(KindConflict, "role with this name already exists")
 	ErrRoleNotFound         = NewError(KindNotFound, "role was not found")
+	ErrRoleNotAssigned      = NewError(KindNotFound, "role is not assigned to this user")
 	ErrPermissionInvalid    = NewError(KindValidation, "permission must be in 'resource:action' format")
 	ErrPermissionNotFound   = NewError(KindNotFound, "permission was not found on this role")
+	ErrForbiddenRole        = NewError(KindForbidden, "insufficient role permissions for this action")
 
 	// --- Session Context ---
 	ErrSessionUserIDRequired  = NewError(KindValidation, "session user identifier is required")

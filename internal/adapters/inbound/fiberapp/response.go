@@ -34,9 +34,14 @@ type RegisterPolicyHTTPResponse struct {
 	BlockedDomains []string `json:"blocked_domains"`
 }
 
+type ActivationPolicyHTTPResponse struct {
+	RequireEmail bool `json:"require_email" example:"false"`
+}
+
 type PolicyHTTPResponse struct {
-	Password     PasswordPolicyHTTPResponse  `json:"password"`
-	Registration RegisterPolicyHTTPResponse  `json:"registration"`
+	Password     PasswordPolicyHTTPResponse    `json:"password"`
+	Registration RegisterPolicyHTTPResponse    `json:"registration"`
+	Activation   ActivationPolicyHTTPResponse  `json:"activation"`
 }
 
 type SuccessResponse struct {
@@ -92,7 +97,43 @@ func SendInternalError(c fiber.Ctx, message string) error {
 	return SendError(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message, nil)
 }
 
+// SendForbidden handles 403 errors (e.g., insufficient role)
+func SendForbidden(c fiber.Ctx, message string) error {
+	return SendError(c, fiber.StatusForbidden, "FORBIDDEN", message, nil)
+}
+
 // SendServiceUnavailable handles 503 errors (e.g., dependency not ready)
 func SendServiceUnavailable(c fiber.Ctx, message string) error {
 	return SendError(c, fiber.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", message, nil)
+}
+
+// --- Admin Response Types ---
+
+type RoleHTTPResponse struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+}
+
+type AdminUserResponse struct {
+	ID           string   `json:"id"`
+	Email        string   `json:"email"`
+	IsActive     bool     `json:"is_active"`
+	Roles        []string `json:"roles"`
+	RegisteredAt string   `json:"registered_at"`
+	UpdatedAt    string   `json:"updated_at"`
+}
+
+type ListUsersHTTPResponse struct {
+	Users  []AdminUserResponse `json:"users"`
+	Total  int64               `json:"total"`
+	Offset int                 `json:"offset"`
+	Limit  int                 `json:"limit"`
+}
+
+type ValidateTokenResponse struct {
+	UserID    string   `json:"user_id"`
+	SessionID string   `json:"session_id"`
+	Roles     []string `json:"roles"`
 }

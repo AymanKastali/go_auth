@@ -6,10 +6,6 @@ import (
 	"log/slog"
 )
 
-type ISeedRolesUseCase interface {
-	Execute(ctx context.Context) error
-}
-
 type seedRolesUseCase struct {
 	roleRepo   domain.IRoleRepository
 	idGen      domain.IIDGenerator

@@ -45,11 +45,20 @@ type IAccessService interface {
 	Validate(token AccessToken) (AccessIdentity, error)
 }
 
+// Domain service ports (adapter-implemented)
+
+type IRegistrationRoleProvider interface {
+	DefaultMemberRole(ctx context.Context) (RoleName, error)
+	DefaultAdminRole(ctx context.Context) (RoleName, error)
+}
+
 // Repository ports (adapter-implemented)
 
 type IUserRepository interface {
 	FindByID(ctx context.Context, id UserID) (*User, error)
 	FindByEmail(ctx context.Context, email Email) (*User, error)
+	FindAll(ctx context.Context, offset, limit int) ([]*User, error)
+	Count(ctx context.Context) (int64, error)
 	Save(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id UserID) error
 }
