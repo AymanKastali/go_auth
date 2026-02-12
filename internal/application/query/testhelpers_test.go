@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
@@ -18,8 +17,6 @@ var (
 	appTestNow    = time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	appTestFuture = time.Date(2025, 6, 16, 12, 0, 0, 0, time.UTC)
 )
-
-var errTest = errors.New("test error")
 
 func testUserID() domain.UserID       { return domain.ReconstituteUserID("user-001") }
 func testSessionID() domain.SessionID { return domain.ReconstituteSessionID("sess-001") }
@@ -55,18 +52,6 @@ func testActiveSession() *domain.Session {
 // Context builders
 // ---------------------------------------------------------------
 
-func authenticatedCtx(userID, sessionID string) context.Context {
-	appCtx := &application.AppContext{
-		User: &application.UserContext{
-			UserID:    domain.ReconstituteUserID(userID),
-			SessionID: domain.ReconstituteSessionID(sessionID),
-		},
-		Client: application.ClientContext{Identity: testDeviceIdentity()},
-		Logger: slog.Default(),
-	}
-	return application.WithAppContext(context.Background(), appCtx)
-}
-
 func unauthenticatedCtx() context.Context {
 	appCtx := &application.AppContext{
 		Client: application.ClientContext{Identity: testDeviceIdentity()},
@@ -97,20 +82,6 @@ func (s *stubUserQueryPort) FindByEmail(_ context.Context, _ string) (applicatio
 }
 func (s *stubUserQueryPort) FindAll(_ context.Context, _, _ int) ([]application.UserReadModel, int64, error) {
 	return s.findAllResult, s.findAllTotal, s.findAllErr
-}
-
-type stubRoleQueryPort struct {
-	findByIDResult application.RoleReadModel
-	findByIDErr    error
-	findAllResult  []application.RoleReadModel
-	findAllErr     error
-}
-
-func (s *stubRoleQueryPort) FindByID(_ context.Context, _ string) (application.RoleReadModel, error) {
-	return s.findByIDResult, s.findByIDErr
-}
-func (s *stubRoleQueryPort) FindAll(_ context.Context) ([]application.RoleReadModel, error) {
-	return s.findAllResult, s.findAllErr
 }
 
 // ---------------------------------------------------------------
