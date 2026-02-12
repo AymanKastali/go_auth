@@ -2,12 +2,13 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 // Infrastructure ports (adapter-implemented)
 
 type IClock interface {
-	Now() Timepoint
+	Now() time.Time
 }
 type IPasswordService interface {
 	Hash(raw RawPassword) (HashedPassword, error)
@@ -38,10 +39,10 @@ type IAccessService interface {
 		sessionID SessionID,
 		roles []RoleName,
 		permissions []Permission,
-		IssuedAt Timepoint,
-		expiresAt Timepoint,
-		notBefore Timepoint,
-	) (AccessToken, Timepoint, error)
+		IssuedAt time.Time,
+		expiresAt time.Time,
+		notBefore time.Time,
+	) (AccessToken, time.Time, error)
 	Validate(token AccessToken) (AccessIdentity, error)
 }
 
@@ -69,7 +70,7 @@ type ISessionRepository interface {
 	FindActiveByUserAndFingerprint(ctx context.Context, userID UserID, fp DeviceFingerprint) (*Session, error)
 	FindActiveByUserID(ctx context.Context, userID UserID) ([]*Session, error)
 	Save(ctx context.Context, session *Session) error
-	RevokeAllForUser(ctx context.Context, userID UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, userID UserID, now time.Time) error
 }
 
 type IRoleRepository interface {

@@ -1700,6 +1700,12 @@ const docTemplate = `{
         "internal_adapters_inbound_fiberapp.ValidateTokenResponse": {
             "type": "object",
             "properties": {
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "roles": {
                     "type": "array",
                     "items": {

@@ -46,6 +46,6 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 		m.IsActive,
 		roles,
 		m.DeletedAt.Valid,
-		domain.ReconstituteTimepoint(m.CreatedAt),
+		m.CreatedAt,
 	), nil
 }

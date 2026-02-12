@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 	"go_auth/internal/domain"
 
 	"gorm.io/gorm"
@@ -55,7 +56,11 @@ func (f *PersistenceFactory) NewUserQueryAdapter() application.IUserQueryPort {
 	return NewPostgresUserQueryAdapter(f.db)
 }
 
-func (f *PersistenceFactory) NewTransactionManager() application.ITransactionManager {
+func (f *PersistenceFactory) NewRoleQueryAdapter() application.IRoleQueryPort {
+	return NewPostgresRoleQueryAdapter(f.db)
+}
+
+func (f *PersistenceFactory) NewTransactionManager() command.ITransactionManager {
 	return NewTransactionManager(f.db)
 }
 

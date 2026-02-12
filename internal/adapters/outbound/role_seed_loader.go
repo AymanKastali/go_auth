@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,7 +13,7 @@ type yamlRoleSeedLoader struct {
 	path string
 }
 
-func NewYAMLRoleSeedLoader(path string) application.IRoleSeedLoader {
+func NewYAMLRoleSeedLoader(path string) command.IRoleSeedLoader {
 	return &yamlRoleSeedLoader{path: path}
 }
 
@@ -27,7 +27,7 @@ type roleSeedEntry struct {
 	Permissions []string `yaml:"permissions"`
 }
 
-func (l *yamlRoleSeedLoader) Load() ([]application.RoleSeedDefinition, error) {
+func (l *yamlRoleSeedLoader) Load() ([]command.RoleSeedDefinition, error) {
 	data, err := os.ReadFile(l.path)
 	if err != nil {
 		return nil, fmt.Errorf("role seed loader: failed to read %s: %w", l.path, err)
@@ -38,9 +38,9 @@ func (l *yamlRoleSeedLoader) Load() ([]application.RoleSeedDefinition, error) {
 		return nil, fmt.Errorf("role seed loader: failed to parse %s: %w", l.path, err)
 	}
 
-	defs := make([]application.RoleSeedDefinition, len(file.Roles))
+	defs := make([]command.RoleSeedDefinition, len(file.Roles))
 	for i, r := range file.Roles {
-		defs[i] = application.RoleSeedDefinition{
+		defs[i] = command.RoleSeedDefinition{
 			Name:        r.Name,
 			Description: r.Description,
 			Permissions: r.Permissions,

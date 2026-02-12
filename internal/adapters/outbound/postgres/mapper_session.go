@@ -19,8 +19,8 @@ func toSessionModel(s *domain.Session) SessionModel {
 		DeviceModel:    identity.Model(),
 		AcceptLanguage: identity.Language(),
 		IsMobile:       identity.IsMobile(),
-		ExpiresAt:      s.ExpiresAt().Time(),
-		LastActiveAt:   s.LastActiveAt().Time(),
+		ExpiresAt:      s.ExpiresAt(),
+		LastActiveAt:   s.LastActiveAt(),
 		IsRevoked:      s.IsRevoked(),
 	}
 }
@@ -45,8 +45,8 @@ func toSessionDomain(m SessionModel) *domain.Session {
 		userID,
 		token,
 		identity,
-		domain.ReconstituteTimepoint(m.ExpiresAt),
-		domain.ReconstituteTimepoint(m.LastActiveAt),
+		m.ExpiresAt,
+		m.LastActiveAt,
 		m.IsRevoked,
 	)
 }

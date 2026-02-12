@@ -8,7 +8,7 @@ import "go_auth/internal/domain"
 
 var (
 	// ErrUnauthorized is raised when the Application Context is missing
-	// a valid UserID/SessionID in a protected use case.
+	// a valid UserID/SessionID in a protected handler.
 	ErrUnauthorized = domain.NewError(domain.KindUnauthorized, "authentication is required to access this resource")
 
 	// --- Infrastructure Shielding ---
@@ -18,7 +18,7 @@ var (
 
 	// --- Process & Orchestration ---
 	// Use this when a repository lookup returns nil but the
-	// use case requires that resource to proceed with the next step.
+	// handler requires that resource to proceed with the next step.
 	ErrResourceNotFound = domain.NewError(domain.KindNotFound, "the requested resource could not be found")
 
 	// --- Security Boundaries ---

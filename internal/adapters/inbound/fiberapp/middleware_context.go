@@ -15,7 +15,7 @@ func ContextMiddleware(baseLogger *slog.Logger) fiber.Handler {
 		reqID := requestid.FromContext(c)
 
 		// 2. Create a logger SCOPED to this request ID
-		// Every log inside a Use Case will now use this exact req_id
+		// Every log inside a handler will now use this exact req_id
 		scopedLogger := baseLogger.With(slog.String("req_id", reqID))
 
 		// 3. Re-inject the scoped logger into our domain context

@@ -1,30 +1,32 @@
 package domain
 
+import "time"
+
 type IUserAccountManager interface {
 	InitiatePasswordReset(
 		user *User,
-		now Timepoint,
+		now time.Time,
 	) (RawToken, *RecoveryToken, error)
 	ChangePassword(
 		user *User,
 		oldPass RawPassword,
 		newPass RawPassword,
-		now Timepoint,
+		now time.Time,
 	) error
 	ResetPasswordByToken(
 		user *User,
 		recovery *RecoveryToken,
 		newPassword RawPassword,
-		now Timepoint,
+		now time.Time,
 	) error
 	InitiateActivation(
 		user *User,
-		now Timepoint,
+		now time.Time,
 	) (RawToken, *ActivationToken, error)
 	ConfirmActivation(
 		user *User,
 		activation *ActivationToken,
-		now Timepoint,
+		now time.Time,
 	) error
 }
 
@@ -54,7 +56,7 @@ func NewUserAccountManager(
 
 func (manager *userAccountManager) InitiatePasswordReset(
 	user *User,
-	now Timepoint,
+	now time.Time,
 ) (RawToken, *RecoveryToken, error) {
 	// 1. Invariant Checks
 	if !user.IsActive() {
@@ -100,7 +102,7 @@ func (m *userAccountManager) ChangePassword(
 	user *User,
 	oldPass RawPassword,
 	newPass RawPassword,
-	now Timepoint,
+	now time.Time,
 ) error {
 	if !m.passwordMgr.Compare(oldPass, user.HashedPassword()) {
 		return ErrAuthenticationFailed
@@ -118,7 +120,7 @@ func (m *userAccountManager) ResetPasswordByToken(
 	user *User,
 	recovery *RecoveryToken,
 	newPassword RawPassword,
-	now Timepoint,
+	now time.Time,
 ) error {
 	// 1. Validate Recovery Token
 	if !recovery.IsValid(now) {
@@ -145,7 +147,7 @@ func (m *userAccountManager) ResetPasswordByToken(
 
 func (m *userAccountManager) InitiateActivation(
 	user *User,
-	now Timepoint,
+	now time.Time,
 ) (RawToken, *ActivationToken, error) {
 	// 1. Generate raw token
 	rawToken, err := m.tokenSvc.Generate()
@@ -186,7 +188,7 @@ func (m *userAccountManager) InitiateActivation(
 func (m *userAccountManager) ConfirmActivation(
 	user *User,
 	activation *ActivationToken,
-	now Timepoint,
+	now time.Time,
 ) error {
 	// 1. Validate activation token
 	if activation.IsExpired(now) {

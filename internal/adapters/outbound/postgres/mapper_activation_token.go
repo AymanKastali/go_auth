@@ -9,7 +9,7 @@ func toActivationTokenModel(t *domain.ActivationToken) ActivationTokenModel {
 		ULID:        t.ID().String(),
 		UserULID:    t.UserID().String(),
 		HashedToken: t.HashedToken().String(),
-		ExpiresAt:   t.ExpiresAt().Time(),
+		ExpiresAt:   t.ExpiresAt(),
 		IsUsed:      t.IsUsed(),
 	}
 }
@@ -19,7 +19,7 @@ func toActivationTokenDomain(m ActivationTokenModel) *domain.ActivationToken {
 		domain.ReconstituteActivationTokenID(m.ULID),
 		domain.ReconstituteUserID(m.UserULID),
 		domain.ReconstituteActivationTokenHash(m.HashedToken),
-		domain.NewTimepoint(m.ExpiresAt),
+		m.ExpiresAt,
 		m.IsUsed,
 	)
 }

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 type IAccessManager interface {
@@ -9,13 +10,14 @@ type IAccessManager interface {
 		ctx context.Context,
 		user *User,
 		sid SessionID,
-		now Timepoint,
-	) (AccessToken, Timepoint, error)
+		now time.Time,
+	) (AccessToken, time.Time, error)
 	VerifyAccess(
 		ctx context.Context,
 		token AccessToken,
-		now Timepoint,
-	) (*User, SessionID, error)
+		now time.Time,
+	) (*User, *Session, error)
+	ResolvePermissions(ctx context.Context, roles []RoleName) ([]Permission, error)
 }
 
 type accessManager struct {
@@ -46,17 +48,17 @@ func (m *accessManager) GrantImmediateAccess(
 	ctx context.Context,
 	user *User,
 	sid SessionID,
-	now Timepoint,
-) (AccessToken, Timepoint, error) {
+	now time.Time,
+) (AccessToken, time.Time, error) {
 	issuedAt := now
 	notBefore := now
 
 	ttl := m.accessPolicy.GetAccessLifetime()
 	expiresAt := issuedAt.Add(ttl)
 
-	permissions, err := m.resolvePermissions(ctx, user.Roles())
+	permissions, err := m.ResolvePermissions(ctx, user.Roles())
 	if err != nil {
-		return ZeroAccessToken, ZeroTimepoint, err
+		return ZeroAccessToken, time.Time{}, err
 	}
 
 	return m.accessSvc.Issue(
@@ -71,38 +73,37 @@ func (m *accessManager) GrantImmediateAccess(
 	)
 }
 
-func (m *accessManager) VerifyAccess(ctx context.Context, token AccessToken, now Timepoint) (*User, SessionID, error) {
+func (m *accessManager) VerifyAccess(ctx context.Context, token AccessToken, now time.Time) (*User, *Session, error) {
 	// 1. Cryptographic validation
 	identity, err := m.accessSvc.Validate(token)
 	if err != nil {
-		return nil, ZeroSessionID, err
+		return nil, nil, err
 	}
 
 	// 2. Fetch the User aggregate
 	user, err := m.userRepo.FindByID(ctx, identity.UserID())
 	if err != nil || user == nil {
-		return nil, ZeroSessionID, ErrUserNotFound
+		return nil, nil, ErrUserNotFound
 	}
 
 	if user.IsDeleted() || !user.IsActive() {
-		return nil, ZeroSessionID, ErrUserInactive
+		return nil, nil, ErrUserInactive
 	}
 
 	// 3. Session integrity check via SessionRepository
-	sid := identity.SessionID()
-	session, err := m.sessionRepo.FindByID(ctx, sid)
+	session, err := m.sessionRepo.FindByID(ctx, identity.SessionID())
 	if err != nil || session == nil {
-		return nil, ZeroSessionID, ErrSessionNotFound
+		return nil, nil, ErrSessionNotFound
 	}
 
 	if !session.IsValid(now) {
-		return nil, ZeroSessionID, ErrSessionExpired
+		return nil, nil, ErrSessionExpired
 	}
 
-	return user, sid, nil
+	return user, session, nil
 }
 
-func (m *accessManager) resolvePermissions(ctx context.Context, roles []RoleName) ([]Permission, error) {
+func (m *accessManager) ResolvePermissions(ctx context.Context, roles []RoleName) ([]Permission, error) {
 	seen := make(map[string]struct{})
 	var permissions []Permission
 

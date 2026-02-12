@@ -245,6 +245,10 @@ definitions:
     type: object
   internal_adapters_inbound_fiberapp.ValidateTokenResponse:
     properties:
+      permissions:
+        items:
+          type: string
+        type: array
       roles:
         items:
           type: string

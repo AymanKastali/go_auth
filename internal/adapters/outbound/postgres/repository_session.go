@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"go_auth/internal/domain"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -103,13 +104,13 @@ func (r *postgresSessionRepository) Save(ctx context.Context, session *domain.Se
 	return nil
 }
 
-func (r *postgresSessionRepository) RevokeAllForUser(ctx context.Context, userID domain.UserID, now domain.Timepoint) error {
+func (r *postgresSessionRepository) RevokeAllForUser(ctx context.Context, userID domain.UserID, now time.Time) error {
 	err := getDB(r.db, ctx).
 		Model(&SessionModel{}).
 		Where("user_ulid = ? AND is_revoked = ?", userID.String(), false).
 		Updates(map[string]any{
 			"is_revoked":     true,
-			"last_active_at": now.Time(),
+			"last_active_at": now,
 		}).Error
 
 	if err != nil {

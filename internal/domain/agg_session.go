@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // Session is the Aggregate Root for session lifecycle management.
 type Session struct {
 	EventRecorder
@@ -7,8 +9,8 @@ type Session struct {
 	userID       UserID
 	hashedToken  HashedToken
 	identity     DeviceIdentity
-	expiresAt    Timepoint
-	lastActiveAt Timepoint
+	expiresAt    time.Time
+	lastActiveAt time.Time
 	isRevoked    bool
 }
 
@@ -18,8 +20,8 @@ func NewSession(
 	userID UserID,
 	hashedToken HashedToken,
 	identity DeviceIdentity,
-	expiresAt Timepoint,
-	now Timepoint,
+	expiresAt time.Time,
+	now time.Time,
 ) (*Session, error) {
 	if id.IsEmpty() {
 		return nil, ErrSessionIDRequired
@@ -27,7 +29,7 @@ func NewSession(
 	if userID.IsEmpty() {
 		return nil, ErrSessionUserIDRequired
 	}
-	if expiresAt.IsBefore(now) {
+	if expiresAt.Before(now) {
 		return nil, ErrSessionExpiryInPast
 	}
 
@@ -50,8 +52,8 @@ func ReconstituteSession(
 	userID UserID,
 	hashedToken HashedToken,
 	identity DeviceIdentity,
-	expiresAt Timepoint,
-	lastActiveAt Timepoint,
+	expiresAt time.Time,
+	lastActiveAt time.Time,
 	isRevoked bool,
 ) *Session {
 	return &Session{
@@ -67,25 +69,25 @@ func ReconstituteSession(
 
 // --- Behavior ---
 
-func (s *Session) IsValid(now Timepoint) bool {
+func (s *Session) IsValid(now time.Time) bool {
 	if s.IsRevoked() {
 		return false
 	}
-	return now.IsBefore(s.expiresAt)
+	return now.Before(s.expiresAt)
 }
 
 func (s *Session) ValidateFingerprint(currentFingerprint DeviceFingerprint) bool {
 	return s.identity.Fingerprint().Equal(currentFingerprint)
 }
 
-func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
+func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now time.Time) {
 	s.hashedToken = newToken
 	s.expiresAt = newExpiry
 	s.lastActiveAt = now
 	s.RecordEvent(NewSessionEstablished(s.id, s.userID, now))
 }
 
-func (s *Session) Revoke(now Timepoint) error {
+func (s *Session) Revoke(now time.Time) error {
 	if s.IsRevoked() {
 		return ErrSessionAlreadyRevoked
 	}
@@ -95,7 +97,7 @@ func (s *Session) Revoke(now Timepoint) error {
 	return nil
 }
 
-func (s *Session) Refresh(currentFP DeviceFingerprint, now Timepoint) error {
+func (s *Session) Refresh(currentFP DeviceFingerprint, now time.Time) error {
 	if !s.ValidateFingerprint(currentFP) {
 		s.isRevoked = true
 		s.RecordEvent(NewSessionHijackDetected(s.id, s.userID, now))
@@ -111,7 +113,7 @@ func (s *Session) Refresh(currentFP DeviceFingerprint, now Timepoint) error {
 	return nil
 }
 
-func (s *Session) UpdateActivity(now Timepoint) {
+func (s *Session) UpdateActivity(now time.Time) {
 	s.lastActiveAt = now
 }
 
@@ -120,8 +122,8 @@ func (s *Session) UpdateActivity(now Timepoint) {
 func (s *Session) ID() SessionID            { return s.id }
 func (s *Session) UserID() UserID           { return s.userID }
 func (s *Session) HashedToken() HashedToken { return s.hashedToken }
-func (s *Session) ExpiresAt() Timepoint     { return s.expiresAt }
-func (s *Session) LastActiveAt() Timepoint  { return s.lastActiveAt }
+func (s *Session) ExpiresAt() time.Time     { return s.expiresAt }
+func (s *Session) LastActiveAt() time.Time  { return s.lastActiveAt }
 func (s *Session) IsRevoked() bool          { return s.isRevoked }
 func (s *Session) Identity() DeviceIdentity { return s.identity }
 func (s *Session) DisplayName() string      { return s.identity.DisplayName() }

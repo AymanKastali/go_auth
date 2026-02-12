@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +44,7 @@ func TestRecoveryToken_IsValid(t *testing.T) {
 	tests := []struct {
 		name     string
 		used     bool
-		checkAt  Timepoint
+		checkAt  time.Time
 		expected bool
 	}{
 		{"valid_not_used_not_expired", false, testNow, true},

@@ -10,7 +10,7 @@ import (
 )
 
 // IIDGenerator defines the contract for generating trace/request IDs.
-// This is an adapter-layer concern — no use case depends on it.
+// This is an adapter-layer concern — no handler depends on it.
 type IIDGenerator interface {
 	Generate() (string, error)
 }

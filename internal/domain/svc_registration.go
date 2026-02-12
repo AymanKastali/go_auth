@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 type IRegistrationService interface {
@@ -10,14 +11,14 @@ type IRegistrationService interface {
 		id UserID,
 		email Email,
 		pwd HashedPassword,
-		now Timepoint,
+		now time.Time,
 	) (*User, error)
 	RegisterNewSuperAdmin(
 		ctx context.Context,
 		id UserID,
 		email Email,
 		pwd HashedPassword,
-		now Timepoint,
+		now time.Time,
 	) (*User, error)
 }
 
@@ -47,7 +48,7 @@ func (s *registrationService) RegisterNewMember(
 	id UserID,
 	email Email,
 	pwd HashedPassword,
-	now Timepoint,
+	now time.Time,
 ) (*User, error) {
 	if err := s.registerPolicy.Validate(email); err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func (s *registrationService) RegisterNewSuperAdmin(
 	id UserID,
 	email Email,
 	pwd HashedPassword,
-	now Timepoint,
+	now time.Time,
 ) (*User, error) {
 	if err := s.registerPolicy.Validate(email); err != nil {
 		return nil, err

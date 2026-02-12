@@ -11,10 +11,10 @@ import (
 // ---------------------------------------------------------------
 
 var (
-	testNow       = NewTimepoint(time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
-	testPast      = NewTimepoint(time.Date(2025, 6, 14, 12, 0, 0, 0, time.UTC))
-	testFuture    = NewTimepoint(time.Date(2025, 6, 16, 12, 0, 0, 0, time.UTC))
-	testFarFuture = NewTimepoint(time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC))
+	testNow       = time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	testPast      = time.Date(2025, 6, 14, 12, 0, 0, 0, time.UTC)
+	testFuture    = time.Date(2025, 6, 16, 12, 0, 0, 0, time.UTC)
+	testFarFuture = time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
 )
 
 // ---------------------------------------------------------------
@@ -209,13 +209,13 @@ func (s *stubTokenService) CompareActivation(_ RawToken, _ ActivationTokenHash) 
 
 type stubAccessService struct {
 	issueToken   AccessToken
-	issueExpiry  Timepoint
+	issueExpiry  time.Time
 	issueErr     error
 	validateID   AccessIdentity
 	validateErr  error
 }
 
-func (s *stubAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, _ []Permission, _ Timepoint, _ Timepoint, _ Timepoint) (AccessToken, Timepoint, error) {
+func (s *stubAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, _ []Permission, _ time.Time, _ time.Time, _ time.Time) (AccessToken, time.Time, error) {
 	return s.issueToken, s.issueExpiry, s.issueErr
 }
 func (s *stubAccessService) Validate(_ AccessToken) (AccessIdentity, error) {
@@ -282,7 +282,7 @@ func (r *stubSessionRepository) FindActiveByUserID(_ context.Context, _ UserID) 
 func (r *stubSessionRepository) Save(_ context.Context, _ *Session) error {
 	return r.saveErr
 }
-func (r *stubSessionRepository) RevokeAllForUser(_ context.Context, _ UserID, _ Timepoint) error {
+func (r *stubSessionRepository) RevokeAllForUser(_ context.Context, _ UserID, _ time.Time) error {
 	return r.revokeAllErr
 }
 

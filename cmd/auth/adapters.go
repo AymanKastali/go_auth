@@ -8,6 +8,7 @@ import (
 	"go_auth/internal/adapters/outbound"
 	"go_auth/internal/adapters/outbound/postgres"
 	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -16,11 +17,12 @@ import (
 // (e.g. persistence, email, transactions, event dispatching, queries).
 type outboundAdapters struct {
 	persistence *postgres.PersistenceFactory
-	emailSvc    application.IEmailService
-	txManager   application.ITransactionManager
-	dispatcher  application.IEventDispatcher
+	emailSvc    command.IEmailService
+	txManager   command.ITransactionManager
+	dispatcher  command.IEventDispatcher
 	userQuery   application.IUserQueryPort
-	seedLoader  application.IRoleSeedLoader
+	roleQuery   application.IRoleQueryPort
+	seedLoader  command.IRoleSeedLoader
 }
 
 func newOutboundAdapters(cfg *adapters.Config, logger *slog.Logger) outboundAdapters {
@@ -35,69 +37,72 @@ func newOutboundAdapters(cfg *adapters.Config, logger *slog.Logger) outboundAdap
 		txManager:   pf.NewTransactionManager(),
 		dispatcher:  outbound.NewLoggingEventDispatcher(logger),
 		userQuery:   pf.NewUserQueryAdapter(),
+		roleQuery:   pf.NewRoleQueryAdapter(),
 		seedLoader:  outbound.NewYAMLRoleSeedLoader(cfg.Seed.RolesFilePath),
 	}
 }
 
-// fiberHandlers groups all Fiber-specific HTTP handlers and middleware.
-type fiberHandlers struct {
-	auth      *fiberapp.AuthHandler
-	user      *fiberapp.UserHandler
-	policy    *fiberapp.PolicyHandler
-	health    *fiberapp.HealthHandler
-	admin     *fiberapp.AdminHandler
+// fiberControllers groups all Fiber-specific HTTP controllers and middleware.
+type fiberControllers struct {
+	auth      *fiberapp.AuthController
+	user      *fiberapp.UserController
+	policy    *fiberapp.PolicyController
+	health    *fiberapp.HealthController
+	admin     *fiberapp.AdminController
 	authGuard fiber.Handler
 }
 
-// inboundAdapters holds driving adapter implementations (HTTP handlers).
+// inboundAdapters holds driving adapter implementations (HTTP controllers).
 type inboundAdapters struct {
-	fiber fiberHandlers
+	fiber fiberControllers
 }
 
-func newInboundAdapters(uc applicationLayer, out outboundAdapters) inboundAdapters {
+func newInboundAdapters(app applicationLayer, out outboundAdapters) inboundAdapters {
 	validate := fiberapp.NewValidator()
+	authGuard := fiberapp.Protected(app.validate)
 
 	return inboundAdapters{
-		fiber: fiberHandlers{
-			auth: fiberapp.NewAuthHandler(
+		fiber: fiberControllers{
+			auth: fiberapp.NewAuthController(
 				validate,
-				uc.register,
-				uc.login,
-				uc.refresh,
-				uc.logout,
-				uc.validate,
-				uc.forgotPassword,
-				uc.resetPassword,
-				uc.confirmActivation,
-				uc.resendActivation,
+				app.register,
+				app.login,
+				app.refresh,
+				app.logout,
+				app.validate,
+				app.forgotPassword,
+				app.resetPassword,
+				app.confirmActivation,
+				app.resendActivation,
+				authGuard,
 			),
-			user: fiberapp.NewUserHandler(
+			user: fiberapp.NewUserController(
 				validate,
-				uc.findByEmail,
-				uc.getByID,
-				uc.getMe,
-				uc.updateMe,
-				uc.changePassword,
+				app.findByEmail,
+				app.getByID,
+				app.getMe,
+				app.updateMe,
+				app.changePassword,
 			),
-			policy: fiberapp.NewPolicyHandler(uc.publicPolicies),
-			health: fiberapp.NewHealthHandler(out.persistence),
-			admin: fiberapp.NewAdminHandler(
+			policy:    fiberapp.NewPolicyController(app.publicPolicies),
+			health:    fiberapp.NewHealthController(out.persistence),
+			admin: fiberapp.NewAdminController(
 				validate,
-				uc.listRoles, uc.getRole, uc.createRole,
-				uc.assignPermission, uc.revokePermission,
-				uc.listUsers, uc.getByID,
-				uc.assignUserRole, uc.revokeUserRole,
-				uc.adminActivate, uc.adminDeactivate, uc.adminDelete,
-				uc.seedRoles, uc.validate,
+				app.listRoles, app.getRole, app.createRole,
+				app.assignPermission, app.revokePermission,
+				app.listUsers, app.getByID,
+				app.assignUserRole, app.revokeUserRole,
+				app.adminActivate, app.adminDeactivate, app.adminDelete,
+				app.seedRoles,
 			),
-			authGuard: fiberapp.Protected(uc.validate),
+			authGuard: authGuard,
 		},
 	}
 }
 
 func newApp(
 	cfg adapters.AppConfig,
-	h fiberHandlers,
+	h fiberControllers,
 	baseLogger *slog.Logger,
 ) *fiber.App {
 	app := fiber.New(fiber.Config{
@@ -107,12 +112,12 @@ func newApp(
 
 	idGen := outbound.NewULIDGenerator()
 	fiberapp.ConfigureMiddlewares(app, baseLogger, idGen)
-	fiberapp.RegisterRoutes(
+	fiberapp.SetupRoutes(
 		app,
+		h.health,
 		h.auth,
 		h.user,
 		h.policy,
-		h.health,
 		h.admin,
 		h.authGuard,
 	)

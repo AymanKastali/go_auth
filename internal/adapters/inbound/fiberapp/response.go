@@ -133,7 +133,8 @@ type ListUsersHTTPResponse struct {
 }
 
 type ValidateTokenResponse struct {
-	UserID    string   `json:"user_id"`
-	SessionID string   `json:"session_id"`
-	Roles     []string `json:"roles"`
+	UserID      string   `json:"user_id"`
+	SessionID   string   `json:"session_id"`
+	Roles       []string `json:"roles"`
+	Permissions []string `json:"permissions,omitempty"`
 }

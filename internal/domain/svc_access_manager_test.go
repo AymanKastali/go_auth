@@ -102,12 +102,12 @@ func TestAccessManager_GrantImmediateAccess(t *testing.T) {
 
 // captureAccessService records arguments passed to Issue for inspection.
 type captureAccessService struct {
-	capturedIssuedAt    Timepoint
-	capturedExpiresAt   Timepoint
+	capturedIssuedAt    time.Time
+	capturedExpiresAt   time.Time
 	capturedPermissions []Permission
 }
 
-func (s *captureAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, permissions []Permission, issuedAt, expiresAt, _ Timepoint) (AccessToken, Timepoint, error) {
+func (s *captureAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, permissions []Permission, issuedAt, expiresAt, _ time.Time) (AccessToken, time.Time, error) {
 	s.capturedIssuedAt = issuedAt
 	s.capturedExpiresAt = expiresAt
 	s.capturedPermissions = permissions
@@ -135,10 +135,10 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 		)
 
 		at, _ := NewAccessToken("tok")
-		u, sid, err := mgr.VerifyAccess(ctx, at, testNow)
+		u, sess, err := mgr.VerifyAccess(ctx, at, testNow)
 		require.NoError(t, err)
 		assert.Equal(t, validUserID(), u.ID())
-		assert.Equal(t, validSessionID(), sid)
+		assert.Equal(t, validSessionID(), sess.ID())
 	})
 
 	t.Run("token_invalid", func(t *testing.T) {
@@ -218,5 +218,44 @@ func TestAccessManager_VerifyAccess(t *testing.T) {
 		at, _ := NewAccessToken("tok")
 		_, _, err := mgr.VerifyAccess(ctx, at, testNow)
 		assert.ErrorIs(t, err, ErrSessionExpired)
+	})
+}
+
+func TestAccessManager_ResolvePermissions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("happy_path", func(t *testing.T) {
+		memberRole := ReconstituteRoleAggregate(
+			ReconstituteRoleID("role-001"),
+			ReconstituteRoleName("member"),
+			"Standard member",
+			[]Permission{ReconstitutePermission("users", "read_self"), ReconstitutePermission("content", "read")},
+		)
+		mgr := NewAccessManager(
+			&stubUserRepository{},
+			&stubSessionRepository{},
+			&stubRoleRepository{findByNameResult: memberRole},
+			&stubAccessService{},
+			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
+		)
+
+		perms, err := mgr.ResolvePermissions(ctx, []RoleName{ReconstituteRoleName("member")})
+		require.NoError(t, err)
+		assert.Len(t, perms, 2)
+		assert.Equal(t, "users:read_self", perms[0].String())
+		assert.Equal(t, "content:read", perms[1].String())
+	})
+
+	t.Run("role_repo_error", func(t *testing.T) {
+		mgr := NewAccessManager(
+			&stubUserRepository{},
+			&stubSessionRepository{},
+			&stubRoleRepository{findByNameErr: errors.New("db error")},
+			&stubAccessService{},
+			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
+		)
+
+		_, err := mgr.ResolvePermissions(ctx, []RoleName{ReconstituteRoleName("member")})
+		assert.Error(t, err)
 	})
 }

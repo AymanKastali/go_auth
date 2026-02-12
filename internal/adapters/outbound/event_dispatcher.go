@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 	"go_auth/internal/domain"
 )
 
@@ -14,7 +14,7 @@ type LoggingEventDispatcher struct {
 	logger *slog.Logger
 }
 
-func NewLoggingEventDispatcher(logger *slog.Logger) application.IEventDispatcher {
+func NewLoggingEventDispatcher(logger *slog.Logger) command.IEventDispatcher {
 	return &LoggingEventDispatcher{logger: logger}
 }
 

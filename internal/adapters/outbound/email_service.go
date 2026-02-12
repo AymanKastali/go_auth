@@ -5,14 +5,14 @@ import (
 	"net/smtp"
 
 	"go_auth/internal/adapters"
-	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 )
 
 type emailService struct {
 	config adapters.EmailConfig
 }
 
-func NewEmailService(cfg adapters.EmailConfig) application.IEmailService {
+func NewEmailService(cfg adapters.EmailConfig) command.IEmailService {
 	return &emailService{config: cfg}
 }
 

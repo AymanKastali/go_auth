@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 type IAuthenticationService interface {
@@ -10,13 +11,13 @@ type IAuthenticationService interface {
 		user *User,
 		rawPassword RawPassword,
 		identity DeviceIdentity,
-		now Timepoint,
+		now time.Time,
 	) (RawToken, *Session, error)
 	RefreshSession(
 		ctx context.Context,
 		rawToken RawToken,
 		fp DeviceFingerprint,
-		now Timepoint,
+		now time.Time,
 	) (*User, *Session, error)
 }
 
@@ -52,7 +53,7 @@ func (s *authenticationService) AuthenticateAndEstablishSession(
 	user *User,
 	rawPassword RawPassword,
 	identity DeviceIdentity,
-	now Timepoint,
+	now time.Time,
 ) (RawToken, *Session, error) {
 	// 1. Verify Credentials
 	if !s.passwordMgr.Compare(rawPassword, user.HashedPassword()) {
@@ -120,7 +121,7 @@ func (s *authenticationService) RefreshSession(
 	ctx context.Context,
 	rawToken RawToken,
 	fp DeviceFingerprint,
-	now Timepoint,
+	now time.Time,
 ) (*User, *Session, error) {
 	// 1. Hash the token for lookup
 	hashed, err := s.tokenSvc.HashSessionToken(rawToken)

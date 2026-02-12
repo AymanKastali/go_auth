@@ -2,6 +2,7 @@ package domain
 
 import (
 	"slices"
+	"time"
 )
 
 // User is the Aggregate Root for the Identity context.
@@ -13,7 +14,7 @@ type User struct {
 	isActive     bool
 	roles        []RoleName
 	isDeleted    bool
-	registeredAt Timepoint
+	registeredAt time.Time
 }
 
 // NewUser enforces business invariants during initial creation.
@@ -21,7 +22,7 @@ func NewUser(
 	userID UserID,
 	email Email,
 	passwordHash HashedPassword,
-	registeredAt Timepoint,
+	registeredAt time.Time,
 ) (*User, error) {
 	if userID.IsEmpty() {
 		return nil, ErrUserIDRequired
@@ -54,7 +55,7 @@ func ReconstituteUser(
 	isActive bool,
 	roles []RoleName,
 	isDeleted bool,
-	registeredAt Timepoint,
+	registeredAt time.Time,
 ) *User {
 	return &User{
 		id:           id,
@@ -69,7 +70,7 @@ func ReconstituteUser(
 
 // --- Business Behavior ---
 
-func (u *User) Activate(now Timepoint) error {
+func (u *User) Activate(now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -82,7 +83,7 @@ func (u *User) Activate(now Timepoint) error {
 	return nil
 }
 
-func (u *User) Deactivate(now Timepoint) error {
+func (u *User) Deactivate(now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -95,7 +96,7 @@ func (u *User) Deactivate(now Timepoint) error {
 	return nil
 }
 
-func (u *User) AssignRole(role RoleName, now Timepoint) error {
+func (u *User) AssignRole(role RoleName, now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -111,7 +112,7 @@ func (u *User) AssignRole(role RoleName, now Timepoint) error {
 	return nil
 }
 
-func (u *User) RemoveRole(role RoleName, now Timepoint) error {
+func (u *User) RemoveRole(role RoleName, now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -127,7 +128,7 @@ func (u *User) RemoveRole(role RoleName, now Timepoint) error {
 	return ErrRoleNotAssigned
 }
 
-func (u *User) MarkDeleted(now Timepoint) error {
+func (u *User) MarkDeleted(now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -138,7 +139,7 @@ func (u *User) MarkDeleted(now Timepoint) error {
 	return nil
 }
 
-func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
+func (u *User) UpdateEmail(newEmail Email, now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -153,7 +154,7 @@ func (u *User) UpdateEmail(newEmail Email, now Timepoint) error {
 	return nil
 }
 
-func (u *User) UpdatePassword(newHash HashedPassword, now Timepoint) error {
+func (u *User) UpdatePassword(newHash HashedPassword, now time.Time) error {
 	if u.IsDeleted() {
 		return ErrUserDeleted
 	}
@@ -174,7 +175,7 @@ func (u *User) HashedPassword() HashedPassword { return u.passwordHash }
 func (u *User) Roles() []RoleName               { return slices.Clone(u.roles) }
 func (u *User) IsDeleted() bool                { return u.isDeleted }
 func (u *User) IsActive() bool                 { return u.isActive }
-func (u *User) RegisteredAt() Timepoint        { return u.registeredAt }
+func (u *User) RegisteredAt() time.Time        { return u.registeredAt }
 func (u *User) RoleNames() []string {
 	if len(u.roles) == 0 {
 		return []string{}

@@ -1,6 +1,9 @@
 package domain
 
-import "slices"
+import (
+	"slices"
+	"time"
+)
 
 // Role is the Aggregate Root for the RBAC context.
 type Role struct {
@@ -17,7 +20,7 @@ func NewRole(
 	name RoleName,
 	description string,
 	permissions []Permission,
-	now Timepoint,
+	now time.Time,
 ) (*Role, error) {
 	if id.IsEmpty() {
 		return nil, ErrRoleIDRequired
@@ -53,7 +56,7 @@ func ReconstituteRoleAggregate(
 
 // --- Behavior ---
 
-func (r *Role) AssignPermission(p Permission, now Timepoint) {
+func (r *Role) AssignPermission(p Permission, now time.Time) {
 	for _, existing := range r.permissions {
 		if existing.Equal(p) {
 			return // Idempotent
@@ -63,7 +66,7 @@ func (r *Role) AssignPermission(p Permission, now Timepoint) {
 	r.RecordEvent(NewPermissionAssigned(r.id, p, now))
 }
 
-func (r *Role) RevokePermission(p Permission, now Timepoint) error {
+func (r *Role) RevokePermission(p Permission, now time.Time) error {
 	for i, existing := range r.permissions {
 		if existing.Equal(p) {
 			r.permissions = append(r.permissions[:i], r.permissions[i+1:]...)

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func TestSession_IsValid(t *testing.T) {
 	tests := []struct {
 		name     string
 		revoked  bool
-		checkAt  Timepoint
+		checkAt  time.Time
 		expected bool
 	}{
 		{"active_not_expired", false, testNow, true},
