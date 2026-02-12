@@ -72,5 +72,6 @@
     },
     "postCreateCommand": "go mod download && bash scripts/install-hooks.sh",
     "postStartCommand": "swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs 2>/dev/null; air",
+    "remoteUser": "vscode",
     "shutdownAction": "stopCompose"
 }

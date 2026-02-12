@@ -82,11 +82,11 @@ type IRoleRepository interface {
 type IRecoveryTokenRepository interface {
 	FindByHash(ctx context.Context, hash RecoveryTokenHash) (*RecoveryToken, error)
 	Save(ctx context.Context, token *RecoveryToken) error
-	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, uid UserID) error
 }
 
 type IActivationTokenRepository interface {
 	FindByHash(ctx context.Context, hash ActivationTokenHash) (*ActivationToken, error)
 	Save(ctx context.Context, token *ActivationToken) error
-	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, uid UserID) error
 }

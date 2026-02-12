@@ -20,16 +20,26 @@ func (r *postgresUserRepository) Save(ctx context.Context, user *domain.User) er
 	model := toUserModel(user)
 	db := getDB(r.db, ctx)
 
+	// Resolve own PK (0 = new record)
+	pk, err := resolvePK(db, &UserModel{}, model.ULID)
+	if err != nil {
+		return err
+	}
+	model.ID = pk
+
 	// Save the user record itself (omit associations to avoid FK ordering issues)
 	if err := db.Omit("UserRoles").Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
 
-	// Replace user_roles: delete existing, insert current
+	// Replace user_roles: delete existing, insert current with the resolved PK
 	if err := db.Where("user_id = ?", model.ID).Delete(&UserRoleModel{}).Error; err != nil {
 		return domain.ErrInternal
 	}
 	if len(model.UserRoles) > 0 {
+		for i := range model.UserRoles {
+			model.UserRoles[i].UserID = model.ID
+		}
 		if err := db.Create(&model.UserRoles).Error; err != nil {
 			return domain.ErrInternal
 		}
@@ -58,7 +68,7 @@ func (r *postgresUserRepository) FindByID(ctx context.Context, id domain.UserID)
 	var model UserModel
 	err := getDB(r.db, ctx).
 		Preload("UserRoles").
-		Where("id = ?", id.String()).
+		Where("ulid = ?", id.String()).
 		First(&model).Error
 
 	if err != nil {
@@ -105,7 +115,7 @@ func (r *postgresUserRepository) Count(ctx context.Context) (int64, error) {
 func (r *postgresUserRepository) Delete(ctx context.Context, id domain.UserID) error {
 	err := getDB(r.db, ctx).
 		Unscoped().
-		Where("id = ?", id.String()).
+		Where("ulid = ?", id.String()).
 		Delete(&UserModel{}).Error
 
 	if err != nil {

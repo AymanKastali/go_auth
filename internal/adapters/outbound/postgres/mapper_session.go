@@ -8,15 +8,15 @@ func toSessionModel(s *domain.Session) SessionModel {
 	identity := s.Identity()
 
 	return SessionModel{
-		ID:             s.ID().String(),
-		UserID:         s.UserID().String(),
+		ULID:           s.ID().String(),
+		UserULID:       s.UserID().String(),
 		HashedToken:    s.HashedToken().String(),
 		Fingerprint:    identity.Fingerprint().String(),
 		IPAddress:      identity.IPAddress(),
 		UserAgent:      identity.UserAgent(),
 		OS:             identity.OS(),
 		Browser:        identity.Browser(),
-		Model:          identity.Model(),
+		DeviceModel:    identity.Model(),
 		AcceptLanguage: identity.Language(),
 		IsMobile:       identity.IsMobile(),
 		ExpiresAt:      s.ExpiresAt().Time(),
@@ -26,15 +26,15 @@ func toSessionModel(s *domain.Session) SessionModel {
 }
 
 func toSessionDomain(m SessionModel) *domain.Session {
-	sid := domain.ReconstituteSessionID(m.ID)
-	userID := domain.ReconstituteUserID(m.UserID)
+	sid := domain.ReconstituteSessionID(m.ULID)
+	userID := domain.ReconstituteUserID(m.UserULID)
 	token := domain.ReconstituteHashedToken(m.HashedToken)
 
 	identity := domain.ReconstituteDeviceIdentity(
 		m.IPAddress,
 		m.OS,
 		m.Browser,
-		m.Model,
+		m.DeviceModel,
 		m.AcceptLanguage,
 		m.UserAgent,
 		m.IsMobile,

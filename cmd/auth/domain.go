@@ -29,7 +29,7 @@ type domainLayer struct {
 }
 
 func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
-	idGen := outbound.NewUUIDV7Generator()
+	idGen := outbound.NewULIDIDGenerator()
 	passwordSvc := outbound.NewPasswordService(cfg.Password.BcryptCost)
 	tokenSvc := outbound.NewTokenService()
 	accessSvc := outbound.NewJWTService(

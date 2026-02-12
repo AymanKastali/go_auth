@@ -353,6 +353,6 @@ func (r *stubAppRecoveryTokenRepository) FindByHash(_ context.Context, _ domain.
 func (r *stubAppRecoveryTokenRepository) Save(_ context.Context, _ *domain.RecoveryToken) error {
 	return r.saveErr
 }
-func (r *stubAppRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ domain.UserID, _ domain.Timepoint) error {
+func (r *stubAppRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ domain.UserID) error {
 	return r.revokeAllErr
 }

@@ -34,10 +34,11 @@ services:
     ports:
       - "${GA_HTTP_PORT:-8080}:${GA_HTTP_PORT:-8080}"
       - "2345:2345"
+    user: "1000:1000"
     volumes:
       - ../:/app:cached
       - go_mod_cache:/go/pkg/mod
-      - go_build_cache:/root/.cache/go-build
+      - go_build_cache:/home/vscode/.cache/go-build
     depends_on:
       postgres:
         condition: service_healthy

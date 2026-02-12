@@ -76,7 +76,7 @@ func (uc *resendActivationUseCase) Execute(ctx context.Context, cmd ResendActiva
 	// 5. Transactional Boundary
 	err = uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// 5a. Revoke all existing activation tokens
-		if err := uc.activationRepo.RevokeAllForUser(txCtx, user.ID(), now); err != nil {
+		if err := uc.activationRepo.RevokeAllForUser(txCtx, user.ID()); err != nil {
 			return err
 		}
 

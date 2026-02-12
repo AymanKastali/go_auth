@@ -19,7 +19,7 @@ func NewPostgresSessionRepository(db *gorm.DB) domain.ISessionRepository {
 func (r *postgresSessionRepository) FindByID(ctx context.Context, id domain.SessionID) (*domain.Session, error) {
 	var model SessionModel
 	err := getDB(r.db, ctx).
-		Where("id = ?", id.String()).
+		Where("ulid = ?", id.String()).
 		First(&model).Error
 
 	if err != nil {
@@ -49,7 +49,7 @@ func (r *postgresSessionRepository) FindByToken(ctx context.Context, token domai
 func (r *postgresSessionRepository) FindActiveByUserAndFingerprint(ctx context.Context, userID domain.UserID, fp domain.DeviceFingerprint) (*domain.Session, error) {
 	var model SessionModel
 	err := getDB(r.db, ctx).
-		Where("user_id = ? AND is_revoked = ? AND fingerprint = ?", userID.String(), false, fp.String()).
+		Where("user_ulid = ? AND is_revoked = ? AND fingerprint = ?", userID.String(), false, fp.String()).
 		First(&model).Error
 
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *postgresSessionRepository) FindActiveByUserAndFingerprint(ctx context.C
 func (r *postgresSessionRepository) FindActiveByUserID(ctx context.Context, userID domain.UserID) ([]*domain.Session, error) {
 	var models []SessionModel
 	err := getDB(r.db, ctx).
-		Where("user_id = ? AND is_revoked = ?", userID.String(), false).
+		Where("user_ulid = ? AND is_revoked = ?", userID.String(), false).
 		Order("last_active_at ASC").
 		Find(&models).Error
 
@@ -81,9 +81,23 @@ func (r *postgresSessionRepository) FindActiveByUserID(ctx context.Context, user
 
 func (r *postgresSessionRepository) Save(ctx context.Context, session *domain.Session) error {
 	model := toSessionModel(session)
+	db := getDB(r.db, ctx)
 
-	err := getDB(r.db, ctx).Save(&model).Error
+	// Resolve own PK
+	pk, err := resolvePK(db, &SessionModel{}, model.ULID)
 	if err != nil {
+		return err
+	}
+	model.ID = pk
+
+	// Resolve cross-aggregate FK: User
+	userPK, err := resolveUserPK(db, model.UserULID)
+	if err != nil {
+		return err
+	}
+	model.UserID = userPK
+
+	if err := db.Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
 	return nil
@@ -92,8 +106,8 @@ func (r *postgresSessionRepository) Save(ctx context.Context, session *domain.Se
 func (r *postgresSessionRepository) RevokeAllForUser(ctx context.Context, userID domain.UserID, now domain.Timepoint) error {
 	err := getDB(r.db, ctx).
 		Model(&SessionModel{}).
-		Where("user_id = ? AND is_revoked = ?", userID.String(), false).
-		Updates(map[string]interface{}{
+		Where("user_ulid = ? AND is_revoked = ?", userID.String(), false).
+		Updates(map[string]any{
 			"is_revoked":     true,
 			"last_active_at": now.Time(),
 		}).Error

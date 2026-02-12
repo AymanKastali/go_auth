@@ -20,7 +20,7 @@ func (r *postgresRoleRepository) FindByID(ctx context.Context, id domain.RoleID)
 	var model RoleModel
 	err := getDB(r.db, ctx).
 		Preload("Permissions").
-		Where("id = ?", id.String()).
+		Where("ulid = ?", id.String()).
 		First(&model).Error
 
 	if err != nil {
@@ -69,16 +69,26 @@ func (r *postgresRoleRepository) Save(ctx context.Context, role *domain.Role) er
 	model := toRoleModel(role)
 	db := getDB(r.db, ctx)
 
+	// Resolve own PK
+	pk, err := resolvePK(db, &RoleModel{}, model.ULID)
+	if err != nil {
+		return err
+	}
+	model.ID = pk
+
 	// Save the role record itself (omit associations to avoid FK ordering issues)
 	if err := db.Omit("Permissions").Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
 
-	// Replace permissions: delete existing, insert current
+	// Replace permissions: delete existing, insert current with resolved PK
 	if err := db.Where("role_id = ?", model.ID).Delete(&PermissionModel{}).Error; err != nil {
 		return domain.ErrInternal
 	}
 	if len(model.Permissions) > 0 {
+		for i := range model.Permissions {
+			model.Permissions[i].RoleID = model.ID
+		}
 		if err := db.Create(&model.Permissions).Error; err != nil {
 			return domain.ErrInternal
 		}
