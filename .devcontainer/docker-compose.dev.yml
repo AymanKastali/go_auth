@@ -38,7 +38,7 @@ services:
     volumes:
       - ../:/app:cached
       - go_mod_cache:/go/pkg/mod
-      - go_build_cache:/home/vscode/.cache/go-build
+      - go_build_cache:/home/vscode/.cache
     depends_on:
       postgres:
         condition: service_healthy
