@@ -15,7 +15,7 @@ import "log"
 
 // @host localhost:8080
 // @BasePath /
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey AccessToken
 // @in header
 // @name Authorization
 func main() {

@@ -50,11 +50,11 @@ func (h *UserController) RegisterRoutes(users fiber.Router) {
 // @Summary Find user by email
 // @Description Search for a specific user using their email address
 // @Tags Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param email query string true "User Email"
-// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Success 200 {object} DataResponse{data=UserResponse}
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/users [get]
@@ -63,7 +63,7 @@ func (h *UserController) FindByEmail(c fiber.Ctx) error {
 	email := c.Query("email")
 
 	if email == "" {
-		return SendBadRequest(c, "query parameter 'email' is required for search", nil)
+		return SendBadRequest(c, "query parameter 'email' is required for search")
 	}
 
 	user, err := h.findByEmail.Handle(ctx, email)
@@ -71,17 +71,17 @@ func (h *UserController) FindByEmail(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "user found", mapToResponse(user))
+	return SendOK(c, mapToResponse(user))
 }
 
 // @Summary Get user by ID
 // @Description Retrieve a user's public profile by their unique ID
 // @Tags Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param id path string true "User ID"
-// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Success 200 {object} DataResponse{data=UserResponse}
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/users/{id} [get]
@@ -90,7 +90,7 @@ func (h *UserController) GetByID(c fiber.Ctx) error {
 	id := c.Params("id")
 
 	if id == "" {
-		return SendBadRequest(c, "user ID is required in path", nil)
+		return SendBadRequest(c, "user ID is required in path")
 	}
 
 	user, err := h.getByID.Handle(ctx, id)
@@ -98,16 +98,16 @@ func (h *UserController) GetByID(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "user found", mapToResponse(user))
+	return SendOK(c, mapToResponse(user))
 }
 
 // @Summary Get current user
 // @Description Retrieve the profile of the currently authenticated user
 // @Tags Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
-// @Success 200 {object} SuccessResponse{data=UserResponse}
+// @Success 200 {object} DataResponse{data=UserResponse}
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/users/me [get]
 func (h *UserController) GetMe(c fiber.Ctx) error {
@@ -124,17 +124,17 @@ func (h *UserController) GetMe(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "current user profile fetched", mapToResponse(user))
+	return SendOK(c, mapToResponse(user))
 }
 
 // @Summary Update Current User Profile
 // @Description Update the authenticated user's email
 // @Tags Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param request body UpdateMeRequest true "Update Details"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/users/me [patch]
 func (h *UserController) UpdateMe(c fiber.Ctx) error {
@@ -142,11 +142,11 @@ func (h *UserController) UpdateMe(c fiber.Ctx) error {
 
 	var req UpdateMeRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.UpdateMeCommand{Email: req.Email}
@@ -170,7 +170,7 @@ func mapToResponse(user application.UserReadModel) UserResponse {
 // @Summary Change Password
 // @Description Update the authenticated user's password
 // @Tags Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param request body ChangePasswordRequest true "Password Details"
@@ -182,11 +182,11 @@ func (h *UserController) ChangePassword(c fiber.Ctx) error {
 	var req ChangePasswordRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, "invalid request body", nil)
+		return SendBadRequest(c, "invalid request body")
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.ChangePasswordCommand{

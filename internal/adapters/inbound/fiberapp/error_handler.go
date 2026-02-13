@@ -10,26 +10,28 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
-// Error Handler
+// NewErrorHandler returns a centralized Fiber error handler that maps domain
+// and transport errors into the unified ErrorResponse envelope.
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(c fiber.Ctx, e error) error {
-		// Use the helper here as the primary source of truth
 		traceID := requestid.FromContext(c)
 		if traceID == "" {
 			traceID = "unknown"
 		}
 
 		resp := ErrorResponse{
-			TraceID: traceID,
-			Code:    string(domain.KindInternal),
-			Message: "Internal server error",
+			Error: ErrorBody{
+				TraceID: traceID,
+				Code:    string(domain.KindInternal),
+				Message: "internal server error",
+			},
 		}
 		statusCode := fiber.StatusInternalServerError
 
 		var appErr *domain.Error
 		if errors.As(e, &appErr) {
-			resp.Code = string(appErr.Kind())
-			resp.Message = appErr.Message()
+			resp.Error.Code = string(appErr.Kind())
+			resp.Error.Message = appErr.Message()
 			statusCode = mapKindToHTTPStatus(appErr.Kind())
 
 			logRequestError(c, statusCode, e)
@@ -39,8 +41,8 @@ func NewErrorHandler() fiber.ErrorHandler {
 		var fErr *fiber.Error
 		if errors.As(e, &fErr) {
 			statusCode = fErr.Code
-			resp.Code = "TRANSPORT_ERROR"
-			resp.Message = fErr.Message
+			resp.Error.Code = "TRANSPORT_ERROR"
+			resp.Error.Message = fErr.Message
 			logRequestError(c, statusCode, e)
 			return c.Status(statusCode).JSON(resp)
 		}
@@ -50,16 +52,13 @@ func NewErrorHandler() fiber.ErrorHandler {
 	}
 }
 
-// Error Utils
 func logRequestError(c fiber.Ctx, status int, e error) {
 	ctx := c.Context()
 	logger := application.GetLogger(ctx)
 
-	// Default values for standard errors
 	logLv := slog.LevelWarn
 	appCode := "INTERNAL_ERROR"
 
-	// Check if it's a domain error to extract more specific metadata
 	var appErr *domain.Error
 	if errors.As(e, &appErr) {
 		appCode = string(appErr.Kind())
@@ -75,7 +74,7 @@ func logRequestError(c fiber.Ctx, status int, e error) {
 		slog.String("method", c.Method()),
 		slog.String("path", c.Path()),
 		slog.String("ip", c.IP()),
-		slog.String("err_detail", e.Error()), // Log the actual error string
+		slog.String("err_detail", e.Error()),
 	)
 }
 

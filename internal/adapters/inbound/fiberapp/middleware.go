@@ -2,6 +2,7 @@ package fiberapp
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -54,8 +55,13 @@ func ConfigureMiddlewares(app *fiber.App, baseLogger *slog.Logger, idGen IIDGene
 }
 
 // SecurityHeaders returns a middleware that sets common security response headers.
+// Swagger UI is excluded because it requires inline scripts, styles, and external fonts.
 func SecurityHeaders() fiber.Handler {
 	return func(c fiber.Ctx) error {
+		if strings.HasPrefix(c.Path(), "/swagger") {
+			return c.Next()
+		}
+
 		c.Set("X-Content-Type-Options", "nosniff")
 		c.Set("X-Frame-Options", "DENY")
 		c.Set("X-XSS-Protection", "0")

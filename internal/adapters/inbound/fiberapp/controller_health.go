@@ -23,22 +23,22 @@ func (h *HealthController) RegisterRoutes(app *fiber.App) {
 // @Description Returns 200 if the service is alive
 // @Tags Health
 // @Produce json
-// @Success 200 {object} SuccessResponse
+// @Success 200 {object} DataResponse{data=HealthResponse}
 // @Router /health [get]
 func (h *HealthController) Health(c fiber.Ctx) error {
-	return SendOK(c, "ok", nil)
+	return SendOK(c, HealthResponse{Status: "healthy"})
 }
 
 // @Summary Readiness check
 // @Description Returns 200 if the service is ready to accept traffic, 503 if not
 // @Tags Health
 // @Produce json
-// @Success 200 {object} SuccessResponse
+// @Success 200 {object} DataResponse{data=HealthResponse}
 // @Failure 503 {object} ErrorResponse
 // @Router /ready [get]
 func (h *HealthController) Ready(c fiber.Ctx) error {
 	if err := h.checker.Ping(c.Context()); err != nil {
 		return SendServiceUnavailable(c, "service is not ready")
 	}
-	return SendOK(c, "ready", nil)
+	return SendOK(c, HealthResponse{Status: "ready"})
 }

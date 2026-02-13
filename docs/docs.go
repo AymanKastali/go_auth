@@ -27,7 +27,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Returns all roles with their permissions",
@@ -44,7 +44,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -71,7 +71,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Creates a role with optional permissions",
@@ -102,7 +102,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -134,7 +134,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Returns a single role with its permissions",
@@ -160,7 +160,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -186,7 +186,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Adds a permission to an existing role",
@@ -219,11 +219,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -242,7 +239,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Removes a permission from an existing role",
@@ -275,11 +272,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -300,7 +294,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Seeds roles from the YAML configuration file",
@@ -312,11 +306,8 @@ const docTemplate = `{
                 ],
                 "summary": "Seed roles",
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -331,7 +322,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Returns a paginated list of users",
@@ -364,7 +355,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -390,7 +381,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Returns full user details including roles and status",
@@ -416,7 +407,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -440,7 +431,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Admin soft-deletes a user and revokes all sessions",
@@ -461,11 +452,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -480,7 +468,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Admin activates a user account",
@@ -501,11 +489,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -520,7 +505,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Admin deactivates a user account",
@@ -541,11 +526,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -560,7 +542,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Assigns a role to the specified user",
@@ -593,11 +575,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -616,7 +595,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Removes a role from the specified user",
@@ -649,11 +628,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -695,11 +671,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -709,6 +682,46 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/forgot-password": {
+            "post": {
+                "description": "Request a password reset link by email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Forgot password",
+                "parameters": [
+                    {
+                        "description": "Email Address",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
                         }
@@ -746,7 +759,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -772,7 +785,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Revoke the current session",
@@ -823,7 +836,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -875,7 +888,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -925,8 +938,45 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.MessageResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/reset-password": {
+            "post": {
+                "description": "Reset the user's password using a valid reset token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Reset password",
+                "parameters": [
+                    {
+                        "description": "Reset Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -967,7 +1017,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1005,7 +1055,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1031,7 +1081,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Search for a specific user using their email address",
@@ -1060,7 +1110,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1092,7 +1142,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Retrieve the profile of the currently authenticated user",
@@ -1112,7 +1162,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1136,7 +1186,7 @@ const docTemplate = `{
             "patch": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Update the authenticated user's email",
@@ -1162,11 +1212,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1181,7 +1228,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Update the authenticated user's password",
@@ -1223,7 +1270,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "AccessToken": []
                     }
                 ],
                 "description": "Retrieve a user's public profile by their unique ID",
@@ -1252,7 +1299,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1294,7 +1341,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.HealthResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1314,7 +1373,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.HealthResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "503": {
@@ -1431,12 +1502,18 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ErrorResponse": {
+        "internal_adapters_inbound_fiberapp.DataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {}
+            }
+        },
+        "internal_adapters_inbound_fiberapp.ErrorBody": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "string",
-                    "example": "VALIDATION"
+                    "example": "VALIDATION_FAILED"
                 },
                 "details": {
                     "type": "object",
@@ -1444,11 +1521,39 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "humanized error message"
+                    "example": "password length is below the minimum requirement"
                 },
                 "trace_id": {
                     "type": "string",
-                    "example": "req-12345"
+                    "example": "req-abc123"
+                }
+            }
+        },
+        "internal_adapters_inbound_fiberapp.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorBody"
+                }
+            }
+        },
+        "internal_adapters_inbound_fiberapp.ForgotPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_adapters_inbound_fiberapp.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "healthy"
                 }
             }
         },
@@ -1501,6 +1606,15 @@ const docTemplate = `{
                 },
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_adapters_inbound_fiberapp.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "operation completed"
                 }
             }
         },
@@ -1606,6 +1720,21 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_adapters_inbound_fiberapp.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "token"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_adapters_inbound_fiberapp.RevokePermissionRequest": {
             "type": "object",
             "required": [
@@ -1645,16 +1774,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "internal_adapters_inbound_fiberapp.SuccessResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "message": {
-                    "type": "string",
-                    "example": "humanized success message"
                 }
             }
         },
@@ -1722,7 +1841,7 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "AccessToken": {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

@@ -22,7 +22,7 @@ func (h *PolicyController) RegisterRoutes(api fiber.Router) {
 // @Description Returns password and registration policy rules (unauthenticated)
 // @Tags     Policies
 // @Produce  json
-// @Success  200 {object} SuccessResponse{data=PolicyHTTPResponse}
+// @Success  200 {object} DataResponse{data=PolicyHTTPResponse}
 // @Failure  500 {object} ErrorResponse
 // @Router   /api/v1/policies [get]
 func (h *PolicyController) GetPublicPolicies(c fiber.Ctx) error {
@@ -31,7 +31,7 @@ func (h *PolicyController) GetPublicPolicies(c fiber.Ctx) error {
 		return SendInternalError(c, "failed to retrieve policies")
 	}
 
-	return SendOK(c, "public policies", PolicyHTTPResponse{
+	return SendOK(c, PolicyHTTPResponse{
 		Password: PasswordPolicyHTTPResponse{
 			MinLength:      resp.Password.MinLength,
 			MaxLength:      resp.Password.MaxLength,

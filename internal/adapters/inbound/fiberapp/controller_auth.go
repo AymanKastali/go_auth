@@ -75,17 +75,17 @@ func (h *AuthController) RegisterRoutes(router fiber.Router) {
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "Registration Details"
-// @Success 201 {object} SuccessResponse{data=RegisterUserResponse}
+// @Success 201 {object} DataResponse{data=RegisterUserResponse}
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/auth/register [post]
 func (h *AuthController) Register(c fiber.Ctx) error {
 	var req RegisterRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.RegisterUserCommand{
@@ -98,7 +98,7 @@ func (h *AuthController) Register(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendCreated(c, "user registered successfully", RegisterUserResponse{
+	return SendCreated(c, RegisterUserResponse{
 		UserID: user.UserID,
 		Email:  user.Email,
 	})
@@ -110,17 +110,17 @@ func (h *AuthController) Register(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Login Credentials"
-// @Success 200 {object} SuccessResponse{data=LoginResponse}
+// @Success 200 {object} DataResponse{data=LoginResponse}
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/login [post]
 func (h *AuthController) Login(c fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	identity := application.GetIdentity(c.Context())
@@ -142,7 +142,7 @@ func (h *AuthController) Login(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "login successful", LoginResponse{
+	return SendOK(c, LoginResponse{
 		AccessToken:        resp.AccessToken,
 		AccessTokenExpiry:  resp.AccessTokenExpiry,
 		RefreshToken:       resp.RefreshToken,
@@ -156,7 +156,7 @@ func (h *AuthController) Login(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body RefreshRequest true "Refresh Token"
-// @Success 200 {object} SuccessResponse{data=LoginResponse}
+// @Success 200 {object} DataResponse{data=LoginResponse}
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/refresh [post]
 func (h *AuthController) Refresh(c fiber.Ctx) error {
@@ -164,7 +164,7 @@ func (h *AuthController) Refresh(c fiber.Ctx) error {
 
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	userID := application.GetUserID(ctx)
@@ -181,13 +181,13 @@ func (h *AuthController) Refresh(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "token refreshed", resp)
+	return SendOK(c, resp)
 }
 
 // @Summary Logout
 // @Description Revoke the current session
 // @Tags Auth
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Success 204 "No Content"
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/logout [post]
@@ -195,7 +195,7 @@ func (h *AuthController) Logout(c fiber.Ctx) error {
 	ctx := c.Context()
 
 	if !application.IsAuthenticated(ctx) {
-		return SendBadRequest(c, "missing identity context in request", nil)
+		return SendBadRequest(c, "missing identity context in request")
 	}
 
 	userID := application.GetUserID(ctx)
@@ -213,14 +213,23 @@ func (h *AuthController) Logout(c fiber.Ctx) error {
 	return SendNoContent(c)
 }
 
+// @Summary Forgot password
+// @Description Request a password reset link by email
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ForgotPasswordRequest true "Email Address"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/auth/forgot-password [post]
 func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 	var req ForgotPasswordRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, "invalid request body", nil)
+		return SendBadRequest(c, "invalid request body")
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.ForgotPasswordCommand{Email: req.Email}
@@ -229,19 +238,28 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "If an account exists with that email, a reset link has been sent.", nil)
+	return SendMessage(c, "If an account exists with that email, a reset link has been sent.")
 }
 
+// @Summary Reset password
+// @Description Reset the user's password using a valid reset token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset Details"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Router /api/v1/auth/reset-password [post]
 func (h *AuthController) ResetPassword(c fiber.Ctx) error {
 	ctx := c.Context()
 	var req ResetPasswordRequest
 
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, "invalid request body", nil)
+		return SendBadRequest(c, "invalid request body")
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.ResetPasswordCommand{
@@ -253,7 +271,7 @@ func (h *AuthController) ResetPassword(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "Password has been reset successfully. You can now log in with your new credentials.", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Confirm account activation
@@ -262,18 +280,18 @@ func (h *AuthController) ResetPassword(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body ConfirmActivationRequest true "Activation Token"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/activate [post]
 func (h *AuthController) ConfirmActivation(c fiber.Ctx) error {
 	var req ConfirmActivationRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, "invalid request body", nil)
+		return SendBadRequest(c, "invalid request body")
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.ConfirmActivationCommand{
@@ -284,7 +302,7 @@ func (h *AuthController) ConfirmActivation(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "Account has been activated successfully. You can now log in.", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Resend activation email
@@ -293,17 +311,17 @@ func (h *AuthController) ConfirmActivation(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body ResendActivationRequest true "Email Address"
-// @Success 200 {object} SuccessResponse
+// @Success 200 {object} MessageResponse
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/auth/resend-activation [post]
 func (h *AuthController) ResendActivation(c fiber.Ctx) error {
 	var req ResendActivationRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, "invalid request body", nil)
+		return SendBadRequest(c, "invalid request body")
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.ResendActivationCommand{
@@ -314,7 +332,7 @@ func (h *AuthController) ResendActivation(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "If your account requires activation, a new activation link has been sent.", nil)
+	return SendMessage(c, "If your account requires activation, a new activation link has been sent.")
 }
 
 // @Summary Validate access token
@@ -323,17 +341,17 @@ func (h *AuthController) ResendActivation(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body ValidateTokenRequest true "Token"
-// @Success 200 {object} SuccessResponse{data=ValidateTokenResponse}
+// @Success 200 {object} DataResponse{data=ValidateTokenResponse}
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/validate [post]
 func (h *AuthController) ValidateToken(c fiber.Ctx) error {
 	var req ValidateTokenRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	q := query.ValidateAccessQuery{
@@ -346,7 +364,7 @@ func (h *AuthController) ValidateToken(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "token is valid", ValidateTokenResponse{
+	return SendOK(c, ValidateTokenResponse{
 		UserID:      access.UserID,
 		SessionID:   access.SessionID,
 		Roles:       access.Roles,

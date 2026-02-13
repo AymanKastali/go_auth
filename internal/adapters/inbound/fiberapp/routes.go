@@ -3,8 +3,8 @@ package fiberapp
 import (
 	_ "go_auth/docs"
 
+	"github.com/gofiber/contrib/v3/swaggo"
 	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/swagger/v2"
 )
 
 func SetupRoutes(
@@ -17,7 +17,7 @@ func SetupRoutes(
 	authGuard fiber.Handler,
 ) {
 	health.RegisterRoutes(app)
-	app.Get("/swagger/*", swagger.HandlerDefault)
+	app.Get("/swagger/*", swaggo.HandlerDefault)
 
 	api := app.Group("/api/v1")
 	policy.RegisterRoutes(api)

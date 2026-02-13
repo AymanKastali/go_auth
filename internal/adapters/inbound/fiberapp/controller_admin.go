@@ -87,9 +87,9 @@ func (h *AdminController) RegisterRoutes(admin fiber.Router) {
 // @Summary List all roles
 // @Description Returns all roles with their permissions
 // @Tags Admin - Roles
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
-// @Success 200 {object} SuccessResponse{data=[]RoleHTTPResponse}
+// @Success 200 {object} DataResponse{data=[]RoleHTTPResponse}
 // @Failure 403 {object} ErrorResponse
 // @Router /api/v1/admin/roles [get]
 func (h *AdminController) ListRoles(c fiber.Ctx) error {
@@ -103,22 +103,22 @@ func (h *AdminController) ListRoles(c fiber.Ctx) error {
 		resp[i] = toRoleHTTPResponse(r)
 	}
 
-	return SendOK(c, "roles listed", resp)
+	return SendOK(c, resp)
 }
 
 // @Summary Get role by ID
 // @Description Returns a single role with its permissions
 // @Tags Admin - Roles
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param id path string true "Role ID"
-// @Success 200 {object} SuccessResponse{data=RoleHTTPResponse}
+// @Success 200 {object} DataResponse{data=RoleHTTPResponse}
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/roles/{id} [get]
 func (h *AdminController) GetRole(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "role ID is required", nil)
+		return SendBadRequest(c, "role ID is required")
 	}
 
 	role, err := h.getRole.Handle(c.Context(), id)
@@ -126,28 +126,28 @@ func (h *AdminController) GetRole(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "role found", toRoleHTTPResponse(role))
+	return SendOK(c, toRoleHTTPResponse(role))
 }
 
 // @Summary Create a new role
 // @Description Creates a role with optional permissions
 // @Tags Admin - Roles
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param request body CreateRoleRequest true "Role Details"
-// @Success 201 {object} SuccessResponse{data=RoleHTTPResponse}
+// @Success 201 {object} DataResponse{data=RoleHTTPResponse}
 // @Failure 400 {object} ErrorResponse
 // @Failure 409 {object} ErrorResponse
 // @Router /api/v1/admin/roles [post]
 func (h *AdminController) CreateRole(c fiber.Ctx) error {
 	var req CreateRoleRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.CreateRoleCommand{
@@ -161,34 +161,34 @@ func (h *AdminController) CreateRole(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendCreated(c, "role created", toRoleHTTPResponse(role))
+	return SendCreated(c, toRoleHTTPResponse(role))
 }
 
 // @Summary Assign permission to role
 // @Description Adds a permission to an existing role
 // @Tags Admin - Roles
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param id path string true "Role ID"
 // @Param request body AssignPermissionRequest true "Permission"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/roles/{id}/permissions [post]
 func (h *AdminController) AssignPermission(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "role ID is required", nil)
+		return SendBadRequest(c, "role ID is required")
 	}
 
 	var req AssignPermissionRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.AssignPermissionCommand{
@@ -200,34 +200,34 @@ func (h *AdminController) AssignPermission(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "permission assigned", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Revoke permission from role
 // @Description Removes a permission from an existing role
 // @Tags Admin - Roles
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param id path string true "Role ID"
 // @Param request body RevokePermissionRequest true "Permission"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/roles/{id}/permissions [delete]
 func (h *AdminController) RevokePermission(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "role ID is required", nil)
+		return SendBadRequest(c, "role ID is required")
 	}
 
 	var req RevokePermissionRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.RevokePermissionCommand{
@@ -239,7 +239,7 @@ func (h *AdminController) RevokePermission(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "permission revoked", nil)
+	return SendNoContent(c)
 }
 
 // --- User Endpoints ---
@@ -247,11 +247,11 @@ func (h *AdminController) RevokePermission(c fiber.Ctx) error {
 // @Summary List users (paginated)
 // @Description Returns a paginated list of users
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param offset query int false "Offset" default(0)
 // @Param limit query int false "Limit" default(20)
-// @Success 200 {object} SuccessResponse{data=ListUsersHTTPResponse}
+// @Success 200 {object} DataResponse{data=ListUsersHTTPResponse}
 // @Failure 403 {object} ErrorResponse
 // @Router /api/v1/admin/users [get]
 func (h *AdminController) ListUsers(c fiber.Ctx) error {
@@ -279,7 +279,7 @@ func (h *AdminController) ListUsers(c fiber.Ctx) error {
 		users[i] = toAdminUserResponse(u)
 	}
 
-	return SendOK(c, "users listed", ListUsersHTTPResponse{
+	return SendOK(c, ListUsersHTTPResponse{
 		Users:  users,
 		Total:  result.Total,
 		Offset: offset,
@@ -290,16 +290,16 @@ func (h *AdminController) ListUsers(c fiber.Ctx) error {
 // @Summary Get user by ID (admin)
 // @Description Returns full user details including roles and status
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param id path string true "User ID"
-// @Success 200 {object} SuccessResponse{data=AdminUserResponse}
+// @Success 200 {object} DataResponse{data=AdminUserResponse}
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id} [get]
 func (h *AdminController) AdminGetUser(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	user, err := h.getUser.Handle(c.Context(), id)
@@ -307,34 +307,34 @@ func (h *AdminController) AdminGetUser(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "user found", toAdminUserResponse(user))
+	return SendOK(c, toAdminUserResponse(user))
 }
 
 // @Summary Assign role to user
 // @Description Assigns a role to the specified user
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param id path string true "User ID"
 // @Param request body AssignUserRoleRequest true "Role"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id}/roles [post]
 func (h *AdminController) AssignUserRole(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	var req AssignUserRoleRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.AssignUserRoleCommand{
@@ -346,34 +346,34 @@ func (h *AdminController) AssignUserRole(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "role assigned to user", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Revoke role from user
 // @Description Removes a role from the specified user
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Accept json
 // @Produce json
 // @Param id path string true "User ID"
 // @Param request body RevokeUserRoleRequest true "Role"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id}/roles [delete]
 func (h *AdminController) RevokeUserRole(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	var req RevokeUserRoleRequest
 	if err := c.Bind().Body(&req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		return SendBadRequest(c, err.Error(), nil)
+		return SendBadRequest(c, err.Error())
 	}
 
 	cmd := command.RevokeUserRoleCommand{
@@ -385,73 +385,73 @@ func (h *AdminController) RevokeUserRole(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "role revoked from user", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Activate user
 // @Description Admin activates a user account
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param id path string true "User ID"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id}/activate [post]
 func (h *AdminController) ActivateUser(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	if err := h.activateUser.Handle(c.Context(), id); err != nil {
 		return err
 	}
 
-	return SendOK(c, "user activated", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Deactivate user
 // @Description Admin deactivates a user account
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param id path string true "User ID"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id}/deactivate [post]
 func (h *AdminController) DeactivateUser(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	if err := h.deactivateUser.Handle(c.Context(), id); err != nil {
 		return err
 	}
 
-	return SendOK(c, "user deactivated", nil)
+	return SendNoContent(c)
 }
 
 // @Summary Delete user (soft)
 // @Description Admin soft-deletes a user and revokes all sessions
 // @Tags Admin - Users
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
 // @Param id path string true "User ID"
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 404 {object} ErrorResponse
 // @Router /api/v1/admin/users/{id} [delete]
 func (h *AdminController) DeleteUser(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return SendBadRequest(c, "user ID is required", nil)
+		return SendBadRequest(c, "user ID is required")
 	}
 
 	if err := h.deleteUser.Handle(c.Context(), id); err != nil {
 		return err
 	}
 
-	return SendOK(c, "user deleted", nil)
+	return SendNoContent(c)
 }
 
 // --- Seed ---
@@ -459,9 +459,9 @@ func (h *AdminController) DeleteUser(c fiber.Ctx) error {
 // @Summary Seed roles
 // @Description Seeds roles from the YAML configuration file
 // @Tags Admin - Seed
-// @Security ApiKeyAuth
+// @Security AccessToken
 // @Produce json
-// @Success 200 {object} SuccessResponse
+// @Success 204 "No Content"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/admin/seed/roles [post]
 func (h *AdminController) SeedRoles(c fiber.Ctx) error {
@@ -469,7 +469,7 @@ func (h *AdminController) SeedRoles(c fiber.Ctx) error {
 		return err
 	}
 
-	return SendOK(c, "roles seeded successfully", nil)
+	return SendNoContent(c)
 }
 
 // --- Mappers ---
