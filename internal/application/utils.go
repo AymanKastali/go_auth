@@ -142,3 +142,18 @@ func IsAuthenticated(ctx context.Context) bool {
 	appCtx, ok := FromContext(ctx)
 	return ok && appCtx.User != nil
 }
+
+// LoadRoles resolves role names to full Role aggregates via the repository.
+func LoadRoles(ctx context.Context, roleRepo domain.IRoleRepository, roleNames []domain.RoleName) ([]*domain.Role, error) {
+	var roles []*domain.Role
+	for _, rn := range roleNames {
+		role, err := roleRepo.FindByName(ctx, rn)
+		if err != nil {
+			return nil, err
+		}
+		if role != nil {
+			roles = append(roles, role)
+		}
+	}
+	return roles, nil
+}

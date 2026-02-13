@@ -1513,7 +1513,7 @@ const docTemplate = `{
             "properties": {
                 "code": {
                     "type": "string",
-                    "example": "VALIDATION_FAILED"
+                    "example": "PASSWORD_TOO_SHORT"
                 },
                 "details": {
                     "type": "object",

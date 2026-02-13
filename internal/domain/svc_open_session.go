@@ -1,13 +1,11 @@
 package domain
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 type IOpenSession interface {
 	Open(
-		ctx context.Context,
+		existingSession *Session,
+		activeSessions []*Session,
 		userID UserID,
 		identity DeviceIdentity,
 		now time.Time,
@@ -15,20 +13,17 @@ type IOpenSession interface {
 }
 
 type openSession struct {
-	sessionRepo   ISessionRepository
 	tokenSvc      ITokenService
 	idGen         IIDGenerator
 	sessionPolicy ISessionPolicy
 }
 
 func NewOpenSession(
-	sessionRepo ISessionRepository,
 	tokenSvc ITokenService,
 	idGen IIDGenerator,
 	sessionPolicy ISessionPolicy,
 ) IOpenSession {
 	return &openSession{
-		sessionRepo:   sessionRepo,
 		tokenSvc:      tokenSvc,
 		idGen:         idGen,
 		sessionPolicy: sessionPolicy,
@@ -36,7 +31,8 @@ func NewOpenSession(
 }
 
 func (s *openSession) Open(
-	ctx context.Context,
+	existingSession *Session,
+	activeSessions []*Session,
 	userID UserID,
 	identity DeviceIdentity,
 	now time.Time,
@@ -58,23 +54,13 @@ func (s *openSession) Open(
 	}
 
 	// 2. Check for existing session with same fingerprint
-	existing, err := s.sessionRepo.FindActiveByUserAndFingerprint(ctx, userID, identity.Fingerprint())
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	if existing != nil {
-		existing.UpdateLogin(hashedToken, newExpiry, now)
-		return rawToken, existing, nil, nil
+	if existingSession != nil {
+		existingSession.UpdateLogin(hashedToken, newExpiry, now)
+		return rawToken, existingSession, nil, nil
 	}
 
 	// 3. Enforce session limit
 	var revokedSession *Session
-	activeSessions, err := s.sessionRepo.FindActiveByUserID(ctx, userID)
-	if err != nil {
-		return "", nil, nil, err
-	}
-
 	maxSessions := s.sessionPolicy.GetMaxActiveSessions()
 	if len(activeSessions) >= maxSessions && len(activeSessions) > 0 {
 		if err := activeSessions[0].Revoke(now); err != nil {

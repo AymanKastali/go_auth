@@ -15,6 +15,7 @@ type IRegisterHandler interface {
 type registerHandler struct {
 	userRepo            domain.IUserRepository
 	registrar           domain.IRegisterMember
+	roleProvider        domain.IRegistrationRoleProvider
 	passwordPolicy      domain.IPasswordPolicy
 	passwordSvc         domain.IPasswordService
 	idGen               domain.IIDGenerator
@@ -29,6 +30,7 @@ type registerHandler struct {
 func NewRegisterHandler(
 	userRepo domain.IUserRepository,
 	registrar domain.IRegisterMember,
+	roleProvider domain.IRegistrationRoleProvider,
 	passwordPolicy domain.IPasswordPolicy,
 	passwordSvc domain.IPasswordService,
 	idGen domain.IIDGenerator,
@@ -42,6 +44,7 @@ func NewRegisterHandler(
 	return &registerHandler{
 		userRepo:            userRepo,
 		registrar:           registrar,
+		roleProvider:        roleProvider,
 		passwordPolicy:      passwordPolicy,
 		passwordSvc:         passwordSvc,
 		idGen:               idGen,
@@ -84,7 +87,22 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 
 	now := h.clock.Now()
 
-	user, err := h.registrar.Register(ctx, uid, email, hashed, now)
+	existing, err := h.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		logger.Error("user_lookup_failed", slog.Any("error", err))
+		return ZeroRegisterUserResponse, err
+	}
+	if existing != nil {
+		return ZeroRegisterUserResponse, domain.ErrUserEmailTaken
+	}
+
+	roleName, err := h.roleProvider.DefaultMemberRole(ctx)
+	if err != nil {
+		logger.Error("role_lookup_failed", slog.Any("error", err))
+		return ZeroRegisterUserResponse, err
+	}
+
+	user, err := h.registrar.Register(uid, email, hashed, roleName, now)
 	if err != nil {
 		logger.Warn("registration_domain_denied", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err

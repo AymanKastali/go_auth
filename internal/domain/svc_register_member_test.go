@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,17 +8,16 @@ import (
 )
 
 func TestRegisterMember_Register(t *testing.T) {
-	ctx := context.Background()
 	uid := validUserID()
 	email := validEmail()
 	hash := validHashedPassword()
+	defaultRole := ReconstituteRoleName("member")
 
 	t.Run("happy_path", func(t *testing.T) {
-		repo := &stubUserRepository{findByEmailResult: nil}
 		policy := &stubRegisterPolicy{}
-		svc := NewRegisterMember(repo, defaultRoleProvider(), policy, &stubActivationPolicy{})
+		svc := NewRegisterMember(policy, &stubActivationPolicy{})
 
-		user, err := svc.Register(ctx, uid, email, hash, testNow)
+		user, err := svc.Register(uid, email, hash, defaultRole, testNow)
 		require.NoError(t, err)
 		assert.True(t, user.IsActive())
 		assert.Contains(t, user.RoleNames(), "member")
@@ -32,40 +29,19 @@ func TestRegisterMember_Register(t *testing.T) {
 	})
 
 	t.Run("policy_rejects", func(t *testing.T) {
-		repo := &stubUserRepository{}
 		policy := &stubRegisterPolicy{err: ErrRegistrationDisabled}
-		svc := NewRegisterMember(repo, defaultRoleProvider(), policy, &stubActivationPolicy{})
+		svc := NewRegisterMember(policy, &stubActivationPolicy{})
 
-		_, err := svc.Register(ctx, uid, email, hash, testNow)
+		_, err := svc.Register(uid, email, hash, defaultRole, testNow)
 		assert.ErrorIs(t, err, ErrRegistrationDisabled)
 	})
 
-	t.Run("email_taken", func(t *testing.T) {
-		repo := &stubUserRepository{findByEmailResult: newActiveUser()}
+	t.Run("activation_required_deactivates_user", func(t *testing.T) {
 		policy := &stubRegisterPolicy{}
-		svc := NewRegisterMember(repo, defaultRoleProvider(), policy, &stubActivationPolicy{})
+		svc := NewRegisterMember(policy, &stubActivationPolicy{requireEmail: true})
 
-		_, err := svc.Register(ctx, uid, email, hash, testNow)
-		assert.ErrorIs(t, err, ErrUserEmailTaken)
-	})
-
-	t.Run("repo_error", func(t *testing.T) {
-		repoErr := errors.New("db down")
-		repo := &stubUserRepository{findByEmailErr: repoErr}
-		policy := &stubRegisterPolicy{}
-		svc := NewRegisterMember(repo, defaultRoleProvider(), policy, &stubActivationPolicy{})
-
-		_, err := svc.Register(ctx, uid, email, hash, testNow)
-		assert.ErrorIs(t, err, repoErr)
-	})
-
-	t.Run("role_provider_error_propagates", func(t *testing.T) {
-		repo := &stubUserRepository{findByEmailResult: nil}
-		policy := &stubRegisterPolicy{}
-		provider := &stubRegistrationRoleProvider{memberRoleErr: ErrRoleNotFound}
-		svc := NewRegisterMember(repo, provider, policy, &stubActivationPolicy{})
-
-		_, err := svc.Register(ctx, uid, email, hash, testNow)
-		assert.ErrorIs(t, err, ErrRoleNotFound)
+		user, err := svc.Register(uid, email, hash, defaultRole, testNow)
+		require.NoError(t, err)
+		assert.False(t, user.IsActive())
 	})
 }

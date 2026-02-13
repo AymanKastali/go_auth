@@ -22,7 +22,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 		resp := ErrorResponse{
 			Error: ErrorBody{
 				TraceID: traceID,
-				Code:    string(domain.KindInternal),
+				Code:    "INTERNAL_ERROR",
 				Message: "internal server error",
 			},
 		}
@@ -30,7 +30,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 
 		var appErr *domain.Error
 		if errors.As(e, &appErr) {
-			resp.Error.Code = string(appErr.Kind())
+			resp.Error.Code = appErr.Code()
 			resp.Error.Message = appErr.Message()
 			statusCode = mapKindToHTTPStatus(appErr.Kind())
 
@@ -61,7 +61,7 @@ func logRequestError(c fiber.Ctx, status int, e error) {
 
 	var appErr *domain.Error
 	if errors.As(e, &appErr) {
-		appCode = string(appErr.Kind())
+		appCode = appErr.Code()
 	}
 
 	if status >= 500 {

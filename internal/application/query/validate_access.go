@@ -13,18 +13,27 @@ type IValidateAccessHandler interface {
 }
 
 type validateAccessHandler struct {
-	verifier     domain.IVerifyAccess
+	accessSvc    domain.IAccessService
+	userRepo     domain.IUserRepository
+	sessionRepo  domain.ISessionRepository
+	roleRepo     domain.IRoleRepository
 	permResolver domain.IResolvePermissions
 	clock        domain.IClock
 }
 
 func NewValidateAccessHandler(
-	verifier domain.IVerifyAccess,
+	accessSvc domain.IAccessService,
+	userRepo domain.IUserRepository,
+	sessionRepo domain.ISessionRepository,
+	roleRepo domain.IRoleRepository,
 	permResolver domain.IResolvePermissions,
 	clock domain.IClock,
 ) IValidateAccessHandler {
 	return &validateAccessHandler{
-		verifier:     verifier,
+		accessSvc:    accessSvc,
+		userRepo:     userRepo,
+		sessionRepo:  sessionRepo,
+		roleRepo:     roleRepo,
 		permResolver: permResolver,
 		clock:        clock,
 	}
@@ -39,10 +48,31 @@ func (h *validateAccessHandler) Handle(ctx context.Context, query ValidateAccess
 	}
 
 	now := h.clock.Now()
-	user, session, err := h.verifier.Verify(ctx, token, now)
+
+	identity, err := h.accessSvc.Validate(token)
 	if err != nil {
-		logger.Warn("access_verification_failed", slog.Any("error", err))
+		logger.Warn("token_validation_failed", slog.Any("error", err))
 		return ZeroValidateAccessResponse, err
+	}
+
+	user, err := h.userRepo.FindByID(ctx, identity.UserID())
+	if err != nil || user == nil {
+		logger.Warn("user_not_found", slog.Any("error", err))
+		return ZeroValidateAccessResponse, domain.ErrUserNotFound
+	}
+
+	if user.IsDeleted() || !user.IsActive() {
+		return ZeroValidateAccessResponse, domain.ErrUserInactive
+	}
+
+	session, err := h.sessionRepo.FindByID(ctx, identity.SessionID())
+	if err != nil || session == nil {
+		logger.Warn("session_not_found", slog.Any("error", err))
+		return ZeroValidateAccessResponse, domain.ErrSessionNotFound
+	}
+
+	if !session.IsValid(now) {
+		return ZeroValidateAccessResponse, domain.ErrSessionExpired
 	}
 
 	resp := ValidateAccessResponse{
@@ -52,11 +82,12 @@ func (h *validateAccessHandler) Handle(ctx context.Context, query ValidateAccess
 	}
 
 	if query.IncludePermissions {
-		permissions, err := h.permResolver.Resolve(ctx, user.Roles())
+		roles, err := application.LoadRoles(ctx, h.roleRepo, user.Roles())
 		if err != nil {
-			logger.Warn("permission_resolution_failed", slog.Any("error", err))
+			logger.Warn("role_loading_failed", slog.Any("error", err))
 			return ZeroValidateAccessResponse, err
 		}
+		permissions := h.permResolver.Resolve(roles)
 		permStrings := make([]string, len(permissions))
 		for i, p := range permissions {
 			permStrings[i] = p.String()

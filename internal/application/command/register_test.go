@@ -23,6 +23,7 @@ func TestRegisterHandler(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
 			&mockRegisterMember{registerResult: user},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -44,6 +45,7 @@ func TestRegisterHandler(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
 			&mockRegisterMember{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{},
@@ -63,6 +65,7 @@ func TestRegisterHandler(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
 			&mockRegisterMember{},
+			defaultRoleProvider(),
 			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -82,6 +85,7 @@ func TestRegisterHandler(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
 			&mockRegisterMember{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userIDErr: errTest},
@@ -99,8 +103,9 @@ func TestRegisterHandler(t *testing.T) {
 
 	t.Run("email_taken", func(t *testing.T) {
 		h := NewRegisterHandler(
-			&stubAppUserRepository{},
-			&mockRegisterMember{registerErr: domain.ErrUserEmailTaken},
+			&stubAppUserRepository{findByEmailResult: testActiveUser()},
+			&mockRegisterMember{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -112,7 +117,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockTransactionManager{},
 		)
 
-		_, err := h.Handle(context.Background(), validCmd)
+		_, err := h.Handle(unauthenticatedCtx(), validCmd)
 		assert.ErrorIs(t, err, domain.ErrUserEmailTaken)
 	})
 
@@ -121,6 +126,7 @@ func TestRegisterHandler(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{saveErr: errTest},
 			&mockRegisterMember{registerResult: user},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -132,7 +138,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockTransactionManager{},
 		)
 
-		_, err := h.Handle(context.Background(), validCmd)
+		_, err := h.Handle(unauthenticatedCtx(), validCmd)
 		assert.ErrorIs(t, err, errTest)
 	})
 }

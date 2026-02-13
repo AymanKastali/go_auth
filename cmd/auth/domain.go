@@ -22,7 +22,6 @@ type domainLayer struct {
 	registerMember     domain.IRegisterMember
 	registerAdmin      domain.IRegisterAdmin
 	grantAccess        domain.IGrantAccess
-	verifyAccess       domain.IVerifyAccess
 	resolvePermissions domain.IResolvePermissions
 	verifyCredentials  domain.IVerifyCredentials
 	openSession        domain.IOpenSession
@@ -37,6 +36,7 @@ type domainLayer struct {
 	recoveryRepo       domain.IRecoveryTokenRepository
 	activationRepo     domain.IActivationTokenRepository
 	roleRepo           domain.IRoleRepository
+	roleProvider       domain.IRegistrationRoleProvider
 }
 
 func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
@@ -79,14 +79,13 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 	})
 	activationRepo := pf.NewActivationTokenRepository()
 	roleProvider := outbound.NewRegistrationRoleProvider(roleRepo)
-	registerMember := domain.NewRegisterMember(userRepo, roleProvider, registerPolicy, activationPolicy)
-	registerAdmin := domain.NewRegisterAdmin(userRepo, roleProvider, registerPolicy)
-	resolvePermissions := domain.NewResolvePermissions(roleRepo)
+	registerMember := domain.NewRegisterMember(registerPolicy, activationPolicy)
+	registerAdmin := domain.NewRegisterAdmin(registerPolicy)
+	resolvePermissions := domain.NewResolvePermissions()
 	grantAccess := domain.NewGrantAccess(resolvePermissions, accessSvc, accessPolicy)
-	verifyAccess := domain.NewVerifyAccess(userRepo, sessionRepo, accessSvc)
 	verifyCredentials := domain.NewVerifyCredentials(passwordSvc)
-	openSession := domain.NewOpenSession(sessionRepo, tokenSvc, idGen, sessionPolicy)
-	refreshSession := domain.NewRefreshSession(userRepo, sessionRepo, tokenSvc, sessionPolicy)
+	openSession := domain.NewOpenSession(tokenSvc, idGen, sessionPolicy)
+	refreshSession := domain.NewRefreshSession(tokenSvc, sessionPolicy)
 	recoveryPolicy := domain.NewRecoveryPolicy(domain.RecoveryPolicyConfig{
 		Lifetime: cfg.RecoveryPolicy.Lifetime,
 	})
@@ -115,7 +114,6 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 		registerMember:     registerMember,
 		registerAdmin:      registerAdmin,
 		grantAccess:        grantAccess,
-		verifyAccess:       verifyAccess,
 		resolvePermissions: resolvePermissions,
 		verifyCredentials:  verifyCredentials,
 		openSession:        openSession,
@@ -129,5 +127,6 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 		recoveryRepo:       recoveryRepo,
 		activationRepo:     activationRepo,
 		roleRepo:           roleRepo,
+		roleProvider:       roleProvider,
 	}
 }

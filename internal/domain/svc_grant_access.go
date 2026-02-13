@@ -1,15 +1,12 @@
 package domain
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 type IGrantAccess interface {
 	Grant(
-		ctx context.Context,
 		user *User,
 		sid SessionID,
+		roles []*Role,
 		now time.Time,
 	) (AccessToken, time.Time, error)
 }
@@ -33,9 +30,9 @@ func NewGrantAccess(
 }
 
 func (g *grantAccess) Grant(
-	ctx context.Context,
 	user *User,
 	sid SessionID,
+	roles []*Role,
 	now time.Time,
 ) (AccessToken, time.Time, error) {
 	issuedAt := now
@@ -44,10 +41,7 @@ func (g *grantAccess) Grant(
 	ttl := g.accessPolicy.GetAccessLifetime()
 	expiresAt := issuedAt.Add(ttl)
 
-	permissions, err := g.permResolver.Resolve(ctx, user.Roles())
-	if err != nil {
-		return ZeroAccessToken, time.Time{}, err
-	}
+	permissions := g.permResolver.Resolve(roles)
 
 	return g.accessSvc.Issue(
 		user.ID(),

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -12,17 +11,16 @@ import (
 
 type stubResolvePermissions struct {
 	result []Permission
-	err    error
 }
 
-func (s *stubResolvePermissions) Resolve(_ context.Context, _ []RoleName) ([]Permission, error) {
-	return s.result, s.err
+func (s *stubResolvePermissions) Resolve(_ []*Role) []Permission {
+	return s.result
 }
 
 func TestGrantAccess_Grant(t *testing.T) {
-	ctx := context.Background()
 	user := newActiveUser()
 	sid := validSessionID()
+	var roles []*Role
 
 	t.Run("happy_path", func(t *testing.T) {
 		at, _ := NewAccessToken("access-tok")
@@ -32,7 +30,7 @@ func TestGrantAccess_Grant(t *testing.T) {
 			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
 		)
 
-		tok, exp, err := granter.Grant(ctx, user, sid, testNow)
+		tok, exp, err := granter.Grant(user, sid, roles, testNow)
 		require.NoError(t, err)
 		assert.Equal(t, "access-tok", tok.String())
 		assert.True(t, exp.Equal(testFuture))
@@ -45,7 +43,7 @@ func TestGrantAccess_Grant(t *testing.T) {
 			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
 		)
 
-		_, _, err := granter.Grant(ctx, user, sid, testNow)
+		_, _, err := granter.Grant(user, sid, roles, testNow)
 		assert.Error(t, err)
 	})
 
@@ -59,23 +57,12 @@ func TestGrantAccess_Grant(t *testing.T) {
 			NewAccessPolicy(AccessPolicyConfig{Lifetime: lifetime}),
 		)
 
-		_, _, _ = granter.Grant(ctx, user, sid, testNow)
+		_, _, _ = granter.Grant(user, sid, roles, testNow)
 		capturedIssuedAt := accessSvc.capturedIssuedAt
 		capturedExpiresAt := accessSvc.capturedExpiresAt
 		expectedExpiry := testNow.Add(lifetime)
 		assert.True(t, capturedIssuedAt.Equal(testNow))
 		assert.True(t, capturedExpiresAt.Equal(expectedExpiry))
-	})
-
-	t.Run("permission_resolver_fails", func(t *testing.T) {
-		granter := NewGrantAccess(
-			&stubResolvePermissions{err: errors.New("db error")},
-			&stubAccessService{},
-			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
-		)
-
-		_, _, err := granter.Grant(ctx, user, sid, testNow)
-		assert.Error(t, err)
 	})
 
 	t.Run("permissions_resolved_from_roles", func(t *testing.T) {
@@ -89,7 +76,7 @@ func TestGrantAccess_Grant(t *testing.T) {
 			NewAccessPolicy(AccessPolicyConfig{Lifetime: 15 * time.Minute}),
 		)
 
-		_, _, _ = granter.Grant(ctx, user, sid, testNow)
+		_, _, _ = granter.Grant(user, sid, roles, testNow)
 		assert.Len(t, accessSvc.capturedPermissions, 2)
 		assert.Equal(t, "users:read_self", accessSvc.capturedPermissions[0].String())
 		assert.Equal(t, "content:read", accessSvc.capturedPermissions[1].String())

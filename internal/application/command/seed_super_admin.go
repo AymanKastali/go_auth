@@ -15,6 +15,7 @@ type ISeedSuperAdminHandler interface {
 type seedSuperAdminHandler struct {
 	userRepo       domain.IUserRepository
 	registrar      domain.IRegisterAdmin
+	roleProvider   domain.IRegistrationRoleProvider
 	passwordPolicy domain.IPasswordPolicy
 	passwordSvc    domain.IPasswordService
 	idGen          domain.IIDGenerator
@@ -25,6 +26,7 @@ type seedSuperAdminHandler struct {
 func NewSeedSuperAdminHandler(
 	userRepo domain.IUserRepository,
 	registrar domain.IRegisterAdmin,
+	roleProvider domain.IRegistrationRoleProvider,
 	passwordPolicy domain.IPasswordPolicy,
 	passwordSvc domain.IPasswordService,
 	idGen domain.IIDGenerator,
@@ -34,6 +36,7 @@ func NewSeedSuperAdminHandler(
 	return &seedSuperAdminHandler{
 		userRepo:       userRepo,
 		registrar:      registrar,
+		roleProvider:   roleProvider,
 		passwordPolicy: passwordPolicy,
 		passwordSvc:    passwordSvc,
 		idGen:          idGen,
@@ -74,7 +77,22 @@ func (h *seedSuperAdminHandler) Handle(ctx context.Context, cmd RegisterUserComm
 
 	now := h.clock.Now()
 
-	user, err := h.registrar.Register(ctx, uidVO, email, hashedPassword, now)
+	existing, err := h.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		logger.Error("user_lookup_failed", slog.Any("error", err))
+		return err
+	}
+	if existing != nil {
+		return domain.ErrUserEmailTaken
+	}
+
+	roleName, err := h.roleProvider.DefaultAdminRole(ctx)
+	if err != nil {
+		logger.Error("role_lookup_failed", slog.Any("error", err))
+		return err
+	}
+
+	user, err := h.registrar.Register(uidVO, email, hashedPassword, roleName, now)
 	if err != nil {
 		logger.Warn("registration_domain_denied", slog.Any("error", err))
 		return err

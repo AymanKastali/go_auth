@@ -1,17 +1,12 @@
 package domain
 
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestResolvePermissions_Resolve(t *testing.T) {
-	ctx := context.Background()
-
 	t.Run("happy_path", func(t *testing.T) {
 		memberRole := ReconstituteRole(
 			ReconstituteRoleID("role-001"),
@@ -19,23 +14,50 @@ func TestResolvePermissions_Resolve(t *testing.T) {
 			"Standard member",
 			[]Permission{ReconstitutePermission("users", "read_self"), ReconstitutePermission("content", "read")},
 		)
-		resolver := NewResolvePermissions(
-			&stubRoleRepository{findByNameResult: memberRole},
-		)
+		resolver := NewResolvePermissions()
 
-		perms, err := resolver.Resolve(ctx, []RoleName{ReconstituteRoleName("member")})
-		require.NoError(t, err)
+		perms := resolver.Resolve([]*Role{memberRole})
 		assert.Len(t, perms, 2)
 		assert.Equal(t, "users:read_self", perms[0].String())
 		assert.Equal(t, "content:read", perms[1].String())
 	})
 
-	t.Run("role_repo_error", func(t *testing.T) {
-		resolver := NewResolvePermissions(
-			&stubRoleRepository{findByNameErr: errors.New("db error")},
+	t.Run("deduplicates_permissions_across_roles", func(t *testing.T) {
+		role1 := ReconstituteRole(
+			ReconstituteRoleID("role-001"),
+			ReconstituteRoleName("member"),
+			"Member",
+			[]Permission{ReconstitutePermission("users", "read_self"), ReconstitutePermission("content", "read")},
 		)
+		role2 := ReconstituteRole(
+			ReconstituteRoleID("role-002"),
+			ReconstituteRoleName("editor"),
+			"Editor",
+			[]Permission{ReconstitutePermission("content", "read"), ReconstitutePermission("content", "write")},
+		)
+		resolver := NewResolvePermissions()
 
-		_, err := resolver.Resolve(ctx, []RoleName{ReconstituteRoleName("member")})
-		assert.Error(t, err)
+		perms := resolver.Resolve([]*Role{role1, role2})
+		assert.Len(t, perms, 3)
+	})
+
+	t.Run("nil_role_skipped", func(t *testing.T) {
+		role := ReconstituteRole(
+			ReconstituteRoleID("role-001"),
+			ReconstituteRoleName("member"),
+			"Member",
+			[]Permission{ReconstitutePermission("users", "read_self")},
+		)
+		resolver := NewResolvePermissions()
+
+		perms := resolver.Resolve([]*Role{nil, role})
+		assert.Len(t, perms, 1)
+	})
+
+	t.Run("empty_roles", func(t *testing.T) {
+		resolver := NewResolvePermissions()
+
+		perms := resolver.Resolve([]*Role{})
+		assert.Empty(t, perms)
 	})
 }

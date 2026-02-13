@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -11,108 +9,61 @@ import (
 )
 
 func TestRefreshSession_Refresh(t *testing.T) {
-	ctx := context.Background()
 	newGeneratedToken := "new-generated-token"
-	newHashedTokenVal := ReconstituteHashedToken("new-hashed-token")
 
 	t.Run("happy_path", func(t *testing.T) {
-		user := newActiveUser()
 		session := newActiveSession()
 		svc := NewRefreshSession(
-			&stubUserRepository{findByIDResult: user},
-			&stubSessionRepository{findByTokenResult: session},
 			&stubTokenService{
-				hashSessionOut: validHashedToken(),
-				generateToken:  newGeneratedToken,
+				generateToken: newGeneratedToken,
+				hashSessionOut: ReconstituteHashedToken("new-hashed-token"),
 			},
 			&stubSessionPolicy{lifetime: 24 * time.Hour, maxActive: 5},
 		)
 
 		fp := validDeviceIdentity().Fingerprint()
-		u, sess, rawTok, err := svc.Refresh(ctx, validRawToken(), fp, testNow)
+		rawTok, err := svc.Refresh(session, false, fp, testNow)
 		require.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.Equal(t, validSessionID(), sess.ID())
 		assert.NotEmpty(t, rawTok)
-	})
-
-	t.Run("hash_fails", func(t *testing.T) {
-		svc := NewRefreshSession(
-			&stubUserRepository{},
-			&stubSessionRepository{},
-			&stubTokenService{hashSessionErr: errors.New("hash err")},
-			&stubSessionPolicy{},
-		)
-
-		fp := validDeviceIdentity().Fingerprint()
-		_, _, _, err := svc.Refresh(ctx, validRawToken(), fp, testNow)
-		assert.Error(t, err)
-	})
-
-	t.Run("session_not_found", func(t *testing.T) {
-		svc := NewRefreshSession(
-			&stubUserRepository{},
-			&stubSessionRepository{findByTokenResult: nil, findByPreviousTokenResult: nil},
-			&stubTokenService{hashSessionOut: validHashedToken()},
-			&stubSessionPolicy{},
-		)
-
-		fp := validDeviceIdentity().Fingerprint()
-		_, _, _, err := svc.Refresh(ctx, validRawToken(), fp, testNow)
-		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
 	t.Run("token_reuse_detected", func(t *testing.T) {
 		session := newActiveSession()
 		svc := NewRefreshSession(
-			&stubUserRepository{},
-			&stubSessionRepository{
-				findByTokenResult:         nil,
-				findByPreviousTokenResult: session,
-			},
 			&stubTokenService{hashSessionOut: validHashedToken()},
 			&stubSessionPolicy{},
 		)
 
 		fp := validDeviceIdentity().Fingerprint()
-		_, revokedSession, _, err := svc.Refresh(ctx, validRawToken(), fp, testNow)
+		_, err := svc.Refresh(session, true, fp, testNow)
 		assert.ErrorIs(t, err, ErrSessionTokenReuse)
-		assert.NotNil(t, revokedSession)
-		assert.True(t, revokedSession.IsRevoked())
+		assert.True(t, session.IsRevoked())
 	})
 
-	t.Run("user_not_found", func(t *testing.T) {
-		session := newActiveSession()
+	t.Run("token_reuse_already_revoked_returns_not_found", func(t *testing.T) {
+		session := ReconstituteSession(validSessionID(), validUserID(), validHashedToken(), ZeroHashedToken, validDeviceIdentity(), testFuture, testNow, true)
 		svc := NewRefreshSession(
-			&stubUserRepository{findByIDResult: nil},
-			&stubSessionRepository{findByTokenResult: session},
-			&stubTokenService{
-				hashSessionOut: validHashedToken(),
-				generateToken:  newGeneratedToken,
-			},
+			&stubTokenService{hashSessionOut: validHashedToken()},
 			&stubSessionPolicy{},
 		)
 
 		fp := validDeviceIdentity().Fingerprint()
-		_, _, _, err := svc.Refresh(ctx, validRawToken(), fp, testNow)
-		assert.ErrorIs(t, err, ErrUserInactive)
+		_, err := svc.Refresh(session, true, fp, testNow)
+		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
 	t.Run("fingerprint_mismatch_propagated", func(t *testing.T) {
-		user := newActiveUser()
 		session := newActiveSession()
 		svc := NewRefreshSession(
-			&stubUserRepository{findByIDResult: user},
-			&stubSessionRepository{findByTokenResult: session},
 			&stubTokenService{
-				hashSessionOut: newHashedTokenVal,
 				generateToken:  newGeneratedToken,
+				hashSessionOut: ReconstituteHashedToken("new-hashed-token"),
 			},
 			&stubSessionPolicy{lifetime: 24 * time.Hour},
 		)
 
 		wrongFP := differentDeviceIdentity().Fingerprint()
-		_, _, _, err := svc.Refresh(ctx, validRawToken(), wrongFP, testNow)
+		_, err := svc.Refresh(session, false, wrongFP, testNow)
 		assert.ErrorIs(t, err, ErrSessionFingerprintMiss)
 	})
 }

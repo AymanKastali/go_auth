@@ -1,28 +1,20 @@
 package domain
 
-import "context"
-
 type IResolvePermissions interface {
-	Resolve(ctx context.Context, roles []RoleName) ([]Permission, error)
+	Resolve(roles []*Role) []Permission
 }
 
-type resolvePermissions struct {
-	roleRepo IRoleRepository
+type resolvePermissions struct{}
+
+func NewResolvePermissions() IResolvePermissions {
+	return &resolvePermissions{}
 }
 
-func NewResolvePermissions(roleRepo IRoleRepository) IResolvePermissions {
-	return &resolvePermissions{roleRepo: roleRepo}
-}
-
-func (r *resolvePermissions) Resolve(ctx context.Context, roles []RoleName) ([]Permission, error) {
+func (r *resolvePermissions) Resolve(roles []*Role) []Permission {
 	seen := make(map[string]struct{})
 	var permissions []Permission
 
-	for _, roleName := range roles {
-		role, err := r.roleRepo.FindByName(ctx, roleName)
-		if err != nil {
-			return nil, err
-		}
+	for _, role := range roles {
 		if role == nil {
 			continue
 		}
@@ -35,5 +27,5 @@ func (r *resolvePermissions) Resolve(ctx context.Context, roles []RoleName) ([]P
 		}
 	}
 
-	return permissions, nil
+	return permissions
 }

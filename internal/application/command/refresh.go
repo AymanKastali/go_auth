@@ -13,24 +13,33 @@ type IRefreshTokenHandler interface {
 }
 
 type refreshTokenHandler struct {
+	userRepo    domain.IUserRepository
 	sessionRepo domain.ISessionRepository
+	roleRepo    domain.IRoleRepository
 	refresher   domain.IRefreshSession
 	granter     domain.IGrantAccess
+	tokenSvc    domain.ITokenService
 	clock       domain.IClock
 	dispatcher  IEventDispatcher
 }
 
 func NewRefreshTokenHandler(
+	userRepo domain.IUserRepository,
 	sessionRepo domain.ISessionRepository,
+	roleRepo domain.IRoleRepository,
 	refresher domain.IRefreshSession,
 	granter domain.IGrantAccess,
+	tokenSvc domain.ITokenService,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IRefreshTokenHandler {
 	return &refreshTokenHandler{
+		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
+		roleRepo:    roleRepo,
 		refresher:   refresher,
 		granter:     granter,
+		tokenSvc:    tokenSvc,
 		clock:       clock,
 		dispatcher:  dispatcher,
 	}
@@ -49,9 +58,44 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 	}
 
 	now := h.clock.Now()
-	user, session, newRawToken, err := h.refresher.Refresh(ctx, cmd.RefreshToken, fp, now)
+
+	hashed, err := h.tokenSvc.HashSessionToken(cmd.RefreshToken)
 	if err != nil {
-		if session != nil {
+		logger.Error("token_hash_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	session, err := h.sessionRepo.FindByToken(ctx, hashed)
+	if err != nil {
+		logger.Error("session_lookup_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	foundByPrevious := false
+	if session == nil {
+		session, err = h.sessionRepo.FindByPreviousToken(ctx, hashed)
+		if err != nil {
+			logger.Error("previous_token_lookup_failed", slog.Any("error", err))
+			return ZeroLoginResponse, err
+		}
+		if session == nil {
+			return ZeroLoginResponse, domain.ErrSessionNotFound
+		}
+		foundByPrevious = true
+	}
+
+	user, err := h.userRepo.FindByID(ctx, session.UserID())
+	if err != nil {
+		logger.Error("user_lookup_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+	if user == nil || user.IsDeleted() || !user.IsActive() {
+		return ZeroLoginResponse, domain.ErrUserInactive
+	}
+
+	newRawToken, err := h.refresher.Refresh(session, foundByPrevious, fp, now)
+	if err != nil {
+		if session.IsRevoked() {
 			if saveErr := h.sessionRepo.Save(ctx, session); saveErr != nil {
 				logger.Error("revoked_session_save_failed", slog.Any("error", saveErr))
 			}
@@ -61,7 +105,13 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 		return ZeroLoginResponse, err
 	}
 
-	accessToken, accessExpiry, err := h.granter.Grant(ctx, user, session.ID(), now)
+	roles, err := application.LoadRoles(ctx, h.roleRepo, user.Roles())
+	if err != nil {
+		logger.Error("role_loading_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	accessToken, accessExpiry, err := h.granter.Grant(user, session.ID(), roles, now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err

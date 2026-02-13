@@ -10,11 +10,19 @@ import (
 )
 
 func TestValidateAccessHandler(t *testing.T) {
+	validAI := func() domain.AccessIdentity {
+		ai, _ := domain.NewAccessIdentity(testUserID(), testSessionID(), domain.ReconstituteEmail("test@example.com"), []domain.RoleName{domain.ReconstituteRoleName("member")}, nil)
+		return ai
+	}
+
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: session},
+			&stubAppRoleRepository{},
 			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
@@ -31,7 +39,10 @@ func TestValidateAccessHandler(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: session},
+			&stubAppRoleRepository{},
 			&mockResolvePermissions{
 				resolveResult: []domain.Permission{
 					domain.ReconstitutePermission("users", "read_self"),
@@ -55,7 +66,10 @@ func TestValidateAccessHandler(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: session},
+			&stubAppRoleRepository{},
 			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
@@ -70,7 +84,10 @@ func TestValidateAccessHandler(t *testing.T) {
 
 	t.Run("empty_token", func(t *testing.T) {
 		h := NewValidateAccessHandler(
-			&mockVerifyAccess{},
+			&mockAccessService{},
+			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
@@ -79,14 +96,62 @@ func TestValidateAccessHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrTokenInvalid)
 	})
 
-	t.Run("verification_fails", func(t *testing.T) {
+	t.Run("token_validation_fails", func(t *testing.T) {
 		h := NewValidateAccessHandler(
-			&mockVerifyAccess{verifyErr: domain.ErrTokenInvalid},
+			&mockAccessService{validateErr: domain.ErrTokenInvalid},
+			&stubAppUserRepository{},
+			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
 
 		_, err := h.Handle(unauthenticatedCtx(), ValidateAccessQuery{AccessToken: "bad"})
 		assert.ErrorIs(t, err, domain.ErrTokenInvalid)
+	})
+
+	t.Run("user_not_found", func(t *testing.T) {
+		h := NewValidateAccessHandler(
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: nil},
+			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
+			&mockResolvePermissions{},
+			&stubClock{now: appTestNow},
+		)
+
+		_, err := h.Handle(unauthenticatedCtx(), ValidateAccessQuery{AccessToken: "tok"})
+		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+	})
+
+	t.Run("session_not_found", func(t *testing.T) {
+		user := testActiveUser()
+		h := NewValidateAccessHandler(
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: nil},
+			&stubAppRoleRepository{},
+			&mockResolvePermissions{},
+			&stubClock{now: appTestNow},
+		)
+
+		_, err := h.Handle(unauthenticatedCtx(), ValidateAccessQuery{AccessToken: "tok"})
+		assert.ErrorIs(t, err, domain.ErrSessionNotFound)
+	})
+
+	t.Run("session_expired", func(t *testing.T) {
+		user := testActiveUser()
+		expiredSession := domain.ReconstituteSession(testSessionID(), testUserID(), domain.ReconstituteHashedToken("hashed-tok"), domain.ZeroHashedToken, testDeviceIdentity(), appTestNow.Add(-1), appTestNow.Add(-2), false)
+		h := NewValidateAccessHandler(
+			&mockAccessService{validateID: validAI()},
+			&stubAppUserRepository{findByIDResult: user},
+			&stubAppSessionRepository{findByIDResult: expiredSession},
+			&stubAppRoleRepository{},
+			&mockResolvePermissions{},
+			&stubClock{now: appTestNow},
+		)
+
+		_, err := h.Handle(unauthenticatedCtx(), ValidateAccessQuery{AccessToken: "tok"})
+		assert.ErrorIs(t, err, domain.ErrSessionExpired)
 	})
 }

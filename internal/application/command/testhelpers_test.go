@@ -91,7 +91,7 @@ type mockRegisterMember struct {
 	registerErr    error
 }
 
-func (m *mockRegisterMember) Register(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
+func (m *mockRegisterMember) Register(_ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ domain.RoleName, _ time.Time) (*domain.User, error) {
 	return m.registerResult, m.registerErr
 }
 
@@ -100,7 +100,7 @@ type mockRegisterAdmin struct {
 	registerErr    error
 }
 
-func (m *mockRegisterAdmin) Register(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
+func (m *mockRegisterAdmin) Register(_ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ domain.RoleName, _ time.Time) (*domain.User, error) {
 	return m.registerResult, m.registerErr
 }
 
@@ -119,19 +119,17 @@ type mockOpenSession struct {
 	err            error
 }
 
-func (m *mockOpenSession) Open(_ context.Context, _ domain.UserID, _ domain.DeviceIdentity, _ time.Time) (string, *domain.Session, *domain.Session, error) {
+func (m *mockOpenSession) Open(_ *domain.Session, _ []*domain.Session, _ domain.UserID, _ domain.DeviceIdentity, _ time.Time) (string, *domain.Session, *domain.Session, error) {
 	return m.rawToken, m.session, m.revokedSession, m.err
 }
 
 type mockRefreshSession struct {
-	user     *domain.User
-	session  *domain.Session
 	rawToken string
 	err      error
 }
 
-func (m *mockRefreshSession) Refresh(_ context.Context, _ string, _ domain.DeviceFingerprint, _ time.Time) (*domain.User, *domain.Session, string, error) {
-	return m.user, m.session, m.rawToken, m.err
+func (m *mockRefreshSession) Refresh(_ *domain.Session, _ bool, _ domain.DeviceFingerprint, _ time.Time) (string, error) {
+	return m.rawToken, m.err
 }
 
 type mockGrantAccess struct {
@@ -140,7 +138,7 @@ type mockGrantAccess struct {
 	grantErr    error
 }
 
-func (m *mockGrantAccess) Grant(_ context.Context, _ *domain.User, _ domain.SessionID, _ time.Time) (domain.AccessToken, time.Time, error) {
+func (m *mockGrantAccess) Grant(_ *domain.User, _ domain.SessionID, _ []*domain.Role, _ time.Time) (domain.AccessToken, time.Time, error) {
 	return m.grantToken, m.grantExpiry, m.grantErr
 }
 
@@ -215,6 +213,8 @@ func (m *mockPasswordService) Compare(_ string, _ domain.HashedPassword) bool {
 }
 
 type mockTokenService struct {
+	hashSessionOut     domain.HashedToken
+	hashSessionErr     error
 	hashRecoveryOut    domain.RecoveryTokenHash
 	hashRecoveryErr    error
 	hashActivationOut  domain.ActivationTokenHash
@@ -225,7 +225,7 @@ func (m *mockTokenService) Generate() (string, error) {
 	return "", nil
 }
 func (m *mockTokenService) HashSessionToken(_ string) (domain.HashedToken, error) {
-	return domain.HashedToken{}, nil
+	return m.hashSessionOut, m.hashSessionErr
 }
 func (m *mockTokenService) HashRecoveryToken(_ string) (domain.RecoveryTokenHash, error) {
 	return m.hashRecoveryOut, m.hashRecoveryErr
@@ -241,6 +241,27 @@ func (m *mockTokenService) HashActivationToken(_ string) (domain.ActivationToken
 }
 func (m *mockTokenService) CompareActivation(_ string, _ domain.ActivationTokenHash) bool {
 	return false
+}
+
+type mockRegistrationRoleProvider struct {
+	memberRole    domain.RoleName
+	memberRoleErr error
+	adminRole     domain.RoleName
+	adminRoleErr  error
+}
+
+func (m *mockRegistrationRoleProvider) DefaultMemberRole(_ context.Context) (domain.RoleName, error) {
+	return m.memberRole, m.memberRoleErr
+}
+func (m *mockRegistrationRoleProvider) DefaultAdminRole(_ context.Context) (domain.RoleName, error) {
+	return m.adminRole, m.adminRoleErr
+}
+
+func defaultRoleProvider() *mockRegistrationRoleProvider {
+	return &mockRegistrationRoleProvider{
+		memberRole: domain.ReconstituteRoleName("member"),
+		adminRole:  domain.ReconstituteRoleName("super_admin"),
+	}
 }
 
 // ---------------------------------------------------------------
@@ -393,4 +414,25 @@ func (r *stubAppRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ d
 	return r.revokeAllErr
 }
 
+type stubAppRoleRepository struct {
+	findByIDResult   *domain.Role
+	findByIDErr      error
+	findByNameResult *domain.Role
+	findByNameErr    error
+	findAllResult    []*domain.Role
+	findAllErr       error
+	saveErr          error
+}
 
+func (r *stubAppRoleRepository) FindByID(_ context.Context, _ domain.RoleID) (*domain.Role, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubAppRoleRepository) FindByName(_ context.Context, _ domain.RoleName) (*domain.Role, error) {
+	return r.findByNameResult, r.findByNameErr
+}
+func (r *stubAppRoleRepository) FindAll(_ context.Context) ([]*domain.Role, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubAppRoleRepository) Save(_ context.Context, _ *domain.Role) error {
+	return r.saveErr
+}

@@ -54,6 +54,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		register: command.NewRegisterHandler(
 			d.userRepo,
 			d.registerMember,
+			d.roleProvider,
 			d.passwordPolicy,
 			d.passwordSvc,
 			d.idGen,
@@ -67,6 +68,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		seedSA: command.NewSeedSuperAdminHandler(
 			d.userRepo,
 			d.registerAdmin,
+			d.roleProvider,
 			d.passwordPolicy,
 			d.passwordSvc,
 			d.idGen,
@@ -76,6 +78,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		login: command.NewLoginHandler(
 			d.userRepo,
 			d.sessionRepo,
+			d.roleRepo,
 			d.verifyCredentials,
 			d.openSession,
 			d.grantAccess,
@@ -85,14 +88,20 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 			d.loginPolicy,
 		),
 		refresh: command.NewRefreshTokenHandler(
+			d.userRepo,
 			d.sessionRepo,
+			d.roleRepo,
 			d.refreshSession,
 			d.grantAccess,
+			d.tokenSvc,
 			d.clock,
 			out.dispatcher,
 		),
 		validate: query.NewValidateAccessHandler(
-			d.verifyAccess,
+			d.accessSvc,
+			d.userRepo,
+			d.sessionRepo,
+			d.roleRepo,
 			d.resolvePermissions,
 			d.clock,
 		),

@@ -91,23 +91,120 @@ func (s *stubUserQueryPort) FindAll(_ context.Context, _, _ int) ([]application.
 // Domain service mocks
 // ---------------------------------------------------------------
 
-type mockVerifyAccess struct {
-	verifyUser *domain.User
-	verifySess *domain.Session
-	verifyErr  error
+type mockAccessService struct {
+	validateID  domain.AccessIdentity
+	validateErr error
 }
 
-func (m *mockVerifyAccess) Verify(_ context.Context, _ domain.AccessToken, _ time.Time) (*domain.User, *domain.Session, error) {
-	return m.verifyUser, m.verifySess, m.verifyErr
+func (m *mockAccessService) Issue(_ domain.UserID, _ domain.Email, _ domain.SessionID, _ []domain.RoleName, _ []domain.Permission, _, _, _ time.Time) (domain.AccessToken, time.Time, error) {
+	return domain.ZeroAccessToken, time.Time{}, nil
+}
+func (m *mockAccessService) Validate(_ domain.AccessToken) (domain.AccessIdentity, error) {
+	return m.validateID, m.validateErr
 }
 
 type mockResolvePermissions struct {
 	resolveResult []domain.Permission
-	resolveErr    error
 }
 
-func (m *mockResolvePermissions) Resolve(_ context.Context, _ []domain.RoleName) ([]domain.Permission, error) {
-	return m.resolveResult, m.resolveErr
+func (m *mockResolvePermissions) Resolve(_ []*domain.Role) []domain.Permission {
+	return m.resolveResult
+}
+
+// ---------------------------------------------------------------
+// Repository stubs
+// ---------------------------------------------------------------
+
+type stubAppUserRepository struct {
+	findByIDResult    *domain.User
+	findByIDErr       error
+	findByEmailResult *domain.User
+	findByEmailErr    error
+	findAllResult     []*domain.User
+	findAllErr        error
+	countResult       int64
+	countErr          error
+	saveErr           error
+	deleteErr         error
+}
+
+func (r *stubAppUserRepository) FindByID(_ context.Context, _ domain.UserID) (*domain.User, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubAppUserRepository) FindByEmail(_ context.Context, _ domain.Email) (*domain.User, error) {
+	return r.findByEmailResult, r.findByEmailErr
+}
+func (r *stubAppUserRepository) FindAll(_ context.Context, _, _ int) ([]*domain.User, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubAppUserRepository) Count(_ context.Context) (int64, error) {
+	return r.countResult, r.countErr
+}
+func (r *stubAppUserRepository) Save(_ context.Context, _ *domain.User) error {
+	return r.saveErr
+}
+func (r *stubAppUserRepository) Delete(_ context.Context, _ domain.UserID) error {
+	return r.deleteErr
+}
+
+type stubAppSessionRepository struct {
+	findByIDResult            *domain.Session
+	findByIDErr               error
+	findByTokenResult         *domain.Session
+	findByTokenErr            error
+	findByPreviousTokenResult *domain.Session
+	findByPreviousTokenErr    error
+	findByFPResult            *domain.Session
+	findByFPErr               error
+	findActiveResult          []*domain.Session
+	findActiveErr             error
+	saveErr                   error
+	revokeAllErr              error
+}
+
+func (r *stubAppSessionRepository) FindByID(_ context.Context, _ domain.SessionID) (*domain.Session, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubAppSessionRepository) FindByToken(_ context.Context, _ domain.HashedToken) (*domain.Session, error) {
+	return r.findByTokenResult, r.findByTokenErr
+}
+func (r *stubAppSessionRepository) FindByPreviousToken(_ context.Context, _ domain.HashedToken) (*domain.Session, error) {
+	return r.findByPreviousTokenResult, r.findByPreviousTokenErr
+}
+func (r *stubAppSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ domain.UserID, _ domain.DeviceFingerprint) (*domain.Session, error) {
+	return r.findByFPResult, r.findByFPErr
+}
+func (r *stubAppSessionRepository) FindActiveByUserID(_ context.Context, _ domain.UserID) ([]*domain.Session, error) {
+	return r.findActiveResult, r.findActiveErr
+}
+func (r *stubAppSessionRepository) Save(_ context.Context, _ *domain.Session) error {
+	return r.saveErr
+}
+func (r *stubAppSessionRepository) RevokeAllForUser(_ context.Context, _ domain.UserID, _ time.Time) error {
+	return r.revokeAllErr
+}
+
+type stubAppRoleRepository struct {
+	findByIDResult   *domain.Role
+	findByIDErr      error
+	findByNameResult *domain.Role
+	findByNameErr    error
+	findAllResult    []*domain.Role
+	findAllErr       error
+	saveErr          error
+}
+
+func (r *stubAppRoleRepository) FindByID(_ context.Context, _ domain.RoleID) (*domain.Role, error) {
+	return r.findByIDResult, r.findByIDErr
+}
+func (r *stubAppRoleRepository) FindByName(_ context.Context, _ domain.RoleName) (*domain.Role, error) {
+	return r.findByNameResult, r.findByNameErr
+}
+func (r *stubAppRoleRepository) FindAll(_ context.Context) ([]*domain.Role, error) {
+	return r.findAllResult, r.findAllErr
+}
+func (r *stubAppRoleRepository) Save(_ context.Context, _ *domain.Role) error {
+	return r.saveErr
 }
 
 // ---------------------------------------------------------------

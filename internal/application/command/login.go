@@ -15,6 +15,7 @@ type ILoginHandler interface {
 type loginHandler struct {
 	userRepo    domain.IUserRepository
 	sessionRepo domain.ISessionRepository
+	roleRepo    domain.IRoleRepository
 	verifier    domain.IVerifyCredentials
 	opener      domain.IOpenSession
 	granter     domain.IGrantAccess
@@ -27,6 +28,7 @@ type loginHandler struct {
 func NewLoginHandler(
 	userRepo domain.IUserRepository,
 	sessionRepo domain.ISessionRepository,
+	roleRepo domain.IRoleRepository,
 	verifier domain.IVerifyCredentials,
 	opener domain.IOpenSession,
 	granter domain.IGrantAccess,
@@ -38,6 +40,7 @@ func NewLoginHandler(
 	return &loginHandler{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
+		roleRepo:    roleRepo,
 		verifier:    verifier,
 		opener:      opener,
 		granter:     granter,
@@ -94,15 +97,39 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		user.ResetLoginAttempts()
 	}
 
+	identity := application.GetIdentity(ctx)
+	fp := identity.Fingerprint()
+
+	existingSession, err := h.sessionRepo.FindActiveByUserAndFingerprint(ctx, user.ID(), fp)
+	if err != nil {
+		logger.Error("session_lookup_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	var activeSessions []*domain.Session
+	if existingSession == nil {
+		activeSessions, err = h.sessionRepo.FindActiveByUserID(ctx, user.ID())
+		if err != nil {
+			logger.Error("active_sessions_lookup_failed", slog.Any("error", err))
+			return ZeroLoginResponse, err
+		}
+	}
+
 	rawRefreshToken, session, revokedSession, err := h.opener.Open(
-		ctx, user.ID(), application.GetIdentity(ctx), now,
+		existingSession, activeSessions, user.ID(), identity, now,
 	)
 	if err != nil {
 		logger.Error("session_establish_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	accessToken, accessExpiry, err := h.granter.Grant(ctx, user, session.ID(), now)
+	roles, err := application.LoadRoles(ctx, h.roleRepo, user.Roles())
+	if err != nil {
+		logger.Error("role_loading_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	accessToken, accessExpiry, err := h.granter.Grant(user, session.ID(), roles, now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err

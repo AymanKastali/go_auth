@@ -23,6 +23,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
 			&mockRegisterAdmin{registerResult: user},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -30,7 +31,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 			&mockEventDispatcher{},
 		)
 
-		err := h.Handle(context.Background(), validCmd)
+		err := h.Handle(unauthenticatedCtx(), validCmd)
 		require.NoError(t, err)
 	})
 
@@ -38,6 +39,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
 			&mockRegisterAdmin{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{},
@@ -53,6 +55,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
 			&mockRegisterAdmin{},
+			defaultRoleProvider(),
 			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -68,6 +71,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
 			&mockRegisterAdmin{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userIDErr: errTest},
@@ -79,10 +83,11 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		assert.ErrorIs(t, err, errTest)
 	})
 
-	t.Run("domain_fails", func(t *testing.T) {
+	t.Run("email_taken", func(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
-			&stubAppUserRepository{},
-			&mockRegisterAdmin{registerErr: domain.ErrUserEmailTaken},
+			&stubAppUserRepository{findByEmailResult: testActiveUser()},
+			&mockRegisterAdmin{},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -90,8 +95,24 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 			&mockEventDispatcher{},
 		)
 
-		err := h.Handle(context.Background(), validCmd)
+		err := h.Handle(unauthenticatedCtx(), validCmd)
 		assert.ErrorIs(t, err, domain.ErrUserEmailTaken)
+	})
+
+	t.Run("domain_fails", func(t *testing.T) {
+		h := NewSeedSuperAdminHandler(
+			&stubAppUserRepository{},
+			&mockRegisterAdmin{registerErr: domain.ErrRegistrationDisabled},
+			defaultRoleProvider(),
+			validPolicy,
+			validSvc,
+			&stubAppIDGenerator{userID: testUserID()},
+			&stubClock{now: appTestNow},
+			&mockEventDispatcher{},
+		)
+
+		err := h.Handle(unauthenticatedCtx(), validCmd)
+		assert.ErrorIs(t, err, domain.ErrRegistrationDisabled)
 	})
 
 	t.Run("save_fails", func(t *testing.T) {
@@ -99,6 +120,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{saveErr: errTest},
 			&mockRegisterAdmin{registerResult: user},
+			defaultRoleProvider(),
 			validPolicy,
 			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
@@ -106,7 +128,7 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 			&mockEventDispatcher{},
 		)
 
-		err := h.Handle(context.Background(), validCmd)
+		err := h.Handle(unauthenticatedCtx(), validCmd)
 		assert.ErrorIs(t, err, errTest)
 	})
 }

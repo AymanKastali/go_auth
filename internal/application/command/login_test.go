@@ -25,6 +25,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{rawToken: rawTok, session: sess},
 			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
@@ -49,6 +50,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{rawToken: rawTok, session: sess, revokedSession: revokedSess},
 			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
@@ -67,6 +69,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{},
 			&mockGrantAccess{},
@@ -84,6 +87,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: nil},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{},
 			&mockGrantAccess{},
@@ -102,6 +106,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{verifyErr: domain.ErrAuthenticationFailed},
 			&mockOpenSession{},
 			&mockGrantAccess{},
@@ -120,6 +125,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{err: errTest},
 			&mockGrantAccess{},
@@ -138,6 +144,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{rawToken: rawTok, session: sess},
 			&mockGrantAccess{grantErr: errTest},
@@ -156,6 +163,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{saveErr: errTest},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{rawToken: rawTok, session: sess},
 			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
@@ -179,6 +187,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{},
 			&mockGrantAccess{},
@@ -197,6 +206,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{verifyErr: domain.ErrAuthenticationFailed},
 			&mockOpenSession{},
 			&mockGrantAccess{},
@@ -220,6 +230,7 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
+			&stubAppRoleRepository{},
 			&mockVerifyCredentials{},
 			&mockOpenSession{rawToken: rawTok, session: sess},
 			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},

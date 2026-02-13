@@ -17,7 +17,7 @@ type MessageResponse struct {
 
 // ErrorBody contains the error details nested under the "error" key.
 type ErrorBody struct {
-	Code    string         `json:"code" example:"VALIDATION_FAILED"`
+	Code    string         `json:"code" example:"PASSWORD_TOO_SHORT"`
 	Message string         `json:"message" example:"password length is below the minimum requirement"`
 	TraceID string         `json:"trace_id" example:"req-abc123"`
 	Details map[string]any `json:"details,omitempty"`
