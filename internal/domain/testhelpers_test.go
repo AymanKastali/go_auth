@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -224,119 +223,6 @@ func (s *stubAccessService) Issue(_ UserID, _ Email, _ SessionID, _ []RoleName, 
 }
 func (s *stubAccessService) Validate(_ AccessToken) (AccessIdentity, error) {
 	return s.validateID, s.validateErr
-}
-
-type stubUserRepository struct {
-	findByIDResult    *User
-	findByIDErr       error
-	findByEmailResult *User
-	findByEmailErr    error
-	findAllResult     []*User
-	findAllErr        error
-	countResult       int64
-	countErr          error
-	saveErr           error
-	deleteErr         error
-}
-
-func (r *stubUserRepository) FindByID(_ context.Context, _ UserID) (*User, error) {
-	return r.findByIDResult, r.findByIDErr
-}
-func (r *stubUserRepository) FindByEmail(_ context.Context, _ Email) (*User, error) {
-	return r.findByEmailResult, r.findByEmailErr
-}
-func (r *stubUserRepository) FindAll(_ context.Context, _, _ int) ([]*User, error) {
-	return r.findAllResult, r.findAllErr
-}
-func (r *stubUserRepository) Count(_ context.Context) (int64, error) {
-	return r.countResult, r.countErr
-}
-func (r *stubUserRepository) Save(_ context.Context, _ *User) error {
-	return r.saveErr
-}
-func (r *stubUserRepository) Delete(_ context.Context, _ UserID) error {
-	return r.deleteErr
-}
-
-type stubSessionRepository struct {
-	findByIDResult            *Session
-	findByIDErr               error
-	findByTokenResult         *Session
-	findByTokenErr            error
-	findByPreviousTokenResult *Session
-	findByPreviousTokenErr    error
-	findByFPResult            *Session
-	findByFPErr               error
-	findActiveResult          []*Session
-	findActiveErr             error
-	saveErr                   error
-	revokeAllErr              error
-}
-
-func (r *stubSessionRepository) FindByID(_ context.Context, _ SessionID) (*Session, error) {
-	return r.findByIDResult, r.findByIDErr
-}
-func (r *stubSessionRepository) FindByToken(_ context.Context, _ HashedToken) (*Session, error) {
-	return r.findByTokenResult, r.findByTokenErr
-}
-func (r *stubSessionRepository) FindByPreviousToken(_ context.Context, _ HashedToken) (*Session, error) {
-	return r.findByPreviousTokenResult, r.findByPreviousTokenErr
-}
-func (r *stubSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ UserID, _ DeviceFingerprint) (*Session, error) {
-	return r.findByFPResult, r.findByFPErr
-}
-func (r *stubSessionRepository) FindActiveByUserID(_ context.Context, _ UserID) ([]*Session, error) {
-	return r.findActiveResult, r.findActiveErr
-}
-func (r *stubSessionRepository) Save(_ context.Context, _ *Session) error {
-	return r.saveErr
-}
-func (r *stubSessionRepository) RevokeAllForUser(_ context.Context, _ UserID, _ time.Time) error {
-	return r.revokeAllErr
-}
-
-type stubRoleRepository struct {
-	findByIDResult   *Role
-	findByIDErr      error
-	findByNameResult *Role
-	findByNameErr    error
-	findAllResult    []*Role
-	findAllErr       error
-	saveErr          error
-}
-
-func (r *stubRoleRepository) FindByID(_ context.Context, _ RoleID) (*Role, error) {
-	return r.findByIDResult, r.findByIDErr
-}
-func (r *stubRoleRepository) FindByName(_ context.Context, _ RoleName) (*Role, error) {
-	return r.findByNameResult, r.findByNameErr
-}
-func (r *stubRoleRepository) FindAll(_ context.Context) ([]*Role, error) {
-	return r.findAllResult, r.findAllErr
-}
-func (r *stubRoleRepository) Save(_ context.Context, _ *Role) error {
-	return r.saveErr
-}
-
-type stubRegistrationRoleProvider struct {
-	memberRole    RoleName
-	memberRoleErr error
-	adminRole     RoleName
-	adminRoleErr  error
-}
-
-func (s *stubRegistrationRoleProvider) DefaultMemberRole(_ context.Context) (RoleName, error) {
-	return s.memberRole, s.memberRoleErr
-}
-func (s *stubRegistrationRoleProvider) DefaultAdminRole(_ context.Context) (RoleName, error) {
-	return s.adminRole, s.adminRoleErr
-}
-
-func defaultRoleProvider() *stubRegistrationRoleProvider {
-	return &stubRegistrationRoleProvider{
-		memberRole: ReconstituteRoleName("member"),
-		adminRole:  ReconstituteRoleName("super_admin"),
-	}
 }
 
 type stubRegisterPolicy struct {
