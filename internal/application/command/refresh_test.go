@@ -13,7 +13,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 	validCmd := RefreshTokenCommand{
 		UserID:       "user-001",
 		RefreshToken: "raw-tok",
-		Fingerprint:  "Mozilla/5.0|192.168.1.1|en-US",
+		Fingerprint:  testDeviceIdentity().Fingerprint().String(),
 	}
 
 	accessTok, _ := domain.NewAccessToken("access-tok")

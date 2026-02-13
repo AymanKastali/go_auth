@@ -9,8 +9,12 @@ JWT Authentication microservice for managing users, sessions, roles, permissions
 - JWT-based access tokens with role & permission claims
 - Session management with device fingerprinting and hijack detection
 - Password recovery via email with time-limited tokens
+- Account lockout after configurable failed login attempts (brute-force protection)
 - Role-based access control (RBAC) with fine-grained permissions
 - Dynamic roles & permissions seeded from YAML configuration
+- Rate limiting on authentication endpoints
+- Security headers (HSTS, CSP, X-Frame-Options, etc.)
+- CORS middleware with configurable allowed origins
 - Swagger/OpenAPI documentation
 
 ## Quick Start
@@ -58,13 +62,14 @@ GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.pro
 | `GA_DEBUG` | Enable debug mode | `false` |
 | `GA_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `GA_HTTP_PORT` | HTTP server port | `8080` |
+| `GA_CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `*` |
 
 ### Database & JWT
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `GA_DATABASE_URL` | PostgreSQL connection string | **required** |
-| `GA_JWT_SECRET` | JWT signing secret (base64-encoded HMAC key) | **required** |
+| `GA_JWT_SECRET` | JWT signing secret (base64-encoded, must decode to >= 32 bytes) | **required** |
 | `GA_JWT_ISSUER` | JWT issuer claim | `go-auth-service` |
 | `GA_JWT_AUDIENCE` | JWT audience claim | `go-auth-client` |
 | `GA_JWT_ACCESS_TTL` | Access token TTL | `15m` |
@@ -87,6 +92,13 @@ GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.pro
 | `GA_SESSION_LIFETIME` | Session TTL | `24h` |
 | `GA_SESSION_MAX_ACTIVE` | Max concurrent sessions per user | `5` |
 | `GA_RECOVERY_TOKEN_LIFETIME` | Recovery token TTL | `15m` |
+
+### Login Policy (Account Lockout)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GA_LOGIN_MAX_ATTEMPTS` | Failed login attempts before account lockout | `5` |
+| `GA_LOGIN_LOCKOUT_DURATION` | Duration of account lockout after max attempts | `15m` |
 
 ### Registration & Activation
 

@@ -62,6 +62,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 			d.initiateActivation,
 			d.activationRepo,
 			out.emailSvc,
+			out.txManager,
 		),
 		seedSA: command.NewSeedSuperAdminHandler(
 			d.userRepo,
@@ -80,6 +81,8 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 			d.grantAccess,
 			d.clock,
 			out.dispatcher,
+			out.txManager,
+			d.loginPolicy,
 		),
 		refresh: command.NewRefreshTokenHandler(
 			d.sessionRepo,

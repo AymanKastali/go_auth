@@ -44,7 +44,6 @@ func (h *changePasswordHandler) Handle(ctx context.Context, cmd ChangePasswordCo
 
 	uid := application.GetUserID(ctx)
 	if uid.IsEmpty() {
-		logger.Warn("unauthorized_access")
 		return application.ErrUnauthorized
 	}
 
@@ -54,13 +53,11 @@ func (h *changePasswordHandler) Handle(ctx context.Context, cmd ChangePasswordCo
 		return application.ErrResourceNotFound
 	}
 	if user == nil {
-		logger.Warn("user_not_found")
 		return application.ErrResourceNotFound
 	}
 
 	validatedNewPass, err := h.passwordPolicy.Validate(cmd.NewPassword)
 	if err != nil {
-		logger.Warn("new_password_policy_violation", slog.Any("error", err))
 		return err
 	}
 

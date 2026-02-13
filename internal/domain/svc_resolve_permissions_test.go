@@ -13,7 +13,7 @@ func TestResolvePermissions_Resolve(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("happy_path", func(t *testing.T) {
-		memberRole := ReconstituteRoleAggregate(
+		memberRole := ReconstituteRole(
 			ReconstituteRoleID("role-001"),
 			ReconstituteRoleName("member"),
 			"Standard member",

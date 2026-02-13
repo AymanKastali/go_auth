@@ -35,13 +35,11 @@ func (h *updateMeHandler) Handle(ctx context.Context, cmd UpdateMeCommand) error
 
 	uid := application.GetUserID(ctx)
 	if uid.IsEmpty() {
-		logger.Warn("unauthorized_access")
 		return application.ErrUnauthorized
 	}
 
 	emailVO, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
 		return err
 	}
 
@@ -51,7 +49,6 @@ func (h *updateMeHandler) Handle(ctx context.Context, cmd UpdateMeCommand) error
 		return err
 	}
 	if user == nil {
-		logger.Warn("user_not_found")
 		return application.ErrResourceNotFound
 	}
 
@@ -62,13 +59,11 @@ func (h *updateMeHandler) Handle(ctx context.Context, cmd UpdateMeCommand) error
 			return err
 		}
 		if existing != nil {
-			logger.Warn("email_already_taken", slog.String("new_email", cmd.Email))
 			return domain.ErrUserEmailTaken
 		}
 	}
 
 	if err := user.UpdateEmail(emailVO, h.clock.Now()); err != nil {
-		logger.Warn("update_email_denied", slog.Any("error", err))
 		return err
 	}
 

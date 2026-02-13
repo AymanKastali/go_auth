@@ -40,7 +40,7 @@ func NewRole(
 }
 
 // ReconstituteRole is for Repository use only.
-func ReconstituteRoleAggregate(
+func ReconstituteRole(
 	id RoleID,
 	name RoleName,
 	description string,

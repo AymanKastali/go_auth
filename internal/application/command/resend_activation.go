@@ -50,7 +50,6 @@ func (h *resendActivationHandler) Handle(ctx context.Context, cmd ResendActivati
 
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
 		return err
 	}
 
@@ -61,7 +60,6 @@ func (h *resendActivationHandler) Handle(ctx context.Context, cmd ResendActivati
 	}
 
 	if user == nil {
-		logger.Info("resend_activation_no_user")
 		return nil
 	}
 

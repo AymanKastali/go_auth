@@ -13,8 +13,10 @@ RUN go build -ldflags="-s -w -X main.version=${VERSION}" -o /main ./cmd/auth/
 # Stage 2 — Runtime
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /
 COPY --from=builder /main /main
 COPY --from=builder /app/config /config
 EXPOSE 8080
+USER appuser
 ENTRYPOINT ["/main"]

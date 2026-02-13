@@ -101,17 +101,17 @@ func newInboundAdapters(app applicationLayer, out outboundAdapters) inboundAdapt
 }
 
 func newApp(
-	cfg adapters.AppConfig,
+	cfg *adapters.Config,
 	h fiberControllers,
 	baseLogger *slog.Logger,
 ) *fiber.App {
 	app := fiber.New(fiber.Config{
 		ErrorHandler: fiberapp.NewErrorHandler(),
-		AppName:      cfg.Name,
+		AppName:      cfg.App.Name,
 	})
 
 	idGen := outbound.NewULIDGenerator()
-	fiberapp.ConfigureMiddlewares(app, baseLogger, idGen)
+	fiberapp.ConfigureMiddlewares(app, baseLogger, idGen, cfg.HTTP.CORSOrigins)
 	fiberapp.SetupRoutes(
 		app,
 		h.health,

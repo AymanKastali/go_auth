@@ -24,7 +24,7 @@ func NewActivationToken(
 		return nil, ErrUserIDRequired
 	}
 	if expiresAt.Before(now) {
-		return nil, ErrSessionExpiryInPast
+		return nil, ErrTokenExpiryInPast
 	}
 	at := &ActivationToken{
 		id:          id,

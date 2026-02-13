@@ -35,7 +35,6 @@ func (h *validateAccessHandler) Handle(ctx context.Context, query ValidateAccess
 
 	token, err := domain.NewAccessToken(query.AccessToken)
 	if err != nil {
-		logger.Warn("invalid_access_token", slog.Any("error", err))
 		return ZeroValidateAccessResponse, err
 	}
 

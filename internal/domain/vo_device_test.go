@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +38,13 @@ func TestNewDeviceIdentity(t *testing.T) {
 func TestDeviceIdentity_Fingerprint(t *testing.T) {
 	di := ReconstituteDeviceIdentity("1.2.3.4", "Linux", "Chrome", "Desktop", "en-US", "UA-string", false)
 	fp := di.Fingerprint()
-	assert.Equal(t, "UA-string|1.2.3.4|en-US", fp.String())
+
+	raw := fmt.Sprintf("%s|%s|%s|%s", "UA-string", "Linux", "Chrome", "0")
+	hash := sha256.Sum256([]byte(raw))
+	expected := hex.EncodeToString(hash[:])
+
+	assert.Len(t, fp.String(), 64)
+	assert.Equal(t, expected, fp.String())
 }
 
 func TestDeviceIdentity_DisplayName(t *testing.T) {
@@ -74,9 +83,9 @@ func TestNewDeviceFingerprint(t *testing.T) {
 }
 
 func TestDeviceFingerprint_Equal(t *testing.T) {
-	a := NewDeviceFingerprintFromIdentity("ua", "ip", "lang")
-	b := NewDeviceFingerprintFromIdentity("ua", "ip", "lang")
-	c := NewDeviceFingerprintFromIdentity("different", "ip", "lang")
+	a := NewDeviceFingerprintFromIdentity("ua", "Linux", "Chrome", false)
+	b := NewDeviceFingerprintFromIdentity("ua", "Linux", "Chrome", false)
+	c := NewDeviceFingerprintFromIdentity("different", "Linux", "Chrome", false)
 	assert.True(t, a.Equal(b))
 	assert.False(t, a.Equal(c))
 }

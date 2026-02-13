@@ -23,6 +23,7 @@ type registerHandler struct {
 	initiateActivation domain.IInitiateActivation
 	activationRepo      domain.IActivationTokenRepository
 	emailSvc            IEmailService
+	txManager           ITransactionManager
 }
 
 func NewRegisterHandler(
@@ -36,6 +37,7 @@ func NewRegisterHandler(
 	initiateActivation domain.IInitiateActivation,
 	activationRepo domain.IActivationTokenRepository,
 	emailSvc IEmailService,
+	txManager ITransactionManager,
 ) IRegisterHandler {
 	return &registerHandler{
 		userRepo:            userRepo,
@@ -48,6 +50,7 @@ func NewRegisterHandler(
 		initiateActivation: initiateActivation,
 		activationRepo:      activationRepo,
 		emailSvc:            emailSvc,
+		txManager:           txManager,
 	}
 }
 
@@ -59,13 +62,11 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
 
 	validatedPass, err := h.passwordPolicy.Validate(cmd.Password)
 	if err != nil {
-		logger.Warn("password_policy_violation", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
 
@@ -89,25 +90,37 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 		return ZeroRegisterUserResponse, err
 	}
 
-	if err := h.userRepo.Save(ctx, user); err != nil {
-		logger.Error("database_save_failed", slog.Any("error", err))
+	var rawToken string
+	var activationToken *domain.ActivationToken
+
+	err = h.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := h.userRepo.Save(txCtx, user); err != nil {
+			return err
+		}
+
+		if !user.IsActive() && h.activationRepo != nil {
+			raw, at, err := h.initiateActivation.Initiate(user, now)
+			if err != nil {
+				return err
+			}
+			rawToken = raw
+			activationToken = at
+
+			if err := h.activationRepo.Save(txCtx, at); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.Error("registration_save_failed", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
 
 	h.dispatcher.Dispatch(ctx, user.CollectEvents())
 
-	if !user.IsActive() && h.activationRepo != nil {
-		rawToken, activationToken, err := h.initiateActivation.Initiate(user, now)
-		if err != nil {
-			logger.Error("activation_initiation_failed", slog.Any("error", err))
-			return ZeroRegisterUserResponse, err
-		}
-
-		if err := h.activationRepo.Save(ctx, activationToken); err != nil {
-			logger.Error("activation_token_save_failed", slog.Any("error", err))
-			return ZeroRegisterUserResponse, err
-		}
-
+	if activationToken != nil {
 		h.dispatcher.Dispatch(ctx, activationToken.CollectEvents())
 
 		if err := h.emailSvc.SendActivationLink(user.Email().String(), rawToken); err != nil {

@@ -52,13 +52,11 @@ func (h *resetPasswordHandler) Handle(ctx context.Context, cmd ResetPasswordComm
 	logger := application.GetLogger(ctx).With(slog.String("handler", "ResetPassword"))
 
 	if cmd.Token == "" {
-		logger.Warn("invalid_reset_token")
 		return domain.ErrTokenInvalid
 	}
 
 	validatedPass, err := h.passwordPolicy.Validate(cmd.NewPassword)
 	if err != nil {
-		logger.Warn("password_policy_violation", slog.Any("error", err))
 		return err
 	}
 

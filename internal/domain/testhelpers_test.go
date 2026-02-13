@@ -49,6 +49,8 @@ func newActiveUser() *User {
 		[]RoleName{ReconstituteRoleName("member")},
 		false,
 		testNow,
+		0,
+		nil,
 	)
 }
 
@@ -74,6 +76,8 @@ func newDeletedUser() *User {
 		[]RoleName{ReconstituteRoleName("member")},
 		true,
 		testNow,
+		0,
+		nil,
 	)
 }
 
@@ -86,6 +90,8 @@ func newInactiveUser() *User {
 		nil,
 		false,
 		testNow,
+		0,
+		nil,
 	)
 }
 

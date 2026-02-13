@@ -112,12 +112,10 @@ func (h *UserController) GetByID(c fiber.Ctx) error {
 // @Router /api/v1/users/me [get]
 func (h *UserController) GetMe(c fiber.Ctx) error {
 	ctx := c.Context()
-	logger := application.GetLogger(ctx)
 
 	userID := application.GetUserID(ctx)
 
 	if userID.IsEmpty() {
-		logger.Warn("http_get_current_unauthorized_attempt")
 		return SendUnauthorized(c, "user identification missing")
 	}
 
@@ -141,7 +139,6 @@ func (h *UserController) GetMe(c fiber.Ctx) error {
 // @Router /api/v1/users/me [patch]
 func (h *UserController) UpdateMe(c fiber.Ctx) error {
 	ctx := c.Context()
-	logger := application.GetLogger(ctx)
 
 	var req UpdateMeRequest
 	if err := c.Bind().Body(&req); err != nil {
@@ -158,7 +155,6 @@ func (h *UserController) UpdateMe(c fiber.Ctx) error {
 		return err
 	}
 
-	logger.Info("user_profile_updated")
 	return SendNoContent(c)
 }
 

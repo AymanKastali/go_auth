@@ -10,11 +10,13 @@ import (
 
 type UserModel struct {
 	gorm.Model
-	ULID         string          `gorm:"uniqueIndex;column:ulid;not null"`
-	Email        string          `gorm:"uniqueIndex;column:email"`
-	PasswordHash string          `gorm:"column:password_hash"`
-	IsActive     bool            `gorm:"column:is_active"`
-	UserRoles    []UserRoleModel `gorm:"foreignKey:UserID"`
+	ULID                string          `gorm:"uniqueIndex;column:ulid;not null"`
+	Email               string          `gorm:"uniqueIndex;column:email"`
+	PasswordHash        string          `gorm:"column:password_hash"`
+	IsActive            bool            `gorm:"column:is_active"`
+	FailedLoginAttempts int             `gorm:"column:failed_login_attempts;default:0"`
+	LockedUntil         *time.Time      `gorm:"column:locked_until"`
+	UserRoles           []UserRoleModel `gorm:"foreignKey:UserID"`
 }
 
 func (UserModel) TableName() string { return "users" }

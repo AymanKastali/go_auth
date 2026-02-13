@@ -16,12 +16,12 @@ type jwtService struct {
 }
 
 func NewJWTService(
-	secret string,
+	secret []byte,
 	issuer string,
 	audience string,
 ) domain.IAccessService {
 	return &jwtService{
-		secretKey: []byte(secret),
+		secretKey: secret,
 		issuer:    issuer,
 		audience:  audience,
 	}

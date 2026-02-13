@@ -24,7 +24,7 @@ func NewRecoveryToken(
 		return nil, ErrUserIDRequired
 	}
 	if expiresAt.Before(now) {
-		return nil, ErrSessionExpiryInPast
+		return nil, ErrTokenExpiryInPast
 	}
 	rt := &RecoveryToken{
 		id:          id,

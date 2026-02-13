@@ -40,6 +40,8 @@ func testActiveUser() *domain.User {
 		[]domain.RoleName{domain.ReconstituteRoleName("member")},
 		false,
 		appTestNow,
+		0,
+		nil,
 	)
 }
 
@@ -176,6 +178,18 @@ type mockInitiateActivation struct {
 
 func (m *mockInitiateActivation) Initiate(_ *domain.User, _ time.Time) (string, *domain.ActivationToken, error) {
 	return m.rawToken, m.activation, m.err
+}
+
+type mockLoginPolicy struct {
+	maxAttempts     int
+	lockoutDuration time.Duration
+}
+
+func (m *mockLoginPolicy) GetMaxAttempts() int              { return m.maxAttempts }
+func (m *mockLoginPolicy) GetLockoutDuration() time.Duration { return m.lockoutDuration }
+
+func defaultLoginPolicy() *mockLoginPolicy {
+	return &mockLoginPolicy{maxAttempts: 5, lockoutDuration: 15 * time.Minute}
 }
 
 type mockPasswordPolicy struct {

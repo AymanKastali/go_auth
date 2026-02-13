@@ -40,13 +40,11 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 	logger := application.GetLogger(ctx).With(slog.String("handler", "RefreshToken"))
 
 	if cmd.RefreshToken == "" {
-		logger.Warn("invalid_refresh_token")
 		return ZeroLoginResponse, domain.ErrTokenInvalid
 	}
 
 	fp, err := domain.NewDeviceFingerprint(cmd.Fingerprint)
 	if err != nil {
-		logger.Warn("invalid_fingerprint", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
@@ -54,7 +52,9 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 	user, session, newRawToken, err := h.refresher.Refresh(ctx, cmd.RefreshToken, fp, now)
 	if err != nil {
 		if session != nil {
-			_ = h.sessionRepo.Save(ctx, session)
+			if saveErr := h.sessionRepo.Save(ctx, session); saveErr != nil {
+				logger.Error("revoked_session_save_failed", slog.Any("error", saveErr))
+			}
 			h.dispatcher.Dispatch(ctx, session.CollectEvents())
 		}
 		logger.Warn("refresh_session_failed", slog.Any("error", err))

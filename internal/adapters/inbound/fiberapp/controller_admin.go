@@ -4,7 +4,6 @@ import (
 	"go_auth/internal/application"
 	"go_auth/internal/application/command"
 	"go_auth/internal/application/query"
-	"log/slog"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
@@ -142,11 +141,8 @@ func (h *AdminController) GetRole(c fiber.Ctx) error {
 // @Failure 409 {object} ErrorResponse
 // @Router /api/v1/admin/roles [post]
 func (h *AdminController) CreateRole(c fiber.Ctx) error {
-	logger := application.GetLogger(c.Context())
-
 	var req CreateRoleRequest
 	if err := c.Bind().Body(&req); err != nil {
-		logger.Warn("create_role_binding_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 

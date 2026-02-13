@@ -60,7 +60,9 @@ func (s *refreshSession) Refresh(
 			return nil, nil, "", err
 		}
 		if session != nil && !session.IsRevoked() {
-			_ = session.RevokeForTokenReuse(now)
+			if err := session.RevokeForTokenReuse(now); err != nil {
+				return nil, nil, "", err
+			}
 			return nil, session, "", ErrSessionTokenReuse
 		}
 		return nil, nil, "", ErrSessionNotFound

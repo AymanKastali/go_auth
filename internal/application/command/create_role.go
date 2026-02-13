@@ -39,7 +39,6 @@ func (h *createRoleHandler) Handle(ctx context.Context, cmd CreateRoleCommand) (
 
 	roleName, err := domain.NewRoleName(cmd.Name)
 	if err != nil {
-		logger.Warn("invalid_role_name", slog.Any("error", err))
 		return ZeroRoleReadModel, err
 	}
 
@@ -56,7 +55,6 @@ func (h *createRoleHandler) Handle(ctx context.Context, cmd CreateRoleCommand) (
 	for _, ps := range cmd.Permissions {
 		p, err := domain.NewPermission(ps)
 		if err != nil {
-			logger.Warn("invalid_permission", slog.String("permission", ps), slog.Any("error", err))
 			return ZeroRoleReadModel, err
 		}
 		permissions = append(permissions, p)

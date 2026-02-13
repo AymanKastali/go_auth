@@ -3,6 +3,7 @@ package outbound
 import (
 	"fmt"
 	"net/smtp"
+	"net/url"
 
 	"go_auth/internal/adapters"
 	"go_auth/internal/application/command"
@@ -17,7 +18,7 @@ func NewEmailService(cfg adapters.EmailConfig) command.IEmailService {
 }
 
 func (s *emailService) SendResetLink(toEmail string, rawToken string) error {
-	resetLink := fmt.Sprintf("%s?token=%s", s.config.ResetBaseURL, rawToken)
+	resetLink := fmt.Sprintf("%s?token=%s", s.config.ResetBaseURL, url.QueryEscape(rawToken))
 
 	subject := "Password Reset Request"
 	body := fmt.Sprintf(
@@ -43,7 +44,7 @@ func (s *emailService) SendResetLink(toEmail string, rawToken string) error {
 }
 
 func (s *emailService) SendActivationLink(toEmail string, rawToken string) error {
-	activationLink := fmt.Sprintf("%s?token=%s", s.config.ActivationBaseURL, rawToken)
+	activationLink := fmt.Sprintf("%s?token=%s", s.config.ActivationBaseURL, url.QueryEscape(rawToken))
 
 	subject := "Activate Your Account"
 	body := fmt.Sprintf(

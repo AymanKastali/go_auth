@@ -27,7 +27,7 @@ func toRoleDomain(m RoleModel) *domain.Role {
 		permissions[i] = domain.ReconstitutePermission(p.Resource, p.Action)
 	}
 
-	return domain.ReconstituteRoleAggregate(
+	return domain.ReconstituteRole(
 		domain.ReconstituteRoleID(m.ULID),
 		domain.ReconstituteRoleName(m.Name),
 		m.Description,

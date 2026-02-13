@@ -142,3 +142,21 @@ func TestRecoveryPolicy(t *testing.T) {
 		assert.Equal(t, 15*time.Minute, p.GetRecoveryTokenLifetime())
 	})
 }
+
+// ---------------------------------------------------------------
+// Login Policy
+// ---------------------------------------------------------------
+
+func TestLoginPolicy(t *testing.T) {
+	t.Run("configured", func(t *testing.T) {
+		p := NewLoginPolicy(LoginPolicyConfig{MaxAttempts: 3, LockoutDuration: 10 * time.Minute})
+		assert.Equal(t, 3, p.GetMaxAttempts())
+		assert.Equal(t, 10*time.Minute, p.GetLockoutDuration())
+	})
+
+	t.Run("defaults", func(t *testing.T) {
+		p := NewLoginPolicy(LoginPolicyConfig{})
+		assert.Equal(t, 5, p.GetMaxAttempts())
+		assert.Equal(t, 15*time.Minute, p.GetLockoutDuration())
+	})
+}

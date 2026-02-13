@@ -99,6 +99,12 @@ var (
 
 	ErrRecoveryTokenAlreadyUsed = NewError(KindConflict, "recovery token has already been consumed")
 
+	// --- Account Lockout Context ---
+	ErrAccountLocked = NewError(KindForbidden, "account is temporarily locked due to too many failed login attempts")
+
+	// --- Token Expiry Context ---
+	ErrTokenExpiryInPast = NewError(KindValidation, "token expiration cannot be set in the past")
+
 	// --- Activation Token Context ---
 	ErrActivationTokenIDRequired  = NewError(KindValidation, "activation token identifier is required")
 	ErrActivationTokenInvalid     = NewError(KindUnauthorized, "activation token is invalid or not found")

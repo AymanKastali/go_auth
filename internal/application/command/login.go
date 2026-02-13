@@ -20,6 +20,8 @@ type loginHandler struct {
 	granter     domain.IGrantAccess
 	clock       domain.IClock
 	dispatcher  IEventDispatcher
+	txManager   ITransactionManager
+	loginPolicy domain.ILoginPolicy
 }
 
 func NewLoginHandler(
@@ -30,6 +32,8 @@ func NewLoginHandler(
 	granter domain.IGrantAccess,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
+	txManager ITransactionManager,
+	loginPolicy domain.ILoginPolicy,
 ) ILoginHandler {
 	return &loginHandler{
 		userRepo:    userRepo,
@@ -39,6 +43,8 @@ func NewLoginHandler(
 		granter:     granter,
 		clock:       clock,
 		dispatcher:  dispatcher,
+		txManager:   txManager,
+		loginPolicy: loginPolicy,
 	}
 }
 
@@ -50,7 +56,6 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
@@ -60,15 +65,33 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return ZeroLoginResponse, err
 	}
 	if user == nil {
-		logger.Warn("user_not_found")
 		return ZeroLoginResponse, domain.ErrAuthenticationFailed
 	}
 
 	now := h.clock.Now()
 
+	if user.IsLocked(now) {
+		logger.Warn("account_locked", slog.String("user_id", user.ID().String()))
+		return ZeroLoginResponse, domain.ErrAccountLocked
+	}
+
 	if err := h.verifier.Verify(user, cmd.Password); err != nil {
+		user.RecordFailedLogin(
+			h.loginPolicy.GetMaxAttempts(),
+			h.loginPolicy.GetLockoutDuration(),
+			now,
+		)
+		if saveErr := h.userRepo.Save(ctx, user); saveErr != nil {
+			logger.Error("failed_login_save_failed", slog.Any("error", saveErr))
+		}
+		h.dispatcher.Dispatch(ctx, user.CollectEvents())
 		logger.Warn("auth_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
+	}
+
+	hadFailedAttempts := user.FailedLoginAttempts() > 0
+	if hadFailedAttempts {
+		user.ResetLoginAttempts()
 	}
 
 	rawRefreshToken, session, revokedSession, err := h.opener.Open(
@@ -85,19 +108,28 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return ZeroLoginResponse, err
 	}
 
-	if revokedSession != nil {
-		if err := h.sessionRepo.Save(ctx, revokedSession); err != nil {
-			logger.Error("revoke_oldest_session_failed", slog.Any("error", err))
-			return ZeroLoginResponse, err
+	err = h.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if revokedSession != nil {
+			if err := h.sessionRepo.Save(txCtx, revokedSession); err != nil {
+				return err
+			}
 		}
-		h.dispatcher.Dispatch(ctx, revokedSession.CollectEvents())
-	}
-
-	if err := h.sessionRepo.Save(ctx, session); err != nil {
+		if err := h.sessionRepo.Save(txCtx, session); err != nil {
+			return err
+		}
+		if hadFailedAttempts {
+			return h.userRepo.Save(txCtx, user)
+		}
+		return nil
+	})
+	if err != nil {
 		logger.Error("session_save_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
+	if revokedSession != nil {
+		h.dispatcher.Dispatch(ctx, revokedSession.CollectEvents())
+	}
 	h.dispatcher.Dispatch(ctx, session.CollectEvents())
 
 	logger.Info("login_success", slog.String("user_id", user.ID().String()))

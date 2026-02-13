@@ -21,7 +21,10 @@ func SetupRoutes(
 
 	api := app.Group("/api/v1")
 	policy.RegisterRoutes(api)
-	auth.RegisterRoutes(api.Group("/auth"))
+
+	authGroup := api.Group("/auth")
+	authGroup.Use(NewAuthRateLimiter())
+	auth.RegisterRoutes(authGroup)
 
 	users := api.Group("/users")
 	users.Use(authGuard)

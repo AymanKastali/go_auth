@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type ILoginPolicy interface {
+	GetMaxAttempts() int
+	GetLockoutDuration() time.Duration
+}
+
 type IPasswordPolicy interface {
 	Validate(rawPassword string) (ValidatedPassword, error)
 }
@@ -221,3 +226,32 @@ func (p *activationPolicy) RequiresEmailActivation() bool {
 func (p *activationPolicy) GetActivationTokenLifetime() time.Duration {
 	return p.tokenLifetime
 }
+
+// LoginPolicyConfig holds the configuration for login attempt limiting.
+type LoginPolicyConfig struct {
+	MaxAttempts     int
+	LockoutDuration time.Duration
+}
+
+type loginPolicy struct {
+	maxAttempts     int
+	lockoutDuration time.Duration
+}
+
+func NewLoginPolicy(cfg LoginPolicyConfig) ILoginPolicy {
+	maxAttempts := cfg.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = 5
+	}
+	lockoutDuration := cfg.LockoutDuration
+	if lockoutDuration <= 0 {
+		lockoutDuration = 15 * time.Minute
+	}
+	return &loginPolicy{
+		maxAttempts:     maxAttempts,
+		lockoutDuration: lockoutDuration,
+	}
+}
+
+func (p *loginPolicy) GetMaxAttempts() int              { return p.maxAttempts }
+func (p *loginPolicy) GetLockoutDuration() time.Duration { return p.lockoutDuration }

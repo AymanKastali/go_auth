@@ -35,13 +35,11 @@ func (h *logoutHandler) Handle(ctx context.Context, cmd LogoutCommand) error {
 
 	_, err := domain.NewUserID(cmd.UserID)
 	if err != nil {
-		logger.Warn("invalid_user_id", slog.Any("error", err))
 		return err
 	}
 
 	sid, err := domain.NewSessionID(cmd.SessionID)
 	if err != nil {
-		logger.Warn("invalid_session_id", slog.Any("error", err))
 		return err
 	}
 
@@ -51,7 +49,6 @@ func (h *logoutHandler) Handle(ctx context.Context, cmd LogoutCommand) error {
 		return err
 	}
 	if session == nil {
-		logger.Warn("session_not_found")
 		return domain.ErrSessionNotFound
 	}
 

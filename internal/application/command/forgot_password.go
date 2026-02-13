@@ -50,7 +50,6 @@ func (h *forgotPasswordHandler) Handle(ctx context.Context, cmd ForgotPasswordCo
 
 	email, err := domain.NewEmail(cmd.Email)
 	if err != nil {
-		logger.Warn("invalid_email_format", slog.Any("error", err))
 		return err
 	}
 
@@ -61,7 +60,6 @@ func (h *forgotPasswordHandler) Handle(ctx context.Context, cmd ForgotPasswordCo
 	}
 
 	if user == nil {
-		logger.Info("forgot_password_no_user")
 		return nil
 	}
 

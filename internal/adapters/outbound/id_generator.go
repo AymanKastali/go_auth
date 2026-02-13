@@ -9,7 +9,7 @@ import (
 // ID Service
 type ulidIDGenerator struct{}
 
-func NewULIDIDGenerator() domain.IIDGenerator {
+func NewULIDIdGenerator() domain.IIDGenerator {
 	return &ulidIDGenerator{}
 }
 

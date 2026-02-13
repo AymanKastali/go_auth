@@ -46,7 +46,6 @@ func (h *confirmActivationHandler) Handle(ctx context.Context, cmd ConfirmActiva
 	logger := application.GetLogger(ctx).With(slog.String("handler", "ConfirmActivation"))
 
 	if cmd.Token == "" {
-		logger.Warn("invalid_activation_token")
 		return domain.ErrTokenInvalid
 	}
 

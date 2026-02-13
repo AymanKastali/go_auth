@@ -31,6 +31,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		resp, err := h.Handle(unauthenticatedCtx(), validCmd)
@@ -51,6 +52,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		_, err := h.Handle(context.Background(), RegisterUserCommand{Email: "bad", Password: "Str0ng!Pass"})
@@ -69,6 +71,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		_, err := h.Handle(context.Background(), validCmd)
@@ -87,6 +90,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		_, err := h.Handle(context.Background(), validCmd)
@@ -105,6 +109,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		_, err := h.Handle(context.Background(), validCmd)
@@ -124,6 +129,7 @@ func TestRegisterHandler(t *testing.T) {
 			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
+			&mockTransactionManager{},
 		)
 
 		_, err := h.Handle(context.Background(), validCmd)

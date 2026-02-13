@@ -8,38 +8,39 @@ import (
 )
 
 type domainLayer struct {
-	idGen               domain.IIDGenerator
-	passwordPolicy      domain.IPasswordPolicy
-	registerPolicy      domain.IRegisterPolicy
-	sessionPolicy       domain.ISessionPolicy
-	accessPolicy        domain.IAccessPolicy
-	activationPolicy    domain.IActivationPolicy
-	accessSvc           domain.IAccessService
-	passwordSvc         domain.IPasswordService
-	clock               domain.IClock
-	tokenSvc            domain.ITokenService
+	idGen              domain.IIDGenerator
+	passwordPolicy     domain.IPasswordPolicy
+	registerPolicy     domain.IRegisterPolicy
+	sessionPolicy      domain.ISessionPolicy
+	accessPolicy       domain.IAccessPolicy
+	activationPolicy   domain.IActivationPolicy
+	loginPolicy        domain.ILoginPolicy
+	accessSvc          domain.IAccessService
+	passwordSvc        domain.IPasswordService
+	clock              domain.IClock
+	tokenSvc           domain.ITokenService
 	registerMember     domain.IRegisterMember
 	registerAdmin      domain.IRegisterAdmin
-	grantAccess       domain.IGrantAccess
-	verifyAccess      domain.IVerifyAccess
-	resolvePermissions  domain.IResolvePermissions
+	grantAccess        domain.IGrantAccess
+	verifyAccess       domain.IVerifyAccess
+	resolvePermissions domain.IResolvePermissions
 	verifyCredentials  domain.IVerifyCredentials
-	openSession       domain.IOpenSession
-	refreshSession    domain.IRefreshSession
+	openSession        domain.IOpenSession
+	refreshSession     domain.IRefreshSession
 	initiateRecovery   domain.IInitiateRecovery
 	changePassword     domain.IChangePassword
-	resetPassword    domain.IResetPassword
+	resetPassword      domain.IResetPassword
 	initiateActivation domain.IInitiateActivation
-	confirmActivation domain.IConfirmActivation
-	userRepo            domain.IUserRepository
-	sessionRepo         domain.ISessionRepository
-	recoveryRepo        domain.IRecoveryTokenRepository
-	activationRepo      domain.IActivationTokenRepository
-	roleRepo            domain.IRoleRepository
+	confirmActivation  domain.IConfirmActivation
+	userRepo           domain.IUserRepository
+	sessionRepo        domain.ISessionRepository
+	recoveryRepo       domain.IRecoveryTokenRepository
+	activationRepo     domain.IActivationTokenRepository
+	roleRepo           domain.IRoleRepository
 }
 
 func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
-	idGen := outbound.NewULIDIDGenerator()
+	idGen := outbound.NewULIDIdGenerator()
 	passwordSvc := outbound.NewPasswordService(cfg.Password.BcryptCost)
 	tokenSvc := outbound.NewTokenService(cfg.Token.Length)
 	accessSvc := outbound.NewJWTService(
@@ -72,6 +73,10 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 		RequireEmail:  cfg.Activation.RequireEmail,
 		TokenLifetime: cfg.Activation.TokenLifetime,
 	})
+	loginPolicy := domain.NewLoginPolicy(domain.LoginPolicyConfig{
+		MaxAttempts:     cfg.LoginPolicy.MaxAttempts,
+		LockoutDuration: cfg.LoginPolicy.LockoutDuration,
+	})
 	activationRepo := pf.NewActivationTokenRepository()
 	roleProvider := outbound.NewRegistrationRoleProvider(roleRepo)
 	registerMember := domain.NewRegisterMember(userRepo, roleProvider, registerPolicy, activationPolicy)
@@ -95,33 +100,34 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 	clock := outbound.NewClock()
 
 	return domainLayer{
-		userRepo:            userRepo,
-		sessionRepo:         sessionRepo,
-		passwordPolicy:      passwordPolicy,
-		passwordSvc:         passwordSvc,
-		registerPolicy:      registerPolicy,
-		sessionPolicy:       sessionPolicy,
-		accessPolicy:        accessPolicy,
-		activationPolicy:    activationPolicy,
-		clock:               clock,
-		accessSvc:           accessSvc,
-		tokenSvc:            tokenSvc,
+		loginPolicy:        loginPolicy,
+		userRepo:           userRepo,
+		sessionRepo:        sessionRepo,
+		passwordPolicy:     passwordPolicy,
+		passwordSvc:        passwordSvc,
+		registerPolicy:     registerPolicy,
+		sessionPolicy:      sessionPolicy,
+		accessPolicy:       accessPolicy,
+		activationPolicy:   activationPolicy,
+		clock:              clock,
+		accessSvc:          accessSvc,
+		tokenSvc:           tokenSvc,
 		registerMember:     registerMember,
 		registerAdmin:      registerAdmin,
-		grantAccess:       grantAccess,
-		verifyAccess:      verifyAccess,
-		resolvePermissions:  resolvePermissions,
+		grantAccess:        grantAccess,
+		verifyAccess:       verifyAccess,
+		resolvePermissions: resolvePermissions,
 		verifyCredentials:  verifyCredentials,
-		openSession:       openSession,
-		refreshSession:    refreshSession,
+		openSession:        openSession,
+		refreshSession:     refreshSession,
 		initiateRecovery:   initiateRecovery,
 		changePassword:     changePassword,
-		resetPassword:    resetPassword,
+		resetPassword:      resetPassword,
 		initiateActivation: initiateActivation,
-		confirmActivation: confirmActivation,
-		idGen:               idGen,
-		recoveryRepo:        recoveryRepo,
-		activationRepo:      activationRepo,
-		roleRepo:            roleRepo,
+		confirmActivation:  confirmActivation,
+		idGen:              idGen,
+		recoveryRepo:       recoveryRepo,
+		activationRepo:     activationRepo,
+		roleRepo:           roleRepo,
 	}
 }

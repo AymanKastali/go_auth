@@ -77,7 +77,9 @@ func (s *openSession) Open(
 
 	maxSessions := s.sessionPolicy.GetMaxActiveSessions()
 	if len(activeSessions) >= maxSessions && len(activeSessions) > 0 {
-		_ = activeSessions[0].Revoke(now)
+		if err := activeSessions[0].Revoke(now); err != nil {
+			return "", nil, nil, err
+		}
 		revokedSession = activeSessions[0]
 	}
 

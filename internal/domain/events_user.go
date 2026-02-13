@@ -143,6 +143,51 @@ func (e RoleRevokedFromUser) OccurredAt() time.Time { return e.occurredAt }
 func (e RoleRevokedFromUser) AggregateID() string   { return e.aggregateID }
 func (e RoleRevokedFromUser) RoleName() string      { return e.roleName }
 
+// --- UserLoginFailed ---
+
+type UserLoginFailed struct {
+	occurredAt    time.Time
+	aggregateID   string
+	email         string
+	attemptNumber int
+}
+
+func NewUserLoginFailed(userID UserID, email Email, attemptNumber int, now time.Time) UserLoginFailed {
+	return UserLoginFailed{
+		occurredAt:    now,
+		aggregateID:   userID.String(),
+		email:         email.String(),
+		attemptNumber: attemptNumber,
+	}
+}
+
+func (e UserLoginFailed) EventName() string    { return "UserLoginFailed" }
+func (e UserLoginFailed) OccurredAt() time.Time { return e.occurredAt }
+func (e UserLoginFailed) AggregateID() string   { return e.aggregateID }
+func (e UserLoginFailed) Email() string         { return e.email }
+func (e UserLoginFailed) AttemptNumber() int    { return e.attemptNumber }
+
+// --- UserAccountLocked ---
+
+type UserAccountLocked struct {
+	occurredAt  time.Time
+	aggregateID string
+	lockedUntil time.Time
+}
+
+func NewUserAccountLocked(userID UserID, lockedUntil time.Time, now time.Time) UserAccountLocked {
+	return UserAccountLocked{
+		occurredAt:  now,
+		aggregateID: userID.String(),
+		lockedUntil: lockedUntil,
+	}
+}
+
+func (e UserAccountLocked) EventName() string    { return "UserAccountLocked" }
+func (e UserAccountLocked) OccurredAt() time.Time { return e.occurredAt }
+func (e UserAccountLocked) AggregateID() string   { return e.aggregateID }
+func (e UserAccountLocked) LockedUntil() time.Time { return e.lockedUntil }
+
 // --- UserDeleted ---
 
 type UserDeleted struct {

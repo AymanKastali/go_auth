@@ -8,13 +8,15 @@ import (
 // User is the Aggregate Root for the Identity context.
 type User struct {
 	EventRecorder
-	id           UserID
-	email        Email
-	passwordHash HashedPassword
-	isActive     bool
-	roles        []RoleName
-	isDeleted    bool
-	registeredAt time.Time
+	id                  UserID
+	email               Email
+	passwordHash        HashedPassword
+	isActive            bool
+	roles               []RoleName
+	isDeleted           bool
+	registeredAt        time.Time
+	failedLoginAttempts int
+	lockedUntil         *time.Time
 }
 
 // NewUser enforces business invariants during initial creation.
@@ -35,13 +37,15 @@ func NewUser(
 	}
 
 	u := &User{
-		id:           userID,
-		email:        email,
-		passwordHash: passwordHash,
-		isActive:     true,
-		roles:        []RoleName{},
-		isDeleted:    false,
-		registeredAt: registeredAt,
+		id:                  userID,
+		email:               email,
+		passwordHash:        passwordHash,
+		isActive:            true,
+		roles:               []RoleName{},
+		isDeleted:           false,
+		registeredAt:        registeredAt,
+		failedLoginAttempts: 0,
+		lockedUntil:         nil,
 	}
 	u.RecordEvent(NewUserRegistered(userID, email, registeredAt))
 	return u, nil
@@ -56,15 +60,19 @@ func ReconstituteUser(
 	roles []RoleName,
 	isDeleted bool,
 	registeredAt time.Time,
+	failedLoginAttempts int,
+	lockedUntil *time.Time,
 ) *User {
 	return &User{
-		id:           id,
-		email:        email,
-		passwordHash: passwordHash,
-		isActive:     isActive,
-		roles:        slices.Clone(roles),
-		isDeleted:    isDeleted,
-		registeredAt: registeredAt,
+		id:                  id,
+		email:               email,
+		passwordHash:        passwordHash,
+		isActive:            isActive,
+		roles:               slices.Clone(roles),
+		isDeleted:           isDeleted,
+		registeredAt:        registeredAt,
+		failedLoginAttempts: failedLoginAttempts,
+		lockedUntil:         lockedUntil,
 	}
 }
 
@@ -167,6 +175,28 @@ func (u *User) UpdatePassword(newHash HashedPassword, now time.Time) error {
 	return nil
 }
 
+// --- Lockout Behavior ---
+
+func (u *User) IsLocked(now time.Time) bool {
+	return u.lockedUntil != nil && now.Before(*u.lockedUntil)
+}
+
+func (u *User) RecordFailedLogin(maxAttempts int, lockoutDuration time.Duration, now time.Time) {
+	u.failedLoginAttempts++
+	u.RecordEvent(NewUserLoginFailed(u.id, u.email, u.failedLoginAttempts, now))
+
+	if u.failedLoginAttempts >= maxAttempts {
+		lockUntil := now.Add(lockoutDuration)
+		u.lockedUntil = &lockUntil
+		u.RecordEvent(NewUserAccountLocked(u.id, lockUntil, now))
+	}
+}
+
+func (u *User) ResetLoginAttempts() {
+	u.failedLoginAttempts = 0
+	u.lockedUntil = nil
+}
+
 // --- Getters ---
 
 func (u *User) ID() UserID                     { return u.id }
@@ -176,6 +206,8 @@ func (u *User) Roles() []RoleName               { return slices.Clone(u.roles) }
 func (u *User) IsDeleted() bool                { return u.isDeleted }
 func (u *User) IsActive() bool                 { return u.isActive }
 func (u *User) RegisteredAt() time.Time        { return u.registeredAt }
+func (u *User) FailedLoginAttempts() int       { return u.failedLoginAttempts }
+func (u *User) LockedUntil() *time.Time        { return u.lockedUntil }
 func (u *User) RoleNames() []string {
 	if len(u.roles) == 0 {
 		return []string{}

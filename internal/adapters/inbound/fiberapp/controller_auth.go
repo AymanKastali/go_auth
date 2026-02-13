@@ -4,7 +4,6 @@ import (
 	"go_auth/internal/application"
 	"go_auth/internal/application/command"
 	"go_auth/internal/application/query"
-	"log/slog"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -80,16 +79,12 @@ func (h *AuthController) RegisterRoutes(router fiber.Router) {
 // @Failure 400 {object} ErrorResponse
 // @Router /api/v1/auth/register [post]
 func (h *AuthController) Register(c fiber.Ctx) error {
-	logger := application.GetLogger(c.Context())
-
 	var req RegisterRequest
 	if err := c.Bind().Body(&req); err != nil {
-		logger.Warn("register_binding_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		logger.Warn("register_validation_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 
@@ -103,7 +98,6 @@ func (h *AuthController) Register(c fiber.Ctx) error {
 		return err
 	}
 
-	logger.Info("http_register_success", slog.String("email", req.Email))
 	return SendCreated(c, "user registered successfully", RegisterUserResponse{
 		UserID: user.UserID,
 		Email:  user.Email,
@@ -120,15 +114,12 @@ func (h *AuthController) Register(c fiber.Ctx) error {
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/login [post]
 func (h *AuthController) Login(c fiber.Ctx) error {
-	logger := application.GetLogger(c.Context())
 	var req LoginRequest
 	if err := c.Bind().Body(&req); err != nil {
-		logger.Warn("login_binding_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	if err := h.validate.Struct(req); err != nil {
-		logger.Warn("login_validation_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 
@@ -151,7 +142,6 @@ func (h *AuthController) Login(c fiber.Ctx) error {
 		return err
 	}
 
-	logger.Info("http_login_success", slog.String("email", req.Email))
 	return SendOK(c, "login successful", LoginResponse{
 		AccessToken:        resp.AccessToken,
 		AccessTokenExpiry:  resp.AccessTokenExpiry,
@@ -171,21 +161,14 @@ func (h *AuthController) Login(c fiber.Ctx) error {
 // @Router /api/v1/auth/refresh [post]
 func (h *AuthController) Refresh(c fiber.Ctx) error {
 	ctx := c.Context()
-	logger := application.GetLogger(ctx)
 
 	var req RefreshRequest
 	if err := c.Bind().Body(&req); err != nil {
-		logger.Warn("refresh_binding_failed", slog.Any("error", err))
 		return SendBadRequest(c, err.Error(), nil)
 	}
 
 	userID := application.GetUserID(ctx)
 	fingerprint := application.GetIdentity(ctx).Fingerprint()
-
-	logger.Debug("http_refresh_attempt",
-		slog.String("user_id", userID.String()),
-		slog.String("fingerprint", fingerprint.String()),
-	)
 
 	cmd := command.RefreshTokenCommand{
 		RefreshToken: req.RefreshToken,
@@ -198,7 +181,6 @@ func (h *AuthController) Refresh(c fiber.Ctx) error {
 		return err
 	}
 
-	logger.Info("http_refresh_success", slog.String("user_id", userID.String()))
 	return SendOK(c, "token refreshed", resp)
 }
 
@@ -211,10 +193,8 @@ func (h *AuthController) Refresh(c fiber.Ctx) error {
 // @Router /api/v1/auth/logout [post]
 func (h *AuthController) Logout(c fiber.Ctx) error {
 	ctx := c.Context()
-	logger := application.GetLogger(ctx)
 
 	if !application.IsAuthenticated(ctx) {
-		logger.Warn("logout_attempt_unauthenticated")
 		return SendBadRequest(c, "missing identity context in request", nil)
 	}
 
@@ -230,10 +210,6 @@ func (h *AuthController) Logout(c fiber.Ctx) error {
 		return err
 	}
 
-	logger.Info("http_logout_success",
-		slog.String("user_id", userID.String()),
-		slog.String("session_id", sessionID.String()),
-	)
 	return SendNoContent(c)
 }
 

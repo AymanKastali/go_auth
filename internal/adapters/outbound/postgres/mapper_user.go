@@ -15,11 +15,13 @@ func toUserModel(u *domain.User) UserModel {
 	}
 
 	model := UserModel{
-		ULID:         u.ID().String(),
-		Email:        u.Email().String(),
-		PasswordHash: u.HashedPassword().String(),
-		IsActive:     u.IsActive(),
-		UserRoles:    userRoles,
+		ULID:                u.ID().String(),
+		Email:               u.Email().String(),
+		PasswordHash:        u.HashedPassword().String(),
+		IsActive:            u.IsActive(),
+		UserRoles:           userRoles,
+		FailedLoginAttempts: u.FailedLoginAttempts(),
+		LockedUntil:         u.LockedUntil(),
 	}
 
 	if u.IsDeleted() {
@@ -47,5 +49,7 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 		roles,
 		m.DeletedAt.Valid,
 		m.CreatedAt,
+		m.FailedLoginAttempts,
+		m.LockedUntil,
 	), nil
 }

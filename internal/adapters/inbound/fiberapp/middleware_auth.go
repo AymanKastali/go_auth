@@ -40,7 +40,6 @@ func Protected(validateAccess query.IValidateAccessHandler) fiber.Handler {
 
 		c.SetContext(application.WithAppContext(c.Context(), rc.AppContext()))
 
-		logger.Debug("request_authenticated", slog.String("user_id", access.UserID))
 		return c.Next()
 	}
 }

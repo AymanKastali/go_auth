@@ -32,7 +32,7 @@ func TestNewRecoveryToken(t *testing.T) {
 
 	t.Run("expired", func(t *testing.T) {
 		_, err := NewRecoveryToken(id, uid, hash, testPast, testNow)
-		assert.ErrorIs(t, err, ErrSessionExpiryInPast)
+		assert.ErrorIs(t, err, ErrTokenExpiryInPast)
 	})
 }
 

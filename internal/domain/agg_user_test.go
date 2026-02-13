@@ -224,3 +224,82 @@ func TestUser_UpdatePassword(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUserInactive)
 	})
 }
+
+// ---------------------------------------------------------------
+// IsLocked
+// ---------------------------------------------------------------
+
+func TestUser_IsLocked(t *testing.T) {
+	t.Run("not_locked", func(t *testing.T) {
+		u := newActiveUser()
+		assert.False(t, u.IsLocked(testNow))
+	})
+
+	t.Run("locked_before_expiry", func(t *testing.T) {
+		lockUntil := testFuture
+		u := ReconstituteUser(
+			validUserID(), validEmail(), validHashedPassword(),
+			true, []RoleName{ReconstituteRoleName("member")}, false, testNow,
+			3, &lockUntil,
+		)
+		assert.True(t, u.IsLocked(testNow))
+	})
+
+	t.Run("lock_expired", func(t *testing.T) {
+		lockUntil := testPast
+		u := ReconstituteUser(
+			validUserID(), validEmail(), validHashedPassword(),
+			true, []RoleName{ReconstituteRoleName("member")}, false, testNow,
+			3, &lockUntil,
+		)
+		assert.False(t, u.IsLocked(testNow))
+	})
+}
+
+// ---------------------------------------------------------------
+// RecordFailedLogin
+// ---------------------------------------------------------------
+
+func TestUser_RecordFailedLogin(t *testing.T) {
+	t.Run("increments_counter", func(t *testing.T) {
+		u := newActiveUser()
+		u.RecordFailedLogin(5, 15*60*1e9, testNow) // 15 min in ns
+		assert.Equal(t, 1, u.FailedLoginAttempts())
+		assert.Nil(t, u.LockedUntil())
+
+		events := u.CollectEvents()
+		assertEventRecorded(t, events, "UserLoginFailed")
+		assertEventNotRecorded(t, events, "UserAccountLocked")
+	})
+
+	t.Run("triggers_lockout_at_threshold", func(t *testing.T) {
+		u := ReconstituteUser(
+			validUserID(), validEmail(), validHashedPassword(),
+			true, []RoleName{ReconstituteRoleName("member")}, false, testNow,
+			4, nil,
+		)
+		u.RecordFailedLogin(5, 15*60*1e9, testNow)
+		assert.Equal(t, 5, u.FailedLoginAttempts())
+		assert.NotNil(t, u.LockedUntil())
+
+		events := u.CollectEvents()
+		assertEventRecorded(t, events, "UserLoginFailed")
+		assertEventRecorded(t, events, "UserAccountLocked")
+	})
+}
+
+// ---------------------------------------------------------------
+// ResetLoginAttempts
+// ---------------------------------------------------------------
+
+func TestUser_ResetLoginAttempts(t *testing.T) {
+	lockUntil := testFuture
+	u := ReconstituteUser(
+		validUserID(), validEmail(), validHashedPassword(),
+		true, []RoleName{ReconstituteRoleName("member")}, false, testNow,
+		3, &lockUntil,
+	)
+	u.ResetLoginAttempts()
+	assert.Equal(t, 0, u.FailedLoginAttempts())
+	assert.Nil(t, u.LockedUntil())
+}

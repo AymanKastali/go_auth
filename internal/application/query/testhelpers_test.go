@@ -33,6 +33,8 @@ func testActiveUser() *domain.User {
 		[]domain.RoleName{domain.ReconstituteRoleName("member")},
 		false,
 		appTestNow,
+		0,
+		nil,
 	)
 }
 
