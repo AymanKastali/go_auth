@@ -178,14 +178,6 @@ func (m *mockInitiateActivation) Initiate(_ *domain.User, _ time.Time) (string, 
 	return m.rawToken, m.activation, m.err
 }
 
-type mockConfirmActivation struct {
-	err error
-}
-
-func (m *mockConfirmActivation) Confirm(_ *domain.User, _ *domain.ActivationToken, _ time.Time) error {
-	return m.err
-}
-
 type mockPasswordPolicy struct {
 	validateResult domain.ValidatedPassword
 	validateErr    error
@@ -387,19 +379,4 @@ func (r *stubAppRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ d
 	return r.revokeAllErr
 }
 
-type stubAppActivationTokenRepository struct {
-	findByHashResult *domain.ActivationToken
-	findByHashErr    error
-	saveErr          error
-	revokeAllErr     error
-}
 
-func (r *stubAppActivationTokenRepository) FindByHash(_ context.Context, _ domain.ActivationTokenHash) (*domain.ActivationToken, error) {
-	return r.findByHashResult, r.findByHashErr
-}
-func (r *stubAppActivationTokenRepository) Save(_ context.Context, _ *domain.ActivationToken) error {
-	return r.saveErr
-}
-func (r *stubAppActivationTokenRepository) RevokeAllForUser(_ context.Context, _ domain.UserID) error {
-	return r.revokeAllErr
-}

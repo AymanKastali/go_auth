@@ -312,15 +312,6 @@ func (r *stubRoleRepository) Save(_ context.Context, _ *Role) error {
 	return r.saveErr
 }
 
-type stubPasswordPolicy struct {
-	validateResult ValidatedPassword
-	validateErr    error
-}
-
-func (p *stubPasswordPolicy) Validate(_ string) (ValidatedPassword, error) {
-	return p.validateResult, p.validateErr
-}
-
 type stubRegistrationRoleProvider struct {
 	memberRole    RoleName
 	memberRoleErr error
