@@ -47,6 +47,21 @@ func (r *postgresSessionRepository) FindByToken(ctx context.Context, token domai
 	return toSessionDomain(model), nil
 }
 
+func (r *postgresSessionRepository) FindByPreviousToken(ctx context.Context, token domain.HashedToken) (*domain.Session, error) {
+	var model SessionModel
+	err := getDB(r.db, ctx).
+		Where("previous_hashed_token = ?", token.String()).
+		First(&model).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, domain.ErrInternal
+	}
+	return toSessionDomain(model), nil
+}
+
 func (r *postgresSessionRepository) FindActiveByUserAndFingerprint(ctx context.Context, userID domain.UserID, fp domain.DeviceFingerprint) (*domain.Session, error) {
 	var model SessionModel
 	err := getDB(r.db, ctx).

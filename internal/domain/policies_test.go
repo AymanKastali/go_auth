@@ -65,41 +65,43 @@ func TestPasswordPolicy_Validate(t *testing.T) {
 		RequireSpecial: true,
 	})
 
-	validPwd, _ := NewRawPassword("Str0ng!Pass")
-
 	t.Run("meets_all", func(t *testing.T) {
-		require.NoError(t, fullPolicy.Validate(validPwd))
+		vp, err := fullPolicy.Validate("Str0ng!Pass")
+		require.NoError(t, err)
+		assert.Equal(t, "Str0ng!Pass", vp.String())
+		assert.False(t, vp.IsEmpty())
 	})
 
 	t.Run("too_short", func(t *testing.T) {
-		p, _ := NewRawPassword("Sh1!")
-		assert.ErrorIs(t, fullPolicy.Validate(p), ErrPasswordTooShort)
+		_, err := fullPolicy.Validate("Sh1!")
+		assert.ErrorIs(t, err, ErrPasswordTooShort)
 	})
 
 	t.Run("too_long", func(t *testing.T) {
-		long, _ := NewRawPassword(string(make([]byte, 65)))
-		assert.ErrorIs(t, fullPolicy.Validate(long), ErrPasswordTooLong)
+		_, err := fullPolicy.Validate(string(make([]byte, 65)))
+		assert.ErrorIs(t, err, ErrPasswordTooLong)
 	})
 
 	t.Run("no_upper", func(t *testing.T) {
-		p, _ := NewRawPassword("str0ng!pass")
-		assert.ErrorIs(t, fullPolicy.Validate(p), ErrPasswordNoUpper)
+		_, err := fullPolicy.Validate("str0ng!pass")
+		assert.ErrorIs(t, err, ErrPasswordNoUpper)
 	})
 
 	t.Run("no_number", func(t *testing.T) {
-		p, _ := NewRawPassword("Strong!Pass")
-		assert.ErrorIs(t, fullPolicy.Validate(p), ErrPasswordNoNumber)
+		_, err := fullPolicy.Validate("Strong!Pass")
+		assert.ErrorIs(t, err, ErrPasswordNoNumber)
 	})
 
 	t.Run("no_special", func(t *testing.T) {
-		p, _ := NewRawPassword("Str0ngPasss")
-		assert.ErrorIs(t, fullPolicy.Validate(p), ErrPasswordNoSpecial)
+		_, err := fullPolicy.Validate("Str0ngPasss")
+		assert.ErrorIs(t, err, ErrPasswordNoSpecial)
 	})
 
 	t.Run("all_disabled", func(t *testing.T) {
 		lax := NewPasswordPolicy(PasswordPolicyConfig{MinLength: 1, MaxLength: 255})
-		p, _ := NewRawPassword("a")
-		assert.NoError(t, lax.Validate(p))
+		vp, err := lax.Validate("a")
+		require.NoError(t, err)
+		assert.Equal(t, "a", vp.String())
 	})
 }
 

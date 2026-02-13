@@ -24,6 +24,28 @@ func (e SessionEstablished) AggregateID() string    { return e.aggregateID }
 func (e SessionEstablished) SessionID() string      { return e.aggregateID }
 func (e SessionEstablished) UserID() string         { return e.userID }
 
+// --- SessionLoginRenewed ---
+
+type SessionLoginRenewed struct {
+	occurredAt  time.Time
+	aggregateID string
+	userID      string
+}
+
+func NewSessionLoginRenewed(sessionID SessionID, userID UserID, now time.Time) SessionLoginRenewed {
+	return SessionLoginRenewed{
+		occurredAt:  now,
+		aggregateID: sessionID.String(),
+		userID:      userID.String(),
+	}
+}
+
+func (e SessionLoginRenewed) EventName() string     { return "SessionLoginRenewed" }
+func (e SessionLoginRenewed) OccurredAt() time.Time  { return e.occurredAt }
+func (e SessionLoginRenewed) AggregateID() string    { return e.aggregateID }
+func (e SessionLoginRenewed) SessionID() string      { return e.aggregateID }
+func (e SessionLoginRenewed) UserID() string         { return e.userID }
+
 // --- SessionRefreshed ---
 
 type SessionRefreshed struct {
@@ -89,3 +111,47 @@ func (e SessionHijackDetected) OccurredAt() time.Time  { return e.occurredAt }
 func (e SessionHijackDetected) AggregateID() string    { return e.aggregateID }
 func (e SessionHijackDetected) SessionID() string      { return e.aggregateID }
 func (e SessionHijackDetected) UserID() string         { return e.userID }
+
+// --- SessionTokenRotated ---
+
+type SessionTokenRotated struct {
+	occurredAt  time.Time
+	aggregateID string
+	userID      string
+}
+
+func NewSessionTokenRotated(sessionID SessionID, userID UserID, now time.Time) SessionTokenRotated {
+	return SessionTokenRotated{
+		occurredAt:  now,
+		aggregateID: sessionID.String(),
+		userID:      userID.String(),
+	}
+}
+
+func (e SessionTokenRotated) EventName() string     { return "SessionTokenRotated" }
+func (e SessionTokenRotated) OccurredAt() time.Time  { return e.occurredAt }
+func (e SessionTokenRotated) AggregateID() string    { return e.aggregateID }
+func (e SessionTokenRotated) SessionID() string      { return e.aggregateID }
+func (e SessionTokenRotated) UserID() string         { return e.userID }
+
+// --- SessionTokenReuseDetected ---
+
+type SessionTokenReuseDetected struct {
+	occurredAt  time.Time
+	aggregateID string
+	userID      string
+}
+
+func NewSessionTokenReuseDetected(sessionID SessionID, userID UserID, now time.Time) SessionTokenReuseDetected {
+	return SessionTokenReuseDetected{
+		occurredAt:  now,
+		aggregateID: sessionID.String(),
+		userID:      userID.String(),
+	}
+}
+
+func (e SessionTokenReuseDetected) EventName() string     { return "SessionTokenReuseDetected" }
+func (e SessionTokenReuseDetected) OccurredAt() time.Time  { return e.occurredAt }
+func (e SessionTokenReuseDetected) AggregateID() string    { return e.aggregateID }
+func (e SessionTokenReuseDetected) SessionID() string      { return e.aggregateID }
+func (e SessionTokenReuseDetected) UserID() string         { return e.userID }

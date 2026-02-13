@@ -13,38 +13,41 @@ type IRegisterHandler interface {
 }
 
 type registerHandler struct {
-	userRepo        domain.IUserRepository
-	registrationSvc domain.IRegistrationService
-	passwordMgr     domain.IPasswordManager
-	idGen           domain.IIDGenerator
-	clock           domain.IClock
-	dispatcher      IEventDispatcher
-	accountManager  domain.IUserAccountManager
-	activationRepo  domain.IActivationTokenRepository
-	emailSvc        IEmailService
+	userRepo            domain.IUserRepository
+	registrar           domain.IRegisterMember
+	passwordPolicy      domain.IPasswordPolicy
+	passwordSvc         domain.IPasswordService
+	idGen               domain.IIDGenerator
+	clock               domain.IClock
+	dispatcher          IEventDispatcher
+	initiateActivation domain.IInitiateActivation
+	activationRepo      domain.IActivationTokenRepository
+	emailSvc            IEmailService
 }
 
 func NewRegisterHandler(
 	userRepo domain.IUserRepository,
-	registrationSvc domain.IRegistrationService,
-	passwordMgr domain.IPasswordManager,
+	registrar domain.IRegisterMember,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
 	idGen domain.IIDGenerator,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
-	accountManager domain.IUserAccountManager,
+	initiateActivation domain.IInitiateActivation,
 	activationRepo domain.IActivationTokenRepository,
 	emailSvc IEmailService,
 ) IRegisterHandler {
 	return &registerHandler{
-		userRepo:        userRepo,
-		registrationSvc: registrationSvc,
-		passwordMgr:     passwordMgr,
-		idGen:           idGen,
-		clock:           clock,
-		dispatcher:      dispatcher,
-		accountManager:  accountManager,
-		activationRepo:  activationRepo,
-		emailSvc:        emailSvc,
+		userRepo:            userRepo,
+		registrar:           registrar,
+		passwordPolicy:      passwordPolicy,
+		passwordSvc:         passwordSvc,
+		idGen:               idGen,
+		clock:               clock,
+		dispatcher:          dispatcher,
+		initiateActivation: initiateActivation,
+		activationRepo:      activationRepo,
+		emailSvc:            emailSvc,
 	}
 }
 
@@ -60,9 +63,9 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 		return ZeroRegisterUserResponse, err
 	}
 
-	rawPass, err := domain.NewRawPassword(cmd.Password)
+	validatedPass, err := h.passwordPolicy.Validate(cmd.Password)
 	if err != nil {
-		logger.Warn("invalid_password_format", slog.Any("error", err))
+		logger.Warn("password_policy_violation", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
 
@@ -72,15 +75,15 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 		return ZeroRegisterUserResponse, err
 	}
 
-	hashed, err := h.passwordMgr.ValidateAndHashNewPassword(rawPass)
+	hashed, err := h.passwordSvc.Hash(validatedPass)
 	if err != nil {
-		logger.Warn("password_policy_violation", slog.Any("error", err))
+		logger.Error("password_hash_failed", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
 	}
 
 	now := h.clock.Now()
 
-	user, err := h.registrationSvc.RegisterNewMember(ctx, uid, email, hashed, now)
+	user, err := h.registrar.Register(ctx, uid, email, hashed, now)
 	if err != nil {
 		logger.Warn("registration_domain_denied", slog.Any("error", err))
 		return ZeroRegisterUserResponse, err
@@ -94,7 +97,7 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 	h.dispatcher.Dispatch(ctx, user.CollectEvents())
 
 	if !user.IsActive() && h.activationRepo != nil {
-		rawToken, activationToken, err := h.accountManager.InitiateActivation(user, now)
+		rawToken, activationToken, err := h.initiateActivation.Initiate(user, now)
 		if err != nil {
 			logger.Error("activation_initiation_failed", slog.Any("error", err))
 			return ZeroRegisterUserResponse, err
@@ -107,7 +110,7 @@ func (h *registerHandler) Handle(ctx context.Context, cmd RegisterUserCommand) (
 
 		h.dispatcher.Dispatch(ctx, activationToken.CollectEvents())
 
-		if err := h.emailSvc.SendActivationLink(user.Email().String(), rawToken.String()); err != nil {
+		if err := h.emailSvc.SendActivationLink(user.Email().String(), rawToken); err != nil {
 			logger.Error("activation_email_send_failed", slog.Any("error", err))
 			return ZeroRegisterUserResponse, err
 		}

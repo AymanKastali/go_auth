@@ -13,12 +13,17 @@ import (
 func TestChangePasswordHandler(t *testing.T) {
 	validCmd := ChangePasswordCommand{OldPassword: "OldStr0ng!", NewPassword: "NewStr0ng!"}
 
+	validPolicy := &mockPasswordPolicy{
+		validateResult: domain.ReconstituteValidatedPassword("NewStr0ng!"),
+	}
+
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: user},
 			&stubAppSessionRepository{},
-			&mockAccountManager{},
+			validPolicy,
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -31,7 +36,8 @@ func TestChangePasswordHandler(t *testing.T) {
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAccountManager{},
+			validPolicy,
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -44,7 +50,8 @@ func TestChangePasswordHandler(t *testing.T) {
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: nil},
 			&stubAppSessionRepository{},
-			&mockAccountManager{},
+			validPolicy,
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -53,18 +60,19 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.ErrorIs(t, err, application.ErrResourceNotFound)
 	})
 
-	t.Run("empty_old_password", func(t *testing.T) {
+	t.Run("new_password_policy_fails", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: user},
 			&stubAppSessionRepository{},
-			&mockAccountManager{},
+			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
 
-		err := h.Handle(authenticatedCtx("user-001", "sess-001"), ChangePasswordCommand{OldPassword: "", NewPassword: "New1!"})
-		assert.ErrorIs(t, err, domain.ErrUserPasswordRequired)
+		err := h.Handle(authenticatedCtx("user-001", "sess-001"), validCmd)
+		assert.ErrorIs(t, err, domain.ErrPasswordTooShort)
 	})
 
 	t.Run("domain_fails", func(t *testing.T) {
@@ -72,7 +80,8 @@ func TestChangePasswordHandler(t *testing.T) {
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: user},
 			&stubAppSessionRepository{},
-			&mockAccountManager{changeErr: domain.ErrAuthenticationFailed},
+			validPolicy,
+			&mockChangePassword{err: domain.ErrAuthenticationFailed},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -86,7 +95,8 @@ func TestChangePasswordHandler(t *testing.T) {
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: user, saveErr: errTest},
 			&stubAppSessionRepository{},
-			&mockAccountManager{},
+			validPolicy,
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -100,7 +110,8 @@ func TestChangePasswordHandler(t *testing.T) {
 		h := NewChangePasswordHandler(
 			&stubAppUserRepository{findByIDResult: user},
 			&stubAppSessionRepository{revokeAllErr: errTest},
-			&mockAccountManager{},
+			validPolicy,
+			&mockChangePassword{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)

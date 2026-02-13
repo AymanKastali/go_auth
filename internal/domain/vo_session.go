@@ -1,12 +1,29 @@
 package domain
 
+import "time"
+
 var (
 	ZeroSessionID      = SessionID{}
 	ZeroHashedToken    = HashedToken{}
-	ZeroRawToken       = RawToken{}
 	ZeroAccessToken    = AccessToken{}
 	ZeroAccessIdentity = AccessIdentity{}
+	ZeroSessionExpiry  = SessionExpiry{}
 )
+
+// --- SessionExpiry ---
+type SessionExpiry struct{ value time.Time }
+
+func NewSessionExpiry(expiresAt, now time.Time) (SessionExpiry, error) {
+	if !expiresAt.After(now) {
+		return ZeroSessionExpiry, ErrSessionExpiryInvalid
+	}
+	return SessionExpiry{value: expiresAt}, nil
+}
+func ReconstituteSessionExpiry(t time.Time) SessionExpiry { return SessionExpiry{value: t} }
+
+func (e SessionExpiry) Time() time.Time            { return e.value }
+func (e SessionExpiry) IsZero() bool               { return e.value.IsZero() }
+func (e SessionExpiry) IsExpired(now time.Time) bool { return !e.value.After(now) }
 
 // --- SessionID ---
 type SessionID struct{ value string }
@@ -36,18 +53,6 @@ func ReconstituteHashedToken(value string) HashedToken { return HashedToken{valu
 func (vo HashedToken) String() string               { return vo.value }
 func (vo HashedToken) IsEmpty() bool                { return vo.value == "" }
 func (vo HashedToken) Equal(other HashedToken) bool { return vo.value == other.value }
-
-// --- RawToken ---
-type RawToken struct{ value string }
-
-func NewRawToken(value string) (RawToken, error) {
-	if value == "" {
-		return ZeroRawToken, ErrTokenInvalid
-	}
-	return RawToken{value: value}, nil
-}
-func (vo RawToken) String() string { return vo.value }
-func (vo RawToken) IsEmpty() bool  { return vo.value == "" }
 
 // --- AccessToken ---
 type AccessToken struct{ value string }

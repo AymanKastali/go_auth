@@ -16,7 +16,7 @@ func TestLoginHandler(t *testing.T) {
 		Model: "Desktop", AcceptLanguage: "en-US", UserAgent: "Mozilla/5.0",
 	}
 
-	rawTok, _ := domain.NewRawToken("refresh-tok")
+	rawTok := "refresh-tok"
 	accessTok, _ := domain.NewAccessToken("access-tok")
 	sess := testActiveSession()
 
@@ -25,8 +25,9 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
-			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
+			&mockVerifyCredentials{},
+			&mockOpenSession{rawToken: rawTok, session: sess},
+			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -39,12 +40,32 @@ func TestLoginHandler(t *testing.T) {
 		assert.NotEmpty(t, resp.RefreshTokenExpiry)
 	})
 
+	t.Run("session_limit_revoked_session_persisted", func(t *testing.T) {
+		user := testActiveUser()
+		revokedSess := testActiveSession()
+		dispatcher := &mockEventDispatcher{}
+		h := NewLoginHandler(
+			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{},
+			&mockVerifyCredentials{},
+			&mockOpenSession{rawToken: rawTok, session: sess, revokedSession: revokedSess},
+			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
+			&stubClock{now: appTestNow},
+			dispatcher,
+		)
+
+		resp, err := h.Handle(unauthenticatedCtx(), validCmd)
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.AccessToken)
+	})
+
 	t.Run("invalid_email", func(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{},
-			&mockAccessManager{},
+			&mockVerifyCredentials{},
+			&mockOpenSession{},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -53,26 +74,13 @@ func TestLoginHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrUserEmailInvalid)
 	})
 
-	t.Run("empty_password", func(t *testing.T) {
-		h := NewLoginHandler(
-			&stubAppUserRepository{},
-			&stubAppSessionRepository{},
-			&mockAuthenticationService{},
-			&mockAccessManager{},
-			&stubClock{now: appTestNow},
-			&mockEventDispatcher{},
-		)
-
-		_, err := h.Handle(unauthenticatedCtx(), LoginCommand{Email: "a@b.com", Password: ""})
-		assert.ErrorIs(t, err, domain.ErrUserPasswordRequired)
-	})
-
 	t.Run("user_not_found", func(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: nil},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{},
-			&mockAccessManager{},
+			&mockVerifyCredentials{},
+			&mockOpenSession{},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -86,8 +94,9 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{authErr: domain.ErrAuthenticationFailed},
-			&mockAccessManager{},
+			&mockVerifyCredentials{verifyErr: domain.ErrAuthenticationFailed},
+			&mockOpenSession{},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -96,13 +105,30 @@ func TestLoginHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrAuthenticationFailed)
 	})
 
+	t.Run("establish_fails", func(t *testing.T) {
+		user := testActiveUser()
+		h := NewLoginHandler(
+			&stubAppUserRepository{findByEmailResult: user},
+			&stubAppSessionRepository{},
+			&mockVerifyCredentials{},
+			&mockOpenSession{err: errTest},
+			&mockGrantAccess{},
+			&stubClock{now: appTestNow},
+			&mockEventDispatcher{},
+		)
+
+		_, err := h.Handle(unauthenticatedCtx(), validCmd)
+		assert.ErrorIs(t, err, errTest)
+	})
+
 	t.Run("access_fails", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
-			&mockAccessManager{grantErr: errTest},
+			&mockVerifyCredentials{},
+			&mockOpenSession{rawToken: rawTok, session: sess},
+			&mockGrantAccess{grantErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -116,8 +142,9 @@ func TestLoginHandler(t *testing.T) {
 		h := NewLoginHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppSessionRepository{saveErr: errTest},
-			&mockAuthenticationService{authRawToken: rawTok, authSession: sess},
-			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
+			&mockVerifyCredentials{},
+			&mockOpenSession{rawToken: rawTok, session: sess},
+			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)

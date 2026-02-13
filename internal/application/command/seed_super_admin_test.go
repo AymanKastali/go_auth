@@ -13,12 +13,18 @@ import (
 func TestSeedSuperAdminHandler(t *testing.T) {
 	validCmd := RegisterUserCommand{Email: "admin@example.com", Password: "Str0ng!Pass"}
 
+	validPolicy := &mockPasswordPolicy{
+		validateResult: domain.ReconstituteValidatedPassword("Str0ng!Pass"),
+	}
+	validSvc := &mockPasswordService{hashResult: testHashedPassword()}
+
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{registerAdminResult: user},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterAdmin{registerResult: user},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -31,8 +37,9 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 	t.Run("invalid_email", func(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{},
+			&mockRegisterAdmin{},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -42,25 +49,12 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrUserEmailInvalid)
 	})
 
-	t.Run("empty_password", func(t *testing.T) {
-		h := NewSeedSuperAdminHandler(
-			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{},
-			&stubAppIDGenerator{},
-			&stubClock{now: appTestNow},
-			&mockEventDispatcher{},
-		)
-
-		err := h.Handle(context.Background(), RegisterUserCommand{Email: "a@b.com", Password: ""})
-		assert.ErrorIs(t, err, domain.ErrUserPasswordRequired)
-	})
-
 	t.Run("policy_violation", func(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{validateHashErr: domain.ErrPasswordTooShort},
+			&mockRegisterAdmin{},
+			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -73,8 +67,9 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 	t.Run("id_gen_fails", func(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterAdmin{},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userIDErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -87,8 +82,9 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 	t.Run("domain_fails", func(t *testing.T) {
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{registerAdminErr: domain.ErrUserEmailTaken},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterAdmin{registerErr: domain.ErrUserEmailTaken},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -102,8 +98,9 @@ func TestSeedSuperAdminHandler(t *testing.T) {
 		user := testActiveUser()
 		h := NewSeedSuperAdminHandler(
 			&stubAppUserRepository{saveErr: errTest},
-			&mockRegistrationService{registerAdminResult: user},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterAdmin{registerResult: user},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},

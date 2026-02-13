@@ -28,10 +28,7 @@ func validHashedPassword() HashedPassword {
 }
 func validSessionID() SessionID   { return ReconstituteSessionID("sess-001") }
 func validHashedToken() HashedToken { return ReconstituteHashedToken("hashed-tok-001") }
-func validRawToken() RawToken {
-	t, _ := NewRawToken("raw-tok-001")
-	return t
-}
+func validRawToken() string         { return "raw-tok-001" }
 func validDeviceIdentity() DeviceIdentity {
 	return ReconstituteDeviceIdentity("192.168.1.1", "Linux", "Chrome", "Desktop", "en-US", "Mozilla/5.0", false)
 }
@@ -60,6 +57,7 @@ func newActiveSession() *Session {
 		validSessionID(),
 		validUserID(),
 		validHashedToken(),
+		ZeroHashedToken,
 		validDeviceIdentity(),
 		testFuture,
 		testNow,
@@ -140,10 +138,10 @@ type stubPasswordService struct {
 	compareOut bool
 }
 
-func (s *stubPasswordService) Hash(_ RawPassword) (HashedPassword, error) {
+func (s *stubPasswordService) Hash(_ ValidatedPassword) (HashedPassword, error) {
 	return s.hashResult, s.hashErr
 }
-func (s *stubPasswordService) Compare(_ RawPassword, _ HashedPassword) bool {
+func (s *stubPasswordService) Compare(_ string, _ HashedPassword) bool {
 	return s.compareOut
 }
 
@@ -175,7 +173,7 @@ func (s *stubIDGenerator) GenerateRoleID() (RoleID, error) {
 }
 
 type stubTokenService struct {
-	generateToken     RawToken
+	generateToken     string
 	generateErr       error
 	hashSessionOut    HashedToken
 	hashSessionErr    error
@@ -185,25 +183,25 @@ type stubTokenService struct {
 	compareRecOut     bool
 }
 
-func (s *stubTokenService) Generate() (RawToken, error) {
+func (s *stubTokenService) Generate() (string, error) {
 	return s.generateToken, s.generateErr
 }
-func (s *stubTokenService) HashSessionToken(_ RawToken) (HashedToken, error) {
+func (s *stubTokenService) HashSessionToken(_ string) (HashedToken, error) {
 	return s.hashSessionOut, s.hashSessionErr
 }
-func (s *stubTokenService) HashRecoveryToken(_ RawToken) (RecoveryTokenHash, error) {
+func (s *stubTokenService) HashRecoveryToken(_ string) (RecoveryTokenHash, error) {
 	return s.hashRecoveryOut, s.hashRecoveryErr
 }
-func (s *stubTokenService) CompareSession(_ RawToken, _ HashedToken) bool {
+func (s *stubTokenService) CompareSession(_ string, _ HashedToken) bool {
 	return s.compareSessionOut
 }
-func (s *stubTokenService) CompareRecovery(_ RawToken, _ RecoveryTokenHash) bool {
+func (s *stubTokenService) CompareRecovery(_ string, _ RecoveryTokenHash) bool {
 	return s.compareRecOut
 }
-func (s *stubTokenService) HashActivationToken(_ RawToken) (ActivationTokenHash, error) {
+func (s *stubTokenService) HashActivationToken(_ string) (ActivationTokenHash, error) {
 	return ReconstituteActivationTokenHash("hashed-activation"), nil
 }
-func (s *stubTokenService) CompareActivation(_ RawToken, _ ActivationTokenHash) bool {
+func (s *stubTokenService) CompareActivation(_ string, _ ActivationTokenHash) bool {
 	return false
 }
 
@@ -255,16 +253,18 @@ func (r *stubUserRepository) Delete(_ context.Context, _ UserID) error {
 }
 
 type stubSessionRepository struct {
-	findByIDResult      *Session
-	findByIDErr         error
-	findByTokenResult   *Session
-	findByTokenErr      error
-	findByFPResult      *Session
-	findByFPErr         error
-	findActiveResult    []*Session
-	findActiveErr       error
-	saveErr             error
-	revokeAllErr        error
+	findByIDResult            *Session
+	findByIDErr               error
+	findByTokenResult         *Session
+	findByTokenErr            error
+	findByPreviousTokenResult *Session
+	findByPreviousTokenErr    error
+	findByFPResult            *Session
+	findByFPErr               error
+	findActiveResult          []*Session
+	findActiveErr             error
+	saveErr                   error
+	revokeAllErr              error
 }
 
 func (r *stubSessionRepository) FindByID(_ context.Context, _ SessionID) (*Session, error) {
@@ -272,6 +272,9 @@ func (r *stubSessionRepository) FindByID(_ context.Context, _ SessionID) (*Sessi
 }
 func (r *stubSessionRepository) FindByToken(_ context.Context, _ HashedToken) (*Session, error) {
 	return r.findByTokenResult, r.findByTokenErr
+}
+func (r *stubSessionRepository) FindByPreviousToken(_ context.Context, _ HashedToken) (*Session, error) {
+	return r.findByPreviousTokenResult, r.findByPreviousTokenErr
 }
 func (r *stubSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ UserID, _ DeviceFingerprint) (*Session, error) {
 	return r.findByFPResult, r.findByFPErr
@@ -309,17 +312,34 @@ func (r *stubRoleRepository) Save(_ context.Context, _ *Role) error {
 	return r.saveErr
 }
 
-type stubPasswordManager struct {
-	validateHashResult HashedPassword
-	validateHashErr    error
-	compareOut         bool
+type stubPasswordPolicy struct {
+	validateResult ValidatedPassword
+	validateErr    error
 }
 
-func (s *stubPasswordManager) ValidateAndHashNewPassword(_ RawPassword) (HashedPassword, error) {
-	return s.validateHashResult, s.validateHashErr
+func (p *stubPasswordPolicy) Validate(_ string) (ValidatedPassword, error) {
+	return p.validateResult, p.validateErr
 }
-func (s *stubPasswordManager) Compare(_ RawPassword, _ HashedPassword) bool {
-	return s.compareOut
+
+type stubRegistrationRoleProvider struct {
+	memberRole    RoleName
+	memberRoleErr error
+	adminRole     RoleName
+	adminRoleErr  error
+}
+
+func (s *stubRegistrationRoleProvider) DefaultMemberRole(_ context.Context) (RoleName, error) {
+	return s.memberRole, s.memberRoleErr
+}
+func (s *stubRegistrationRoleProvider) DefaultAdminRole(_ context.Context) (RoleName, error) {
+	return s.adminRole, s.adminRoleErr
+}
+
+func defaultRoleProvider() *stubRegistrationRoleProvider {
+	return &stubRegistrationRoleProvider{
+		memberRole: ReconstituteRoleName("member"),
+		adminRole:  ReconstituteRoleName("super_admin"),
+	}
 }
 
 type stubRegisterPolicy struct {

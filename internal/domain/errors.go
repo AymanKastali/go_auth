@@ -74,7 +74,9 @@ var (
 	ErrSessionExpired         = NewError(KindForbidden, "session has expired")
 	ErrSessionAlreadyRevoked  = NewError(KindConflict, "session is already in a revoked state")
 	ErrSessionExpiryInPast    = NewError(KindValidation, "session expiration cannot be set in the past")
+	ErrSessionExpiryInvalid   = NewError(KindValidation, "session expiry must be in the future")
 	ErrSessionFingerprintMiss = NewError(KindForbidden, "device fingerprint does not match the session")
+	ErrSessionTokenReuse      = NewError(KindForbidden, "refresh token reuse detected; session revoked")
 
 	// --- Device & Metadata Context ---
 	ErrDeviceIPRequired          = NewError(KindValidation, "device IP address is required")

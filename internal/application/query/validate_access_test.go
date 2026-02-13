@@ -14,7 +14,8 @@ func TestValidateAccessHandler(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockAccessManager{verifyUser: user, verifySess: session},
+			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
 
@@ -30,10 +31,9 @@ func TestValidateAccessHandler(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockAccessManager{
-				verifyUser: user,
-				verifySess: session,
-				resolvePermsResult: []domain.Permission{
+			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockResolvePermissions{
+				resolveResult: []domain.Permission{
 					domain.ReconstitutePermission("users", "read_self"),
 					domain.ReconstitutePermission("content", "read"),
 				},
@@ -55,7 +55,8 @@ func TestValidateAccessHandler(t *testing.T) {
 		user := testActiveUser()
 		session := testActiveSession()
 		h := NewValidateAccessHandler(
-			&mockAccessManager{verifyUser: user, verifySess: session},
+			&mockVerifyAccess{verifyUser: user, verifySess: session},
+			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
 
@@ -69,7 +70,8 @@ func TestValidateAccessHandler(t *testing.T) {
 
 	t.Run("empty_token", func(t *testing.T) {
 		h := NewValidateAccessHandler(
-			&mockAccessManager{},
+			&mockVerifyAccess{},
+			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
 
@@ -79,7 +81,8 @@ func TestValidateAccessHandler(t *testing.T) {
 
 	t.Run("verification_fails", func(t *testing.T) {
 		h := NewValidateAccessHandler(
-			&mockAccessManager{verifyErr: domain.ErrTokenInvalid},
+			&mockVerifyAccess{verifyErr: domain.ErrTokenInvalid},
+			&mockResolvePermissions{},
 			&stubClock{now: appTestNow},
 		)
 

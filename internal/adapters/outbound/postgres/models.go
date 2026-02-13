@@ -21,21 +21,22 @@ func (UserModel) TableName() string { return "users" }
 
 type SessionModel struct {
 	gorm.Model
-	ULID           string    `gorm:"uniqueIndex;column:ulid;not null"`
-	UserID         uint      `gorm:"index;column:user_id"`
-	UserULID       string    `gorm:"index;column:user_ulid;not null"`
-	HashedToken    string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Fingerprint    string    `gorm:"column:fingerprint;type:varchar(255);index"`
-	IPAddress      string    `gorm:"column:ip_address;type:varchar(45)"`
-	UserAgent      string    `gorm:"column:user_agent;type:text"`
-	OS             string    `gorm:"column:os;type:varchar(100)"`
-	Browser        string    `gorm:"column:browser;type:varchar(100)"`
-	DeviceModel    string    `gorm:"column:device_model;type:varchar(100)"`
-	AcceptLanguage string    `gorm:"column:accept_language;type:varchar(10)"`
-	IsMobile       bool      `gorm:"column:is_mobile"`
-	ExpiresAt      time.Time `gorm:"column:expires_at"`
-	LastActiveAt   time.Time `gorm:"column:last_active_at"`
-	IsRevoked      bool      `gorm:"column:is_revoked"`
+	ULID               string    `gorm:"uniqueIndex;column:ulid;not null"`
+	UserID             uint      `gorm:"index;column:user_id"`
+	UserULID           string    `gorm:"index;column:user_ulid;not null"`
+	HashedToken        string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	PreviousHashedToken string   `gorm:"type:varchar(255);index;column:previous_hashed_token"`
+	Fingerprint        string    `gorm:"column:fingerprint;type:varchar(255);index"`
+	IPAddress          string    `gorm:"column:ip_address;type:varchar(45)"`
+	UserAgent          string    `gorm:"column:user_agent;type:text"`
+	OS                 string    `gorm:"column:os;type:varchar(100)"`
+	Browser            string    `gorm:"column:browser;type:varchar(100)"`
+	DeviceModel        string    `gorm:"column:device_model;type:varchar(100)"`
+	AcceptLanguage     string    `gorm:"column:accept_language;type:varchar(10)"`
+	IsMobile           bool      `gorm:"column:is_mobile"`
+	ExpiresAt          time.Time `gorm:"column:expires_at"`
+	LastActiveAt       time.Time `gorm:"column:last_active_at"`
+	IsRevoked          bool      `gorm:"column:is_revoked"`
 }
 
 func (SessionModel) TableName() string { return "sessions" }

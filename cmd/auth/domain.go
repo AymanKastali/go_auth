@@ -8,30 +8,40 @@ import (
 )
 
 type domainLayer struct {
-	idGen              domain.IIDGenerator
-	passwordManager    domain.IPasswordManager
-	registerPolicy     domain.IRegisterPolicy
-	sessionPolicy      domain.ISessionPolicy
-	accessPolicy       domain.IAccessPolicy
-	activationPolicy   domain.IActivationPolicy
-	accessSvc          domain.IAccessService
-	clock              domain.IClock
-	tokenSvc           domain.ITokenService
-	registrationSvc    domain.IRegistrationService
-	accessManager      domain.IAccessManager
-	authenticationSvc  domain.IAuthenticationService
-	accountManager     domain.IUserAccountManager
-	userRepo           domain.IUserRepository
-	sessionRepo        domain.ISessionRepository
-	recoveryRepo       domain.IRecoveryTokenRepository
-	activationRepo     domain.IActivationTokenRepository
-	roleRepo           domain.IRoleRepository
+	idGen               domain.IIDGenerator
+	passwordPolicy      domain.IPasswordPolicy
+	registerPolicy      domain.IRegisterPolicy
+	sessionPolicy       domain.ISessionPolicy
+	accessPolicy        domain.IAccessPolicy
+	activationPolicy    domain.IActivationPolicy
+	accessSvc           domain.IAccessService
+	passwordSvc         domain.IPasswordService
+	clock               domain.IClock
+	tokenSvc            domain.ITokenService
+	registerMember     domain.IRegisterMember
+	registerAdmin      domain.IRegisterAdmin
+	grantAccess       domain.IGrantAccess
+	verifyAccess      domain.IVerifyAccess
+	resolvePermissions  domain.IResolvePermissions
+	verifyCredentials  domain.IVerifyCredentials
+	openSession       domain.IOpenSession
+	refreshSession    domain.IRefreshSession
+	initiateRecovery   domain.IInitiateRecovery
+	changePassword     domain.IChangePassword
+	resetPassword    domain.IResetPassword
+	initiateActivation domain.IInitiateActivation
+	confirmActivation domain.IConfirmActivation
+	userRepo            domain.IUserRepository
+	sessionRepo         domain.ISessionRepository
+	recoveryRepo        domain.IRecoveryTokenRepository
+	activationRepo      domain.IActivationTokenRepository
+	roleRepo            domain.IRoleRepository
 }
 
 func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domainLayer {
 	idGen := outbound.NewULIDIDGenerator()
 	passwordSvc := outbound.NewPasswordService(cfg.Password.BcryptCost)
-	tokenSvc := outbound.NewTokenService()
+	tokenSvc := outbound.NewTokenService(cfg.Token.Length)
 	accessSvc := outbound.NewJWTService(
 		cfg.JWT.Secret,
 		cfg.JWT.Issuer,
@@ -64,58 +74,54 @@ func newDomainLayer(cfg *adapters.Config, pf *postgres.PersistenceFactory) domai
 	})
 	activationRepo := pf.NewActivationTokenRepository()
 	roleProvider := outbound.NewRegistrationRoleProvider(roleRepo)
-	registrationSvc := domain.NewRegistrationService(userRepo, roleProvider, registerPolicy, activationPolicy)
-	passwordManager := domain.NewPasswordManager(
-		passwordSvc,
-		passwordPolicy,
-	)
-	accessManager := domain.NewAccessManager(
-		userRepo,
-		sessionRepo,
-		roleRepo,
-		accessSvc,
-		accessPolicy,
-	)
-	authSvc := domain.NewAuthenticationService(
-		userRepo,
-		sessionRepo,
-		tokenSvc,
-		idGen,
-		sessionPolicy,
-		passwordManager,
-	)
+	registerMember := domain.NewRegisterMember(userRepo, roleProvider, registerPolicy, activationPolicy)
+	registerAdmin := domain.NewRegisterAdmin(userRepo, roleProvider, registerPolicy)
+	resolvePermissions := domain.NewResolvePermissions(roleRepo)
+	grantAccess := domain.NewGrantAccess(resolvePermissions, accessSvc, accessPolicy)
+	verifyAccess := domain.NewVerifyAccess(userRepo, sessionRepo, accessSvc)
+	verifyCredentials := domain.NewVerifyCredentials(passwordSvc)
+	openSession := domain.NewOpenSession(sessionRepo, tokenSvc, idGen, sessionPolicy)
+	refreshSession := domain.NewRefreshSession(userRepo, sessionRepo, tokenSvc, sessionPolicy)
 	recoveryPolicy := domain.NewRecoveryPolicy(domain.RecoveryPolicyConfig{
 		Lifetime: cfg.RecoveryPolicy.Lifetime,
 	})
 	recoveryRepo := pf.NewRecoveryTokenRepository()
-	accountManager := domain.NewUserAccountManager(
-		tokenSvc,
-		passwordManager,
-		idGen,
-		recoveryPolicy,
-		activationPolicy,
-	)
+	initiateRecovery := domain.NewInitiateRecovery(tokenSvc, idGen, recoveryPolicy)
+	changePassword := domain.NewChangePassword(passwordSvc)
+	resetPassword := domain.NewResetPassword(passwordSvc)
+	initiateActivation := domain.NewInitiateActivation(tokenSvc, idGen, activationPolicy)
+	confirmActivation := domain.NewConfirmActivation()
 
 	clock := outbound.NewClock()
 
 	return domainLayer{
-		userRepo:           userRepo,
-		sessionRepo:        sessionRepo,
-		passwordManager:    passwordManager,
-		registerPolicy:     registerPolicy,
-		sessionPolicy:      sessionPolicy,
-		accessPolicy:       accessPolicy,
-		activationPolicy:   activationPolicy,
-		clock:              clock,
-		accessSvc:          accessSvc,
-		tokenSvc:           tokenSvc,
-		registrationSvc:    registrationSvc,
-		accessManager:      accessManager,
-		authenticationSvc:  authSvc,
-		accountManager:     accountManager,
-		idGen:              idGen,
-		recoveryRepo:       recoveryRepo,
-		activationRepo:     activationRepo,
-		roleRepo:           roleRepo,
+		userRepo:            userRepo,
+		sessionRepo:         sessionRepo,
+		passwordPolicy:      passwordPolicy,
+		passwordSvc:         passwordSvc,
+		registerPolicy:      registerPolicy,
+		sessionPolicy:       sessionPolicy,
+		accessPolicy:        accessPolicy,
+		activationPolicy:    activationPolicy,
+		clock:               clock,
+		accessSvc:           accessSvc,
+		tokenSvc:            tokenSvc,
+		registerMember:     registerMember,
+		registerAdmin:      registerAdmin,
+		grantAccess:       grantAccess,
+		verifyAccess:      verifyAccess,
+		resolvePermissions:  resolvePermissions,
+		verifyCredentials:  verifyCredentials,
+		openSession:       openSession,
+		refreshSession:    refreshSession,
+		initiateRecovery:   initiateRecovery,
+		changePassword:     changePassword,
+		resetPassword:    resetPassword,
+		initiateActivation: initiateActivation,
+		confirmActivation: confirmActivation,
+		idGen:               idGen,
+		recoveryRepo:        recoveryRepo,
+		activationRepo:      activationRepo,
+		roleRepo:            roleRepo,
 	}
 }

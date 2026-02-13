@@ -13,45 +13,44 @@ type IConfirmActivationHandler interface {
 }
 
 type confirmActivationHandler struct {
-	userRepo       domain.IUserRepository
-	activationRepo domain.IActivationTokenRepository
-	tokenSvc       domain.ITokenService
-	accountMgr     domain.IUserAccountManager
-	txManager      ITransactionManager
-	clock          domain.IClock
-	dispatcher     IEventDispatcher
+	userRepo             domain.IUserRepository
+	activationRepo       domain.IActivationTokenRepository
+	tokenSvc             domain.ITokenService
+	confirmActivation  domain.IConfirmActivation
+	txManager            ITransactionManager
+	clock                domain.IClock
+	dispatcher           IEventDispatcher
 }
 
 func NewConfirmActivationHandler(
 	userRepo domain.IUserRepository,
 	activationRepo domain.IActivationTokenRepository,
 	tokenSvc domain.ITokenService,
-	accountMgr domain.IUserAccountManager,
+	confirmActivation domain.IConfirmActivation,
 	txManager ITransactionManager,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IConfirmActivationHandler {
 	return &confirmActivationHandler{
-		userRepo:       userRepo,
-		activationRepo: activationRepo,
-		tokenSvc:       tokenSvc,
-		accountMgr:     accountMgr,
-		txManager:      txManager,
-		clock:          clock,
-		dispatcher:     dispatcher,
+		userRepo:            userRepo,
+		activationRepo:      activationRepo,
+		tokenSvc:            tokenSvc,
+		confirmActivation: confirmActivation,
+		txManager:           txManager,
+		clock:               clock,
+		dispatcher:          dispatcher,
 	}
 }
 
 func (h *confirmActivationHandler) Handle(ctx context.Context, cmd ConfirmActivationCommand) error {
 	logger := application.GetLogger(ctx).With(slog.String("handler", "ConfirmActivation"))
 
-	rawToken, err := domain.NewRawToken(cmd.Token)
-	if err != nil {
-		logger.Warn("invalid_activation_token", slog.Any("error", err))
-		return err
+	if cmd.Token == "" {
+		logger.Warn("invalid_activation_token")
+		return domain.ErrTokenInvalid
 	}
 
-	hashedToken, err := h.tokenSvc.HashActivationToken(rawToken)
+	hashedToken, err := h.tokenSvc.HashActivationToken(cmd.Token)
 	if err != nil {
 		logger.Error("token_hash_failed", slog.Any("error", err))
 		return err
@@ -80,7 +79,7 @@ func (h *confirmActivationHandler) Handle(ctx context.Context, cmd ConfirmActiva
 			return domain.ErrUserNotFound
 		}
 
-		if err := h.accountMgr.ConfirmActivation(user, activation, now); err != nil {
+		if err := h.confirmActivation.Confirm(user, activation, now); err != nil {
 			return err
 		}
 

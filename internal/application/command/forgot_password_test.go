@@ -22,7 +22,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		)
 	}
 
-	rawTok, _ := domain.NewRawToken("raw-recovery")
+	rawTok := "raw-recovery"
 
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
@@ -30,7 +30,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{initiateRawToken: rawTok, initiateRecovery: makeRecoveryToken()},
+			&mockInitiateRecovery{rawToken: rawTok, recovery: makeRecoveryToken()},
 			emailSvc,
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
@@ -47,7 +47,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{},
+			&mockInitiateRecovery{},
 			&mockEmailService{},
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
@@ -62,7 +62,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{findByEmailResult: nil},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{},
+			&mockInitiateRecovery{},
 			&mockEmailService{},
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
@@ -78,7 +78,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{initiateErr: errTest},
+			&mockInitiateRecovery{err: errTest},
 			&mockEmailService{},
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
@@ -94,7 +94,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppRecoveryTokenRepository{saveErr: errTest},
-			&mockAccountManager{initiateRawToken: rawTok, initiateRecovery: makeRecoveryToken()},
+			&mockInitiateRecovery{rawToken: rawTok, recovery: makeRecoveryToken()},
 			&mockEmailService{},
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
@@ -110,7 +110,7 @@ func TestForgotPasswordHandler(t *testing.T) {
 		h := NewForgotPasswordHandler(
 			&stubAppUserRepository{findByEmailResult: user},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{initiateRawToken: rawTok, initiateRecovery: makeRecoveryToken()},
+			&mockInitiateRecovery{rawToken: rawTok, recovery: makeRecoveryToken()},
 			&mockEmailService{err: errTest},
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},

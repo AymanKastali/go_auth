@@ -48,6 +48,7 @@ func testActiveSession() *domain.Session {
 		testSessionID(),
 		testUserID(),
 		domain.ReconstituteHashedToken("hashed-tok"),
+		domain.ZeroHashedToken,
 		testDeviceIdentity(),
 		appTestFuture,
 		appTestNow,
@@ -83,120 +84,157 @@ func unauthenticatedCtx() context.Context {
 // Domain service mocks
 // ---------------------------------------------------------------
 
-type mockRegistrationService struct {
-	registerMemberResult *domain.User
-	registerMemberErr    error
-	registerAdminResult  *domain.User
-	registerAdminErr     error
+type mockRegisterMember struct {
+	registerResult *domain.User
+	registerErr    error
 }
 
-func (m *mockRegistrationService) RegisterNewMember(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
-	return m.registerMemberResult, m.registerMemberErr
-}
-func (m *mockRegistrationService) RegisterNewSuperAdmin(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
-	return m.registerAdminResult, m.registerAdminErr
+func (m *mockRegisterMember) Register(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
+	return m.registerResult, m.registerErr
 }
 
-type mockAuthenticationService struct {
-	authRawToken domain.RawToken
-	authSession  *domain.Session
-	authErr      error
-
-	refreshUser    *domain.User
-	refreshSession *domain.Session
-	refreshErr     error
+type mockRegisterAdmin struct {
+	registerResult *domain.User
+	registerErr    error
 }
 
-func (m *mockAuthenticationService) AuthenticateAndEstablishSession(_ context.Context, _ *domain.User, _ domain.RawPassword, _ domain.DeviceIdentity, _ time.Time) (domain.RawToken, *domain.Session, error) {
-	return m.authRawToken, m.authSession, m.authErr
-}
-func (m *mockAuthenticationService) RefreshSession(_ context.Context, _ domain.RawToken, _ domain.DeviceFingerprint, _ time.Time) (*domain.User, *domain.Session, error) {
-	return m.refreshUser, m.refreshSession, m.refreshErr
+func (m *mockRegisterAdmin) Register(_ context.Context, _ domain.UserID, _ domain.Email, _ domain.HashedPassword, _ time.Time) (*domain.User, error) {
+	return m.registerResult, m.registerErr
 }
 
-type mockAccessManager struct {
-	grantToken   domain.AccessToken
-	grantExpiry  time.Time
-	grantErr     error
-	verifyUser   *domain.User
-	verifySess   *domain.Session
-	verifyErr    error
-	resolvePermsResult []domain.Permission
-	resolvePermsErr    error
+type mockVerifyCredentials struct {
+	verifyErr error
 }
 
-func (m *mockAccessManager) GrantImmediateAccess(_ context.Context, _ *domain.User, _ domain.SessionID, _ time.Time) (domain.AccessToken, time.Time, error) {
+func (m *mockVerifyCredentials) Verify(_ *domain.User, _ string) error {
+	return m.verifyErr
+}
+
+type mockOpenSession struct {
+	rawToken       string
+	session        *domain.Session
+	revokedSession *domain.Session
+	err            error
+}
+
+func (m *mockOpenSession) Open(_ context.Context, _ domain.UserID, _ domain.DeviceIdentity, _ time.Time) (string, *domain.Session, *domain.Session, error) {
+	return m.rawToken, m.session, m.revokedSession, m.err
+}
+
+type mockRefreshSession struct {
+	user     *domain.User
+	session  *domain.Session
+	rawToken string
+	err      error
+}
+
+func (m *mockRefreshSession) Refresh(_ context.Context, _ string, _ domain.DeviceFingerprint, _ time.Time) (*domain.User, *domain.Session, string, error) {
+	return m.user, m.session, m.rawToken, m.err
+}
+
+type mockGrantAccess struct {
+	grantToken  domain.AccessToken
+	grantExpiry time.Time
+	grantErr    error
+}
+
+func (m *mockGrantAccess) Grant(_ context.Context, _ *domain.User, _ domain.SessionID, _ time.Time) (domain.AccessToken, time.Time, error) {
 	return m.grantToken, m.grantExpiry, m.grantErr
 }
-func (m *mockAccessManager) VerifyAccess(_ context.Context, _ domain.AccessToken, _ time.Time) (*domain.User, *domain.Session, error) {
-	return m.verifyUser, m.verifySess, m.verifyErr
-}
-func (m *mockAccessManager) ResolvePermissions(_ context.Context, _ []domain.RoleName) ([]domain.Permission, error) {
-	return m.resolvePermsResult, m.resolvePermsErr
+
+type mockInitiateRecovery struct {
+	rawToken string
+	recovery *domain.RecoveryToken
+	err      error
 }
 
-type mockAccountManager struct {
-	initiateRawToken domain.RawToken
-	initiateRecovery *domain.RecoveryToken
-	initiateErr      error
-	changeErr        error
-	resetErr         error
+func (m *mockInitiateRecovery) Initiate(_ *domain.User, _ time.Time) (string, *domain.RecoveryToken, error) {
+	return m.rawToken, m.recovery, m.err
 }
 
-func (m *mockAccountManager) InitiatePasswordReset(_ *domain.User, _ time.Time) (domain.RawToken, *domain.RecoveryToken, error) {
-	return m.initiateRawToken, m.initiateRecovery, m.initiateErr
+type mockChangePassword struct {
+	err error
 }
-func (m *mockAccountManager) ChangePassword(_ *domain.User, _ domain.RawPassword, _ domain.RawPassword, _ time.Time) error {
-	return m.changeErr
+
+func (m *mockChangePassword) Change(_ *domain.User, _ string, _ domain.ValidatedPassword, _ time.Time) error {
+	return m.err
 }
-func (m *mockAccountManager) ResetPasswordByToken(_ *domain.User, _ *domain.RecoveryToken, _ domain.RawPassword, _ time.Time) error {
-	return m.resetErr
+
+type mockResetPassword struct {
+	err error
 }
-func (m *mockAccountManager) InitiateActivation(_ *domain.User, _ time.Time) (domain.RawToken, *domain.ActivationToken, error) {
-	return domain.RawToken{}, nil, nil
+
+func (m *mockResetPassword) Reset(_ *domain.User, _ *domain.RecoveryToken, _ domain.ValidatedPassword, _ time.Time) error {
+	return m.err
 }
-func (m *mockAccountManager) ConfirmActivation(_ *domain.User, _ *domain.ActivationToken, _ time.Time) error {
-	return nil
+
+type mockInitiateActivation struct {
+	rawToken   string
+	activation *domain.ActivationToken
+	err        error
+}
+
+func (m *mockInitiateActivation) Initiate(_ *domain.User, _ time.Time) (string, *domain.ActivationToken, error) {
+	return m.rawToken, m.activation, m.err
+}
+
+type mockConfirmActivation struct {
+	err error
+}
+
+func (m *mockConfirmActivation) Confirm(_ *domain.User, _ *domain.ActivationToken, _ time.Time) error {
+	return m.err
+}
+
+type mockPasswordPolicy struct {
+	validateResult domain.ValidatedPassword
+	validateErr    error
+}
+
+func (m *mockPasswordPolicy) Validate(_ string) (domain.ValidatedPassword, error) {
+	return m.validateResult, m.validateErr
+}
+
+type mockPasswordService struct {
+	hashResult domain.HashedPassword
+	hashErr    error
+	compareOut bool
+}
+
+func (m *mockPasswordService) Hash(_ domain.ValidatedPassword) (domain.HashedPassword, error) {
+	return m.hashResult, m.hashErr
+}
+func (m *mockPasswordService) Compare(_ string, _ domain.HashedPassword) bool {
+	return m.compareOut
 }
 
 type mockTokenService struct {
-	hashRecoveryOut domain.RecoveryTokenHash
-	hashRecoveryErr error
+	hashRecoveryOut    domain.RecoveryTokenHash
+	hashRecoveryErr    error
+	hashActivationOut  domain.ActivationTokenHash
+	hashActivationErr  error
 }
 
-func (m *mockTokenService) Generate() (domain.RawToken, error) {
-	return domain.RawToken{}, nil
+func (m *mockTokenService) Generate() (string, error) {
+	return "", nil
 }
-func (m *mockTokenService) HashSessionToken(_ domain.RawToken) (domain.HashedToken, error) {
+func (m *mockTokenService) HashSessionToken(_ string) (domain.HashedToken, error) {
 	return domain.HashedToken{}, nil
 }
-func (m *mockTokenService) HashRecoveryToken(_ domain.RawToken) (domain.RecoveryTokenHash, error) {
+func (m *mockTokenService) HashRecoveryToken(_ string) (domain.RecoveryTokenHash, error) {
 	return m.hashRecoveryOut, m.hashRecoveryErr
 }
-func (m *mockTokenService) CompareSession(_ domain.RawToken, _ domain.HashedToken) bool {
+func (m *mockTokenService) CompareSession(_ string, _ domain.HashedToken) bool {
 	return false
 }
-func (m *mockTokenService) CompareRecovery(_ domain.RawToken, _ domain.RecoveryTokenHash) bool {
+func (m *mockTokenService) CompareRecovery(_ string, _ domain.RecoveryTokenHash) bool {
 	return false
 }
-func (m *mockTokenService) HashActivationToken(_ domain.RawToken) (domain.ActivationTokenHash, error) {
-	return domain.ActivationTokenHash{}, nil
+func (m *mockTokenService) HashActivationToken(_ string) (domain.ActivationTokenHash, error) {
+	return m.hashActivationOut, m.hashActivationErr
 }
-func (m *mockTokenService) CompareActivation(_ domain.RawToken, _ domain.ActivationTokenHash) bool {
+func (m *mockTokenService) CompareActivation(_ string, _ domain.ActivationTokenHash) bool {
 	return false
-}
-
-type mockPasswordManager struct {
-	validateHashResult domain.HashedPassword
-	validateHashErr    error
-	compareOut         bool
-}
-
-func (m *mockPasswordManager) ValidateAndHashNewPassword(_ domain.RawPassword) (domain.HashedPassword, error) {
-	return m.validateHashResult, m.validateHashErr
-}
-func (m *mockPasswordManager) Compare(_ domain.RawPassword, _ domain.HashedPassword) bool {
-	return m.compareOut
 }
 
 // ---------------------------------------------------------------
@@ -296,16 +334,18 @@ func (r *stubAppUserRepository) Delete(_ context.Context, _ domain.UserID) error
 }
 
 type stubAppSessionRepository struct {
-	findByIDResult    *domain.Session
-	findByIDErr       error
-	findByTokenResult *domain.Session
-	findByTokenErr    error
-	findByFPResult    *domain.Session
-	findByFPErr       error
-	findActiveResult  []*domain.Session
-	findActiveErr     error
-	saveErr           error
-	revokeAllErr      error
+	findByIDResult            *domain.Session
+	findByIDErr               error
+	findByTokenResult         *domain.Session
+	findByTokenErr            error
+	findByPreviousTokenResult *domain.Session
+	findByPreviousTokenErr    error
+	findByFPResult            *domain.Session
+	findByFPErr               error
+	findActiveResult          []*domain.Session
+	findActiveErr             error
+	saveErr                   error
+	revokeAllErr              error
 }
 
 func (r *stubAppSessionRepository) FindByID(_ context.Context, _ domain.SessionID) (*domain.Session, error) {
@@ -313,6 +353,9 @@ func (r *stubAppSessionRepository) FindByID(_ context.Context, _ domain.SessionI
 }
 func (r *stubAppSessionRepository) FindByToken(_ context.Context, _ domain.HashedToken) (*domain.Session, error) {
 	return r.findByTokenResult, r.findByTokenErr
+}
+func (r *stubAppSessionRepository) FindByPreviousToken(_ context.Context, _ domain.HashedToken) (*domain.Session, error) {
+	return r.findByPreviousTokenResult, r.findByPreviousTokenErr
 }
 func (r *stubAppSessionRepository) FindActiveByUserAndFingerprint(_ context.Context, _ domain.UserID, _ domain.DeviceFingerprint) (*domain.Session, error) {
 	return r.findByFPResult, r.findByFPErr
@@ -341,5 +384,22 @@ func (r *stubAppRecoveryTokenRepository) Save(_ context.Context, _ *domain.Recov
 	return r.saveErr
 }
 func (r *stubAppRecoveryTokenRepository) RevokeAllForUser(_ context.Context, _ domain.UserID) error {
+	return r.revokeAllErr
+}
+
+type stubAppActivationTokenRepository struct {
+	findByHashResult *domain.ActivationToken
+	findByHashErr    error
+	saveErr          error
+	revokeAllErr     error
+}
+
+func (r *stubAppActivationTokenRepository) FindByHash(_ context.Context, _ domain.ActivationTokenHash) (*domain.ActivationToken, error) {
+	return r.findByHashResult, r.findByHashErr
+}
+func (r *stubAppActivationTokenRepository) Save(_ context.Context, _ *domain.ActivationToken) error {
+	return r.saveErr
+}
+func (r *stubAppActivationTokenRepository) RevokeAllForUser(_ context.Context, _ domain.UserID) error {
 	return r.revokeAllErr
 }

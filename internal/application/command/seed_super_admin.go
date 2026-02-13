@@ -13,29 +13,32 @@ type ISeedSuperAdminHandler interface {
 }
 
 type seedSuperAdminHandler struct {
-	userRepo        domain.IUserRepository
-	registrationSvc domain.IRegistrationService
-	passwordMgr     domain.IPasswordManager
-	idGen           domain.IIDGenerator
-	clock           domain.IClock
-	dispatcher      IEventDispatcher
+	userRepo       domain.IUserRepository
+	registrar      domain.IRegisterAdmin
+	passwordPolicy domain.IPasswordPolicy
+	passwordSvc    domain.IPasswordService
+	idGen          domain.IIDGenerator
+	clock          domain.IClock
+	dispatcher     IEventDispatcher
 }
 
 func NewSeedSuperAdminHandler(
 	userRepo domain.IUserRepository,
-	registrationSvc domain.IRegistrationService,
-	passwordMgr domain.IPasswordManager,
+	registrar domain.IRegisterAdmin,
+	passwordPolicy domain.IPasswordPolicy,
+	passwordSvc domain.IPasswordService,
 	idGen domain.IIDGenerator,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) ISeedSuperAdminHandler {
 	return &seedSuperAdminHandler{
-		userRepo:        userRepo,
-		registrationSvc: registrationSvc,
-		passwordMgr:     passwordMgr,
-		idGen:           idGen,
-		clock:           clock,
-		dispatcher:      dispatcher,
+		userRepo:       userRepo,
+		registrar:      registrar,
+		passwordPolicy: passwordPolicy,
+		passwordSvc:    passwordSvc,
+		idGen:          idGen,
+		clock:          clock,
+		dispatcher:     dispatcher,
 	}
 }
 
@@ -51,15 +54,15 @@ func (h *seedSuperAdminHandler) Handle(ctx context.Context, cmd RegisterUserComm
 		return err
 	}
 
-	rawPassword, err := domain.NewRawPassword(cmd.Password)
+	validatedPass, err := h.passwordPolicy.Validate(cmd.Password)
 	if err != nil {
-		logger.Warn("invalid_password_format", slog.Any("error", err))
+		logger.Warn("password_policy_violation", slog.Any("error", err))
 		return err
 	}
 
-	hashedPassword, err := h.passwordMgr.ValidateAndHashNewPassword(rawPassword)
+	hashedPassword, err := h.passwordSvc.Hash(validatedPass)
 	if err != nil {
-		logger.Warn("password_policy_violation", slog.Any("error", err))
+		logger.Error("password_hash_failed", slog.Any("error", err))
 		return err
 	}
 
@@ -71,7 +74,7 @@ func (h *seedSuperAdminHandler) Handle(ctx context.Context, cmd RegisterUserComm
 
 	now := h.clock.Now()
 
-	user, err := h.registrationSvc.RegisterNewSuperAdmin(ctx, uidVO, email, hashedPassword, now)
+	user, err := h.registrar.Register(ctx, uidVO, email, hashedPassword, now)
 	if err != nil {
 		logger.Warn("registration_domain_denied", slog.Any("error", err))
 		return err

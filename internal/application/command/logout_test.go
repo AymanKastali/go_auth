@@ -61,6 +61,7 @@ func TestLogoutHandler(t *testing.T) {
 		revokedSession := domain.ReconstituteSession(
 			testSessionID(), testUserID(),
 			domain.ReconstituteHashedToken("hashed-tok"),
+			domain.ZeroHashedToken,
 			testDeviceIdentity(), appTestFuture, appTestNow, true,
 		)
 		h := NewLogoutHandler(

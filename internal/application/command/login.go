@@ -13,29 +13,32 @@ type ILoginHandler interface {
 }
 
 type loginHandler struct {
-	userRepo      domain.IUserRepository
-	sessionRepo   domain.ISessionRepository
-	authSvc       domain.IAuthenticationService
-	accessManager domain.IAccessManager
-	clock         domain.IClock
-	dispatcher    IEventDispatcher
+	userRepo    domain.IUserRepository
+	sessionRepo domain.ISessionRepository
+	verifier    domain.IVerifyCredentials
+	opener      domain.IOpenSession
+	granter     domain.IGrantAccess
+	clock       domain.IClock
+	dispatcher  IEventDispatcher
 }
 
 func NewLoginHandler(
 	userRepo domain.IUserRepository,
 	sessionRepo domain.ISessionRepository,
-	authSvc domain.IAuthenticationService,
-	accessManager domain.IAccessManager,
+	verifier domain.IVerifyCredentials,
+	opener domain.IOpenSession,
+	granter domain.IGrantAccess,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) ILoginHandler {
 	return &loginHandler{
-		userRepo:      userRepo,
-		sessionRepo:   sessionRepo,
-		authSvc:       authSvc,
-		accessManager: accessManager,
-		clock:         clock,
-		dispatcher:    dispatcher,
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		verifier:    verifier,
+		opener:      opener,
+		granter:     granter,
+		clock:       clock,
+		dispatcher:  dispatcher,
 	}
 }
 
@@ -51,12 +54,6 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return ZeroLoginResponse, err
 	}
 
-	rawPassword, err := domain.NewRawPassword(cmd.Password)
-	if err != nil {
-		logger.Warn("invalid_password_format", slog.Any("error", err))
-		return ZeroLoginResponse, err
-	}
-
 	user, err := h.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		logger.Error("user_lookup_failed", slog.Any("error", err))
@@ -68,18 +65,32 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 	}
 
 	now := h.clock.Now()
-	rawRefreshToken, session, err := h.authSvc.AuthenticateAndEstablishSession(
-		ctx, user, rawPassword, application.GetIdentity(ctx), now,
-	)
-	if err != nil {
+
+	if err := h.verifier.Verify(user, cmd.Password); err != nil {
 		logger.Warn("auth_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	accessToken, accessExpiry, err := h.accessManager.GrantImmediateAccess(ctx, user, session.ID(), now)
+	rawRefreshToken, session, revokedSession, err := h.opener.Open(
+		ctx, user.ID(), application.GetIdentity(ctx), now,
+	)
+	if err != nil {
+		logger.Error("session_establish_failed", slog.Any("error", err))
+		return ZeroLoginResponse, err
+	}
+
+	accessToken, accessExpiry, err := h.granter.Grant(ctx, user, session.ID(), now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
+	}
+
+	if revokedSession != nil {
+		if err := h.sessionRepo.Save(ctx, revokedSession); err != nil {
+			logger.Error("revoke_oldest_session_failed", slog.Any("error", err))
+			return ZeroLoginResponse, err
+		}
+		h.dispatcher.Dispatch(ctx, revokedSession.CollectEvents())
 	}
 
 	if err := h.sessionRepo.Save(ctx, session); err != nil {
@@ -94,7 +105,7 @@ func (h *loginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 	return LoginResponse{
 		AccessToken:        accessToken.String(),
 		AccessTokenExpiry:  accessExpiry.String(),
-		RefreshToken:       rawRefreshToken.String(),
-		RefreshTokenExpiry: session.ExpiresAt().String(),
+		RefreshToken:       rawRefreshToken,
+		RefreshTokenExpiry: session.Expiry().Time().String(),
 	}, nil
 }

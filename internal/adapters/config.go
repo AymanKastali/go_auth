@@ -20,6 +20,7 @@ type Config struct {
 	HTTP           HTTPConfig
 	JWT            JWTConfig
 	Password       PasswordConfig
+	Token          TokenConfig
 	PasswordPolicy PasswordPolicyConfig
 	SessionPolicy  SessionPolicyConfig
 	RegisterPolicy RegisterPolicyConfig
@@ -76,6 +77,10 @@ type PasswordConfig struct {
 	BcryptCost int
 }
 
+type TokenConfig struct {
+	Length int
+}
+
 type RecoveryPolicyConfig struct {
 	Lifetime time.Duration
 }
@@ -113,6 +118,11 @@ func Load() (*Config, error) {
 	}
 
 	pass, err := loadPassword()
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := loadToken()
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +177,7 @@ func Load() (*Config, error) {
 		HTTP:           http,
 		JWT:            jwt,
 		Password:       pass,
+		Token:          token,
 		PasswordPolicy: passwordPolicy,
 		SessionPolicy:  sessionPolicy,
 		Database:       db,
@@ -223,6 +234,14 @@ func loadPassword() (PasswordConfig, error) {
 		return PasswordConfig{}, fmt.Errorf("config: invalid GA_PASSWORD_BCRYPT_COST: %w", err)
 	}
 	return PasswordConfig{BcryptCost: cost}, nil
+}
+
+func loadToken() (TokenConfig, error) {
+	length, err := strconv.Atoi(getEnv("TOKEN_LENGTH", "32"))
+	if err != nil {
+		return TokenConfig{}, fmt.Errorf("config: invalid GA_TOKEN_LENGTH: %w", err)
+	}
+	return TokenConfig{Length: length}, nil
 }
 
 func loadPasswordPolicy() (PasswordPolicyConfig, error) {

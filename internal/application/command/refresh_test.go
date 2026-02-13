@@ -18,14 +18,14 @@ func TestRefreshTokenHandler(t *testing.T) {
 
 	accessTok, _ := domain.NewAccessToken("access-tok")
 	sess := testActiveSession()
+	refreshRawToken := "new-refresh-tok"
 
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
-			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
+			&mockRefreshSession{user: user, session: sess, rawToken: refreshRawToken},
+			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -33,15 +33,14 @@ func TestRefreshTokenHandler(t *testing.T) {
 		resp, err := h.Handle(unauthenticatedCtx(), validCmd)
 		require.NoError(t, err)
 		assert.Equal(t, "access-tok", resp.AccessToken)
-		assert.Equal(t, "raw-tok", resp.RefreshToken) // echoed back
+		assert.Equal(t, "new-refresh-tok", resp.RefreshToken) // rotated token
 	})
 
 	t.Run("invalid_token", func(t *testing.T) {
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{},
-			&mockAccessManager{},
+			&mockRefreshSession{},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -52,10 +51,9 @@ func TestRefreshTokenHandler(t *testing.T) {
 
 	t.Run("invalid_fingerprint", func(t *testing.T) {
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{},
-			&mockAccessManager{},
+			&mockRefreshSession{},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -66,10 +64,9 @@ func TestRefreshTokenHandler(t *testing.T) {
 
 	t.Run("refresh_fails_hijack", func(t *testing.T) {
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{refreshErr: domain.ErrSessionFingerprintMiss},
-			&mockAccessManager{},
+			&mockRefreshSession{err: domain.ErrSessionFingerprintMiss},
+			&mockGrantAccess{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -78,13 +75,27 @@ func TestRefreshTokenHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrSessionFingerprintMiss)
 	})
 
+	t.Run("refresh_fails_token_reuse_saves_revoked_session", func(t *testing.T) {
+		revokedSession := testActiveSession()
+		dispatcher := &mockEventDispatcher{}
+		h := NewRefreshTokenHandler(
+			&stubAppSessionRepository{},
+			&mockRefreshSession{session: revokedSession, err: domain.ErrSessionTokenReuse},
+			&mockGrantAccess{},
+			&stubClock{now: appTestNow},
+			dispatcher,
+		)
+
+		_, err := h.Handle(unauthenticatedCtx(), validCmd)
+		assert.ErrorIs(t, err, domain.ErrSessionTokenReuse)
+	})
+
 	t.Run("access_fails", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
-			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
-			&mockAccessManager{grantErr: errTest},
+			&mockRefreshSession{user: user, session: sess, rawToken: refreshRawToken},
+			&mockGrantAccess{grantErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)
@@ -96,10 +107,9 @@ func TestRefreshTokenHandler(t *testing.T) {
 	t.Run("session_save_fails", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewRefreshTokenHandler(
-			&stubAppUserRepository{},
 			&stubAppSessionRepository{saveErr: errTest},
-			&mockAuthenticationService{refreshUser: user, refreshSession: sess},
-			&mockAccessManager{grantToken: accessTok, grantExpiry: appTestFuture},
+			&mockRefreshSession{user: user, session: sess, rawToken: refreshRawToken},
+			&mockGrantAccess{grantToken: accessTok, grantExpiry: appTestFuture},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
 		)

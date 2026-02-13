@@ -13,14 +13,15 @@ type IResetPasswordHandler interface {
 }
 
 type resetPasswordHandler struct {
-	userRepo     domain.IUserRepository
-	sessionRepo  domain.ISessionRepository
-	recoveryRepo domain.IRecoveryTokenRepository
-	tokenSvc     domain.ITokenService
-	accountMgr   domain.IUserAccountManager
-	txManager    ITransactionManager
-	clock        domain.IClock
-	dispatcher   IEventDispatcher
+	userRepo         domain.IUserRepository
+	sessionRepo      domain.ISessionRepository
+	recoveryRepo     domain.IRecoveryTokenRepository
+	tokenSvc         domain.ITokenService
+	passwordPolicy   domain.IPasswordPolicy
+	resetPassword domain.IResetPassword
+	txManager        ITransactionManager
+	clock            domain.IClock
+	dispatcher       IEventDispatcher
 }
 
 func NewResetPasswordHandler(
@@ -28,39 +29,40 @@ func NewResetPasswordHandler(
 	sessionRepo domain.ISessionRepository,
 	recoveryRepo domain.IRecoveryTokenRepository,
 	tokenSvc domain.ITokenService,
-	accountMgr domain.IUserAccountManager,
+	passwordPolicy domain.IPasswordPolicy,
+	resetPassword domain.IResetPassword,
 	txManager ITransactionManager,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IResetPasswordHandler {
 	return &resetPasswordHandler{
-		userRepo:     userRepo,
-		sessionRepo:  sessionRepo,
-		recoveryRepo: recoveryRepo,
-		tokenSvc:     tokenSvc,
-		accountMgr:   accountMgr,
-		txManager:    txManager,
-		clock:        clock,
-		dispatcher:   dispatcher,
+		userRepo:         userRepo,
+		sessionRepo:      sessionRepo,
+		recoveryRepo:     recoveryRepo,
+		tokenSvc:         tokenSvc,
+		passwordPolicy:   passwordPolicy,
+		resetPassword: resetPassword,
+		txManager:        txManager,
+		clock:            clock,
+		dispatcher:       dispatcher,
 	}
 }
 
 func (h *resetPasswordHandler) Handle(ctx context.Context, cmd ResetPasswordCommand) error {
 	logger := application.GetLogger(ctx).With(slog.String("handler", "ResetPassword"))
 
-	rawToken, err := domain.NewRawToken(cmd.Token)
+	if cmd.Token == "" {
+		logger.Warn("invalid_reset_token")
+		return domain.ErrTokenInvalid
+	}
+
+	validatedPass, err := h.passwordPolicy.Validate(cmd.NewPassword)
 	if err != nil {
-		logger.Warn("invalid_reset_token", slog.Any("error", err))
+		logger.Warn("password_policy_violation", slog.Any("error", err))
 		return err
 	}
 
-	rawPassword, err := domain.NewRawPassword(cmd.NewPassword)
-	if err != nil {
-		logger.Warn("invalid_password_format", slog.Any("error", err))
-		return err
-	}
-
-	hashedToken, err := h.tokenSvc.HashRecoveryToken(rawToken)
+	hashedToken, err := h.tokenSvc.HashRecoveryToken(cmd.Token)
 	if err != nil {
 		logger.Error("token_hash_failed", slog.Any("error", err))
 		return err
@@ -89,7 +91,7 @@ func (h *resetPasswordHandler) Handle(ctx context.Context, cmd ResetPasswordComm
 			return domain.ErrUserNotFound
 		}
 
-		if err := h.accountMgr.ResetPasswordByToken(user, recovery, rawPassword, now); err != nil {
+		if err := h.resetPassword.Reset(user, recovery, validatedPass, now); err != nil {
 			return err
 		}
 

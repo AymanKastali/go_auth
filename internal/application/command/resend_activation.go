@@ -13,32 +13,32 @@ type IResendActivationHandler interface {
 }
 
 type resendActivationHandler struct {
-	userRepo       domain.IUserRepository
-	activationRepo domain.IActivationTokenRepository
-	accountManager domain.IUserAccountManager
-	emailSvc       IEmailService
-	txManager      ITransactionManager
-	clock          domain.IClock
-	dispatcher     IEventDispatcher
+	userRepo            domain.IUserRepository
+	activationRepo      domain.IActivationTokenRepository
+	initiateActivation domain.IInitiateActivation
+	emailSvc            IEmailService
+	txManager           ITransactionManager
+	clock               domain.IClock
+	dispatcher          IEventDispatcher
 }
 
 func NewResendActivationHandler(
 	userRepo domain.IUserRepository,
 	activationRepo domain.IActivationTokenRepository,
-	accountManager domain.IUserAccountManager,
+	initiateActivation domain.IInitiateActivation,
 	emailSvc IEmailService,
 	txManager ITransactionManager,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IResendActivationHandler {
 	return &resendActivationHandler{
-		userRepo:       userRepo,
-		activationRepo: activationRepo,
-		accountManager: accountManager,
-		emailSvc:       emailSvc,
-		txManager:      txManager,
-		clock:          clock,
-		dispatcher:     dispatcher,
+		userRepo:            userRepo,
+		activationRepo:      activationRepo,
+		initiateActivation: initiateActivation,
+		emailSvc:            emailSvc,
+		txManager:           txManager,
+		clock:               clock,
+		dispatcher:          dispatcher,
 	}
 }
 
@@ -71,7 +71,7 @@ func (h *resendActivationHandler) Handle(ctx context.Context, cmd ResendActivati
 
 	now := h.clock.Now()
 
-	var rawToken domain.RawToken
+	var rawToken string
 	var token *domain.ActivationToken
 
 	err = h.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
@@ -79,7 +79,7 @@ func (h *resendActivationHandler) Handle(ctx context.Context, cmd ResendActivati
 			return err
 		}
 
-		raw, activationToken, err := h.accountManager.InitiateActivation(user, now)
+		raw, activationToken, err := h.initiateActivation.Initiate(user, now)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func (h *resendActivationHandler) Handle(ctx context.Context, cmd ResendActivati
 
 	h.dispatcher.Dispatch(ctx, token.CollectEvents())
 
-	if err := h.emailSvc.SendActivationLink(user.Email().String(), rawToken.String()); err != nil {
+	if err := h.emailSvc.SendActivationLink(user.Email().String(), rawToken); err != nil {
 		logger.Error("activation_email_send_failed", slog.Any("error", err))
 		return err
 	}

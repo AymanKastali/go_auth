@@ -41,6 +41,7 @@ func testActiveSession() *domain.Session {
 		testSessionID(),
 		testUserID(),
 		domain.ReconstituteHashedToken("hashed-tok"),
+		domain.ZeroHashedToken,
 		testDeviceIdentity(),
 		appTestFuture,
 		appTestNow,
@@ -88,25 +89,23 @@ func (s *stubUserQueryPort) FindAll(_ context.Context, _, _ int) ([]application.
 // Domain service mocks
 // ---------------------------------------------------------------
 
-type mockAccessManager struct {
-	grantToken         domain.AccessToken
-	grantExpiry        time.Time
-	grantErr           error
-	verifyUser         *domain.User
-	verifySess         *domain.Session
-	verifyErr          error
-	resolvePermsResult []domain.Permission
-	resolvePermsErr    error
+type mockVerifyAccess struct {
+	verifyUser *domain.User
+	verifySess *domain.Session
+	verifyErr  error
 }
 
-func (m *mockAccessManager) GrantImmediateAccess(_ context.Context, _ *domain.User, _ domain.SessionID, _ time.Time) (domain.AccessToken, time.Time, error) {
-	return m.grantToken, m.grantExpiry, m.grantErr
-}
-func (m *mockAccessManager) VerifyAccess(_ context.Context, _ domain.AccessToken, _ time.Time) (*domain.User, *domain.Session, error) {
+func (m *mockVerifyAccess) Verify(_ context.Context, _ domain.AccessToken, _ time.Time) (*domain.User, *domain.Session, error) {
 	return m.verifyUser, m.verifySess, m.verifyErr
 }
-func (m *mockAccessManager) ResolvePermissions(_ context.Context, _ []domain.RoleName) ([]domain.Permission, error) {
-	return m.resolvePermsResult, m.resolvePermsErr
+
+type mockResolvePermissions struct {
+	resolveResult []domain.Permission
+	resolveErr    error
+}
+
+func (m *mockResolvePermissions) Resolve(_ context.Context, _ []domain.RoleName) ([]domain.Permission, error) {
+	return m.resolveResult, m.resolveErr
 }
 
 // ---------------------------------------------------------------

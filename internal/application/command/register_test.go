@@ -13,16 +13,22 @@ import (
 func TestRegisterHandler(t *testing.T) {
 	validCmd := RegisterUserCommand{Email: "new@example.com", Password: "Str0ng!Pass"}
 
+	validPolicy := &mockPasswordPolicy{
+		validateResult: domain.ReconstituteValidatedPassword("Str0ng!Pass"),
+	}
+	validSvc := &mockPasswordService{hashResult: testHashedPassword()}
+
 	t.Run("happy_path", func(t *testing.T) {
 		user := testActiveUser()
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{registerMemberResult: user},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterMember{registerResult: user},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)
@@ -36,12 +42,13 @@ func TestRegisterHandler(t *testing.T) {
 	t.Run("invalid_email", func(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{},
+			&mockRegisterMember{},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)
@@ -50,32 +57,16 @@ func TestRegisterHandler(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrUserEmailInvalid)
 	})
 
-	t.Run("empty_password", func(t *testing.T) {
-		h := NewRegisterHandler(
-			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{},
-			&stubAppIDGenerator{},
-			&stubClock{now: appTestNow},
-			&mockEventDispatcher{},
-			&mockAccountManager{},
-			nil,
-			&mockEmailService{},
-		)
-
-		_, err := h.Handle(context.Background(), RegisterUserCommand{Email: "a@b.com", Password: ""})
-		assert.ErrorIs(t, err, domain.ErrUserPasswordRequired)
-	})
-
 	t.Run("policy_violation", func(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{validateHashErr: domain.ErrPasswordTooShort},
+			&mockRegisterMember{},
+			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)
@@ -87,12 +78,13 @@ func TestRegisterHandler(t *testing.T) {
 	t.Run("id_gen_fails", func(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterMember{},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userIDErr: errTest},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)
@@ -104,12 +96,13 @@ func TestRegisterHandler(t *testing.T) {
 	t.Run("email_taken", func(t *testing.T) {
 		h := NewRegisterHandler(
 			&stubAppUserRepository{},
-			&mockRegistrationService{registerMemberErr: domain.ErrUserEmailTaken},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterMember{registerErr: domain.ErrUserEmailTaken},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)
@@ -122,12 +115,13 @@ func TestRegisterHandler(t *testing.T) {
 		user := testActiveUser()
 		h := NewRegisterHandler(
 			&stubAppUserRepository{saveErr: errTest},
-			&mockRegistrationService{registerMemberResult: user},
-			&mockPasswordManager{validateHashResult: testHashedPassword()},
+			&mockRegisterMember{registerResult: user},
+			validPolicy,
+			validSvc,
 			&stubAppIDGenerator{userID: testUserID()},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
-			&mockAccountManager{},
+			&mockInitiateActivation{},
 			nil,
 			&mockEmailService{},
 		)

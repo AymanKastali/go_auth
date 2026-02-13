@@ -13,17 +13,20 @@ type IValidateAccessHandler interface {
 }
 
 type validateAccessHandler struct {
-	accessManager domain.IAccessManager
-	clock         domain.IClock
+	verifier     domain.IVerifyAccess
+	permResolver domain.IResolvePermissions
+	clock        domain.IClock
 }
 
 func NewValidateAccessHandler(
-	accessManager domain.IAccessManager,
+	verifier domain.IVerifyAccess,
+	permResolver domain.IResolvePermissions,
 	clock domain.IClock,
 ) IValidateAccessHandler {
 	return &validateAccessHandler{
-		accessManager: accessManager,
-		clock:         clock,
+		verifier:     verifier,
+		permResolver: permResolver,
+		clock:        clock,
 	}
 }
 
@@ -37,7 +40,7 @@ func (h *validateAccessHandler) Handle(ctx context.Context, query ValidateAccess
 	}
 
 	now := h.clock.Now()
-	user, session, err := h.accessManager.VerifyAccess(ctx, token, now)
+	user, session, err := h.verifier.Verify(ctx, token, now)
 	if err != nil {
 		logger.Warn("access_verification_failed", slog.Any("error", err))
 		return ZeroValidateAccessResponse, err
@@ -50,7 +53,7 @@ func (h *validateAccessHandler) Handle(ctx context.Context, query ValidateAccess
 	}
 
 	if query.IncludePermissions {
-		permissions, err := h.accessManager.ResolvePermissions(ctx, user.Roles())
+		permissions, err := h.permResolver.Resolve(ctx, user.Roles())
 		if err != nil {
 			logger.Warn("permission_resolution_failed", slog.Any("error", err))
 			return ZeroValidateAccessResponse, err

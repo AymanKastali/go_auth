@@ -13,6 +13,10 @@ func TestResetPasswordHandler(t *testing.T) {
 	validCmd := ResetPasswordCommand{Token: "raw-tok", NewPassword: "NewStr0ng!"}
 	recHash := domain.ReconstituteRecoveryTokenHash("recovery-hash")
 
+	validPolicy := &mockPasswordPolicy{
+		validateResult: domain.ReconstituteValidatedPassword("NewStr0ng!"),
+	}
+
 	validRecovery := func() *domain.RecoveryToken {
 		return domain.ReconstituteRecoveryToken(
 			domain.ReconstituteRecoveryTokenID("rec-001"),
@@ -27,14 +31,16 @@ func TestResetPasswordHandler(t *testing.T) {
 		userRepo *stubAppUserRepository,
 		sessionRepo *stubAppSessionRepository,
 		recoveryRepo *stubAppRecoveryTokenRepository,
-		accountMgr *mockAccountManager,
+		policy *mockPasswordPolicy,
+		resetter *mockResetPassword,
 	) IResetPasswordHandler {
 		return NewResetPasswordHandler(
 			userRepo,
 			sessionRepo,
 			recoveryRepo,
 			&mockTokenService{hashRecoveryOut: recHash},
-			accountMgr,
+			policy,
+			resetter,
 			&mockTransactionManager{},
 			&stubClock{now: appTestNow},
 			&mockEventDispatcher{},
@@ -46,7 +52,8 @@ func TestResetPasswordHandler(t *testing.T) {
 			&stubAppUserRepository{findByIDResult: testActiveUser()},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
-			&mockAccountManager{resetErr: nil},
+			validPolicy,
+			&mockResetPassword{err: nil},
 		)
 
 		err := h.Handle(unauthenticatedCtx(), validCmd)
@@ -58,23 +65,25 @@ func TestResetPasswordHandler(t *testing.T) {
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{},
+			validPolicy,
+			&mockResetPassword{},
 		)
 
 		err := h.Handle(unauthenticatedCtx(), ResetPasswordCommand{Token: "", NewPassword: "pass"})
 		assert.ErrorIs(t, err, domain.ErrTokenInvalid)
 	})
 
-	t.Run("empty_password", func(t *testing.T) {
+	t.Run("password_policy_fails", func(t *testing.T) {
 		h := makeHandler(
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{},
-			&mockAccountManager{},
+			&mockPasswordPolicy{validateErr: domain.ErrPasswordTooShort},
+			&mockResetPassword{},
 		)
 
-		err := h.Handle(unauthenticatedCtx(), ResetPasswordCommand{Token: "tok", NewPassword: ""})
-		assert.ErrorIs(t, err, domain.ErrUserPasswordRequired)
+		err := h.Handle(unauthenticatedCtx(), ResetPasswordCommand{Token: "tok", NewPassword: "short"})
+		assert.ErrorIs(t, err, domain.ErrPasswordTooShort)
 	})
 
 	t.Run("recovery_token_not_found", func(t *testing.T) {
@@ -82,7 +91,8 @@ func TestResetPasswordHandler(t *testing.T) {
 			&stubAppUserRepository{},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: nil},
-			&mockAccountManager{},
+			validPolicy,
+			&mockResetPassword{},
 		)
 
 		err := h.Handle(unauthenticatedCtx(), validCmd)
@@ -94,7 +104,8 @@ func TestResetPasswordHandler(t *testing.T) {
 			&stubAppUserRepository{findByIDResult: nil},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
-			&mockAccountManager{},
+			validPolicy,
+			&mockResetPassword{},
 		)
 
 		err := h.Handle(unauthenticatedCtx(), validCmd)
@@ -106,7 +117,8 @@ func TestResetPasswordHandler(t *testing.T) {
 			&stubAppUserRepository{findByIDResult: testActiveUser()},
 			&stubAppSessionRepository{},
 			&stubAppRecoveryTokenRepository{findByHashResult: validRecovery()},
-			&mockAccountManager{resetErr: domain.ErrRecoveryTokenInvalid},
+			validPolicy,
+			&mockResetPassword{err: domain.ErrRecoveryTokenInvalid},
 		)
 
 		err := h.Handle(unauthenticatedCtx(), validCmd)

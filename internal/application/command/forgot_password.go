@@ -15,7 +15,7 @@ type IForgotPasswordHandler interface {
 type forgotPasswordHandler struct {
 	userRepository     domain.IUserRepository
 	recoveryRepository domain.IRecoveryTokenRepository
-	accountManager     domain.IUserAccountManager
+	initiateRecovery  domain.IInitiateRecovery
 	emailService       IEmailService
 	transactionManager ITransactionManager
 	clock              domain.IClock
@@ -25,7 +25,7 @@ type forgotPasswordHandler struct {
 func NewForgotPasswordHandler(
 	userRepository domain.IUserRepository,
 	recoveryRepository domain.IRecoveryTokenRepository,
-	accountManager domain.IUserAccountManager,
+	initiateRecovery domain.IInitiateRecovery,
 	emailService IEmailService,
 	transactionManager ITransactionManager,
 	clock domain.IClock,
@@ -34,7 +34,7 @@ func NewForgotPasswordHandler(
 	return &forgotPasswordHandler{
 		userRepository:     userRepository,
 		recoveryRepository: recoveryRepository,
-		accountManager:     accountManager,
+		initiateRecovery:  initiateRecovery,
 		emailService:       emailService,
 		transactionManager: transactionManager,
 		clock:              clock,
@@ -65,11 +65,11 @@ func (h *forgotPasswordHandler) Handle(ctx context.Context, cmd ForgotPasswordCo
 		return nil
 	}
 
-	var rawToken domain.RawToken
+	var rawToken string
 	var token *domain.RecoveryToken
 
 	err = h.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		raw, recoveryToken, err := h.accountManager.InitiatePasswordReset(
+		raw, recoveryToken, err := h.initiateRecovery.Initiate(
 			user,
 			h.clock.Now(),
 		)
@@ -90,7 +90,7 @@ func (h *forgotPasswordHandler) Handle(ctx context.Context, cmd ForgotPasswordCo
 
 	h.dispatcher.Dispatch(ctx, token.CollectEvents())
 
-	if err := h.emailService.SendResetLink(user.Email().String(), rawToken.String()); err != nil {
+	if err := h.emailService.SendResetLink(user.Email().String(), rawToken); err != nil {
 		logger.Error("email_send_failed", slog.Any("error", err))
 		return err
 	}

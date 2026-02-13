@@ -13,39 +13,35 @@ type IRefreshTokenHandler interface {
 }
 
 type refreshTokenHandler struct {
-	userRepo      domain.IUserRepository
-	sessionRepo   domain.ISessionRepository
-	authSvc       domain.IAuthenticationService
-	accessManager domain.IAccessManager
-	clock         domain.IClock
-	dispatcher    IEventDispatcher
+	sessionRepo domain.ISessionRepository
+	refresher   domain.IRefreshSession
+	granter     domain.IGrantAccess
+	clock       domain.IClock
+	dispatcher  IEventDispatcher
 }
 
 func NewRefreshTokenHandler(
-	userRepo domain.IUserRepository,
 	sessionRepo domain.ISessionRepository,
-	authSvc domain.IAuthenticationService,
-	accessManager domain.IAccessManager,
+	refresher domain.IRefreshSession,
+	granter domain.IGrantAccess,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IRefreshTokenHandler {
 	return &refreshTokenHandler{
-		userRepo:      userRepo,
-		sessionRepo:   sessionRepo,
-		authSvc:       authSvc,
-		accessManager: accessManager,
-		clock:         clock,
-		dispatcher:    dispatcher,
+		sessionRepo: sessionRepo,
+		refresher:   refresher,
+		granter:     granter,
+		clock:       clock,
+		dispatcher:  dispatcher,
 	}
 }
 
 func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenCommand) (LoginResponse, error) {
 	logger := application.GetLogger(ctx).With(slog.String("handler", "RefreshToken"))
 
-	raw, err := domain.NewRawToken(cmd.RefreshToken)
-	if err != nil {
-		logger.Warn("invalid_refresh_token", slog.Any("error", err))
-		return ZeroLoginResponse, err
+	if cmd.RefreshToken == "" {
+		logger.Warn("invalid_refresh_token")
+		return ZeroLoginResponse, domain.ErrTokenInvalid
 	}
 
 	fp, err := domain.NewDeviceFingerprint(cmd.Fingerprint)
@@ -55,13 +51,17 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 	}
 
 	now := h.clock.Now()
-	user, session, err := h.authSvc.RefreshSession(ctx, raw, fp, now)
+	user, session, newRawToken, err := h.refresher.Refresh(ctx, cmd.RefreshToken, fp, now)
 	if err != nil {
+		if session != nil {
+			_ = h.sessionRepo.Save(ctx, session)
+			h.dispatcher.Dispatch(ctx, session.CollectEvents())
+		}
 		logger.Warn("refresh_session_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
 	}
 
-	accessToken, accessExpiry, err := h.accessManager.GrantImmediateAccess(ctx, user, session.ID(), now)
+	accessToken, accessExpiry, err := h.granter.Grant(ctx, user, session.ID(), now)
 	if err != nil {
 		logger.Error("access_grant_failed", slog.Any("error", err))
 		return ZeroLoginResponse, err
@@ -82,7 +82,7 @@ func (h *refreshTokenHandler) Handle(ctx context.Context, cmd RefreshTokenComman
 	return LoginResponse{
 		AccessToken:        accessToken.String(),
 		AccessTokenExpiry:  accessExpiry.String(),
-		RefreshToken:       cmd.RefreshToken,
-		RefreshTokenExpiry: session.ExpiresAt().String(),
+		RefreshToken:       newRawToken,
+		RefreshTokenExpiry: session.Expiry().Time().String(),
 	}, nil
 }

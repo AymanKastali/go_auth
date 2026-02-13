@@ -13,26 +13,29 @@ type IChangePasswordHandler interface {
 }
 
 type changePasswordHandler struct {
-	userRepo       domain.IUserRepository
-	sessionRepo    domain.ISessionRepository
-	accountManager domain.IUserAccountManager
-	clock          domain.IClock
-	dispatcher     IEventDispatcher
+	userRepo        domain.IUserRepository
+	sessionRepo     domain.ISessionRepository
+	passwordPolicy  domain.IPasswordPolicy
+	changePassword domain.IChangePassword
+	clock           domain.IClock
+	dispatcher      IEventDispatcher
 }
 
 func NewChangePasswordHandler(
 	userRepo domain.IUserRepository,
 	sessionRepo domain.ISessionRepository,
-	accountManager domain.IUserAccountManager,
+	passwordPolicy domain.IPasswordPolicy,
+	changePassword domain.IChangePassword,
 	clock domain.IClock,
 	dispatcher IEventDispatcher,
 ) IChangePasswordHandler {
 	return &changePasswordHandler{
-		userRepo:       userRepo,
-		sessionRepo:    sessionRepo,
-		accountManager: accountManager,
-		clock:          clock,
-		dispatcher:     dispatcher,
+		userRepo:        userRepo,
+		sessionRepo:     sessionRepo,
+		passwordPolicy:  passwordPolicy,
+		changePassword: changePassword,
+		clock:           clock,
+		dispatcher:      dispatcher,
 	}
 }
 
@@ -55,20 +58,14 @@ func (h *changePasswordHandler) Handle(ctx context.Context, cmd ChangePasswordCo
 		return application.ErrResourceNotFound
 	}
 
-	oldPass, err := domain.NewRawPassword(cmd.OldPassword)
+	validatedNewPass, err := h.passwordPolicy.Validate(cmd.NewPassword)
 	if err != nil {
-		logger.Warn("invalid_old_password_format", slog.Any("error", err))
-		return err
-	}
-
-	newPass, err := domain.NewRawPassword(cmd.NewPassword)
-	if err != nil {
-		logger.Warn("invalid_new_password_format", slog.Any("error", err))
+		logger.Warn("new_password_policy_violation", slog.Any("error", err))
 		return err
 	}
 
 	now := h.clock.Now()
-	if err := h.accountManager.ChangePassword(user, oldPass, newPass, now); err != nil {
+	if err := h.changePassword.Change(user, cmd.OldPassword, validatedNewPass, now); err != nil {
 		logger.Warn("change_password_denied", slog.Any("error", err))
 		return err
 	}
