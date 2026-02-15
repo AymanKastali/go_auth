@@ -2,37 +2,37 @@ package postgres
 
 import (
 	"go_auth/internal/domain"
-	"time"
+
+	"gorm.io/gorm"
 )
 
 func toUserModel(u *domain.User) UserModel {
 	userRoles := make([]UserRoleModel, len(u.Roles()))
 	for i, r := range u.Roles() {
 		userRoles[i] = UserRoleModel{
-			UserID:   u.ID().String(),
 			RoleName: r.Name(),
 		}
 	}
 
 	model := UserModel{
-		ID:           u.ID().String(),
-		Email:        u.Email().String(),
-		PasswordHash: u.HashedPassword().String(),
-		IsActive:     u.IsActive(),
-		UserRoles:    userRoles,
-		RegisteredAt: u.RegisteredAt().Time(),
+		ULID:                u.ID().String(),
+		Email:               u.Email().String(),
+		PasswordHash:        u.HashedPassword().String(),
+		IsActive:            u.IsActive(),
+		UserRoles:           userRoles,
+		FailedLoginAttempts: u.FailedLoginAttempts(),
+		LockedUntil:         u.LockedUntil(),
 	}
 
 	if u.IsDeleted() {
-		now := time.Now()
-		model.DeletedAt = &now
+		model.DeletedAt = gorm.DeletedAt{Valid: true}
 	}
 
 	return model
 }
 
 func toUserDomain(m UserModel) (*domain.User, error) {
-	uid := domain.ReconstituteUserID(m.ID)
+	uid := domain.ReconstituteUserID(m.ULID)
 	email := domain.ReconstituteEmail(m.Email)
 	passwordHash := domain.ReconstituteHashedPassword(m.PasswordHash)
 
@@ -47,7 +47,9 @@ func toUserDomain(m UserModel) (*domain.User, error) {
 		passwordHash,
 		m.IsActive,
 		roles,
-		m.DeletedAt != nil,
-		domain.ReconstituteTimepoint(m.RegisteredAt),
+		m.DeletedAt.Valid,
+		m.CreatedAt,
+		m.FailedLoginAttempts,
+		m.LockedUntil,
 	), nil
 }

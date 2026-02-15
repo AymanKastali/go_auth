@@ -6,8 +6,13 @@ import (
 	"time"
 )
 
+type ILoginPolicy interface {
+	GetMaxAttempts() int
+	GetLockoutDuration() time.Duration
+}
+
 type IPasswordPolicy interface {
-	Validate(rawPassword RawPassword) error
+	Validate(rawPassword string) (ValidatedPassword, error)
 }
 
 type IRegisterPolicy interface {
@@ -91,30 +96,29 @@ func NewPasswordPolicy(cfg PasswordPolicyConfig) IPasswordPolicy {
 	}
 }
 
-func (p *passwordPolicy) Validate(password RawPassword) error {
-	pwdStr := password.String()
-	length := len(pwdStr)
+func (p *passwordPolicy) Validate(password string) (ValidatedPassword, error) {
+	length := len(password)
 
 	// 1. Length Checks
 	if length < int(p.minLength) {
-		return ErrPasswordTooShort
+		return ZeroValidatedPassword, ErrPasswordTooShort
 	}
 	if length > int(p.maxLength) {
-		return ErrPasswordTooLong
+		return ZeroValidatedPassword, ErrPasswordTooLong
 	}
 
 	// 2. Complexity Checks
-	if p.requireUpper && !upperRegex.MatchString(pwdStr) {
-		return ErrPasswordNoUpper
+	if p.requireUpper && !upperRegex.MatchString(password) {
+		return ZeroValidatedPassword, ErrPasswordNoUpper
 	}
-	if p.requireNumber && !numberRegex.MatchString(pwdStr) {
-		return ErrPasswordNoNumber
+	if p.requireNumber && !numberRegex.MatchString(password) {
+		return ZeroValidatedPassword, ErrPasswordNoNumber
 	}
-	if p.requireSpecial && !specialRegex.MatchString(pwdStr) {
-		return ErrPasswordNoSpecial
+	if p.requireSpecial && !specialRegex.MatchString(password) {
+		return ZeroValidatedPassword, ErrPasswordNoSpecial
 	}
 
-	return nil
+	return ValidatedPassword{value: password}, nil
 }
 
 // SessionPolicyConfig holds the configuration for session management rules.
@@ -222,3 +226,32 @@ func (p *activationPolicy) RequiresEmailActivation() bool {
 func (p *activationPolicy) GetActivationTokenLifetime() time.Duration {
 	return p.tokenLifetime
 }
+
+// LoginPolicyConfig holds the configuration for login attempt limiting.
+type LoginPolicyConfig struct {
+	MaxAttempts     int
+	LockoutDuration time.Duration
+}
+
+type loginPolicy struct {
+	maxAttempts     int
+	lockoutDuration time.Duration
+}
+
+func NewLoginPolicy(cfg LoginPolicyConfig) ILoginPolicy {
+	maxAttempts := cfg.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = 5
+	}
+	lockoutDuration := cfg.LockoutDuration
+	if lockoutDuration <= 0 {
+		lockoutDuration = 15 * time.Minute
+	}
+	return &loginPolicy{
+		maxAttempts:     maxAttempts,
+		lockoutDuration: lockoutDuration,
+	}
+}
+
+func (p *loginPolicy) GetMaxAttempts() int              { return p.maxAttempts }
+func (p *loginPolicy) GetLockoutDuration() time.Duration { return p.lockoutDuration }

@@ -18,9 +18,23 @@ func NewPostgresActivationTokenRepository(db *gorm.DB) domain.IActivationTokenRe
 
 func (r *postgresActivationTokenRepository) Save(ctx context.Context, token *domain.ActivationToken) error {
 	model := toActivationTokenModel(token)
+	db := getDB(r.db, ctx)
 
-	err := getDB(r.db, ctx).Save(&model).Error
+	// Resolve own PK
+	pk, err := resolvePK(db, &ActivationTokenModel{}, model.ULID)
 	if err != nil {
+		return err
+	}
+	model.ID = pk
+
+	// Resolve cross-aggregate FK: User
+	userPK, err := resolveUserPK(db, model.UserULID)
+	if err != nil {
+		return err
+	}
+	model.UserID = userPK
+
+	if err := db.Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
 	return nil
@@ -43,10 +57,10 @@ func (r *postgresActivationTokenRepository) FindByHash(ctx context.Context, hash
 	return toActivationTokenDomain(model), nil
 }
 
-func (r *postgresActivationTokenRepository) RevokeAllForUser(ctx context.Context, uid domain.UserID, now domain.Timepoint) error {
+func (r *postgresActivationTokenRepository) RevokeAllForUser(ctx context.Context, uid domain.UserID) error {
 	err := getDB(r.db, ctx).
 		Model(&ActivationTokenModel{}).
-		Where("user_id = ? AND is_used = false", uid.String()).
+		Where("user_ulid = ? AND is_used = false", uid.String()).
 		Update("is_used", true).Error
 
 	if err != nil {

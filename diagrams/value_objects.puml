@@ -1,6 +1,5 @@
 @startuml ValueObjects
-!theme plain
-skinparam classAttributeIconSize 0
+!include _style.puml
 
 title Domain Value Objects
 
@@ -106,14 +105,6 @@ package "Tokens" {
         + Equal(other HashedToken) : bool
     }
 
-    class RawToken <<Value Object>> {
-        - value : string
-        __
-        + {static} NewRawToken(value string) : (RawToken, error)
-        + String() : string
-        + IsEmpty() : bool
-    }
-
     class RecoveryTokenHash <<Value Object>> {
         - value : string
         __
@@ -136,6 +127,16 @@ package "Tokens" {
         + {static} NewAccessToken(value string) : (AccessToken, error)
         + String() : string
     }
+
+    class SessionExpiry <<Value Object>> {
+        - value : time.Time
+        __
+        + {static} NewSessionExpiry(expiresAt, now time.Time) : (SessionExpiry, error)
+        + {static} ReconstituteSessionExpiry(t time.Time) : SessionExpiry
+        + Time() : time.Time
+        + IsZero() : bool
+        + IsExpired(now time.Time) : bool
+    }
 }
 
 package "Credentials" {
@@ -149,13 +150,20 @@ package "Credentials" {
         + IsEmpty() : bool
     }
 
-    class RawPassword <<Value Object>> {
+    class ValidatedPassword <<Value Object>> {
         - value : string
         __
-        + {static} NewRawPassword(value string) : (RawPassword, error)
+        + {static} ReconstituteValidatedPassword(value string) : ValidatedPassword
         + String() : string
         + IsEmpty() : bool
     }
+
+    note bottom of ValidatedPassword
+        Produced by IPasswordPolicy.Validate().
+        Consumed by IPasswordService.Hash().
+        Guarantees the password has passed
+        all policy rules before hashing.
+    end note
 }
 
 package "Device" {
@@ -185,30 +193,23 @@ package "Device" {
     class DeviceFingerprint <<Value Object>> {
         - value : string
         __
-        + {static} NewDeviceFingerprintFromIdentity(ua, ip, lang) : DeviceFingerprint
+        + {static} NewDeviceFingerprintFromIdentity(ua, os, browser, isMobile) : DeviceFingerprint
         + {static} NewDeviceFingerprint(value string) : (DeviceFingerprint, error)
         + String() : string
         + Equal(other DeviceFingerprint) : bool
     }
 
+    note bottom of DeviceFingerprint
+        SHA-256 hash derived from stable signals:
+        userAgent | os | browser | isMobile.
+        IP address is NOT included
+        (changes across networks).
+    end note
+
     DeviceIdentity ..> DeviceFingerprint : derives via Fingerprint()
 }
 
-package "Time & Access" {
-
-    class Timepoint <<Value Object>> {
-        - time : time.Time
-        __
-        + {static} NewTimepoint(t time.Time) : Timepoint
-        + {static} ReconstituteTimepoint(t time.Time) : Timepoint
-        + Time() : time.Time
-        + IsBefore(other Timepoint) : bool
-        + IsAfter(other Timepoint) : bool
-        + Add(d time.Duration) : Timepoint
-        + Equal(other Timepoint) : bool
-        + String() : string
-        + IsZero() : bool
-    }
+package "Access" {
 
     class AccessIdentity <<Value Object>> {
         - userID : UserID

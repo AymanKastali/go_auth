@@ -22,7 +22,7 @@ func (q *postgresUserQueryAdapter) FindByID(ctx context.Context, id string) (app
 	var model UserModel
 	err := getDB(q.db, ctx).
 		Preload("UserRoles").
-		Where("id = ?", id).
+		Where("ulid = ?", id).
 		First(&model).Error
 
 	if err != nil {
@@ -81,11 +81,11 @@ func toUserReadModel(m UserModel) application.UserReadModel {
 	}
 
 	return application.UserReadModel{
-		ID:           m.ID,
+		ID:           m.ULID,
 		Email:        m.Email,
 		IsActive:     m.IsActive,
 		Roles:        roles,
-		RegisteredAt: m.RegisteredAt,
+		RegisteredAt: m.CreatedAt,
 		UpdatedAt:    m.UpdatedAt,
 	}
 }

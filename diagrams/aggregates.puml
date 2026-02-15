@@ -1,7 +1,5 @@
 @startuml Aggregates
-!theme plain
-skinparam classAttributeIconSize 0
-skinparam linetype ortho
+!include _style.puml
 
 title Domain Aggregates
 
@@ -14,10 +12,12 @@ package "User Aggregate" <<Rectangle>> {
         - isActive : bool
         - roles : []RoleName
         - isDeleted : bool
-        - registeredAt : Timepoint
+        - registeredAt : time.Time
+        - failedLoginAttempts : int
+        - lockedUntil : *time.Time
         __constructors__
         + {static} NewUser(userID, email, passwordHash, registeredAt) : (*User, error)
-        + {static} ReconstituteUser(id, email, passwordHash, isActive, roles, isDeleted, registeredAt) : *User
+        + {static} ReconstituteUser(id, email, passwordHash, isActive, roles, isDeleted, registeredAt, failedLoginAttempts, lockedUntil) : *User
         __getters__
         + ID() : UserID
         + Email() : Email
@@ -25,16 +25,22 @@ package "User Aggregate" <<Rectangle>> {
         + Roles() : []RoleName
         + IsDeleted() : bool
         + IsActive() : bool
-        + RegisteredAt() : Timepoint
+        + RegisteredAt() : time.Time
+        + FailedLoginAttempts() : int
+        + LockedUntil() : *time.Time
         + RoleNames() : []string
         __business methods__
-        + Activate(now Timepoint) : error
-        + Deactivate(now Timepoint) : error
-        + AssignRole(role RoleName, now Timepoint) : error
-        + RemoveRole(role RoleName, now Timepoint) : error
-        + MarkDeleted(now Timepoint) : error
-        + UpdateEmail(newEmail Email, now Timepoint) : error
-        + UpdatePassword(newHash HashedPassword, now Timepoint) : error
+        + Activate(now time.Time) : error
+        + Deactivate(now time.Time) : error
+        + AssignRole(role RoleName, now time.Time) : error
+        + RemoveRole(role RoleName, now time.Time) : error
+        + MarkDeleted(now time.Time) : error
+        + UpdateEmail(newEmail Email, now time.Time) : error
+        + UpdatePassword(newHash HashedPassword, now time.Time) : error
+        __lockout behavior__
+        + IsLocked(now time.Time) : bool
+        + RecordFailedLogin(maxAttempts int, lockoutDuration time.Duration, now time.Time)
+        + ResetLoginAttempts()
     }
 
     class EventRecorder <<Mixin>> {
@@ -53,29 +59,32 @@ package "Session Aggregate" <<Rectangle>> {
         - id : SessionID
         - userID : UserID
         - hashedToken : HashedToken
+        - previousHashedToken : HashedToken
         - identity : DeviceIdentity
-        - expiresAt : Timepoint
-        - lastActiveAt : Timepoint
+        - expiry : SessionExpiry
+        - lastActiveAt : time.Time
         - isRevoked : bool
         __constructors__
-        + {static} NewSession(id, userID, hashedToken, identity, expiresAt, now) : (*Session, error)
-        + {static} ReconstituteSession(id, userID, hashedToken, identity, expiresAt, lastActiveAt, isRevoked) : *Session
+        + {static} NewSession(id, userID, hashedToken, identity, expiry, now) : (*Session, error)
+        + {static} ReconstituteSession(id, userID, hashedToken, previousHashedToken, identity, expiresAt, lastActiveAt, isRevoked) : *Session
         __getters__
         + ID() : SessionID
         + UserID() : UserID
         + HashedToken() : HashedToken
-        + ExpiresAt() : Timepoint
-        + LastActiveAt() : Timepoint
+        + PreviousHashedToken() : HashedToken
+        + Expiry() : SessionExpiry
+        + LastActiveAt() : time.Time
         + IsRevoked() : bool
         + Identity() : DeviceIdentity
         + DisplayName() : string
         __business methods__
-        + IsValid(now Timepoint) : bool
+        + IsValid(now time.Time) : bool
         + ValidateFingerprint(fp DeviceFingerprint) : bool
-        + UpdateLogin(newToken HashedToken, newExpiry Timepoint, now Timepoint)
-        + Revoke(now Timepoint) : error
-        + Refresh(currentFP DeviceFingerprint, now Timepoint) : error
-        + UpdateActivity(now Timepoint)
+        + UpdateLogin(newToken HashedToken, newExpiry SessionExpiry, now time.Time)
+        + Revoke(now time.Time) : error
+        + Refresh(newHashedToken HashedToken, currentFP DeviceFingerprint, newExpiry SessionExpiry, now time.Time) : error
+        + RevokeForTokenReuse(now time.Time) : error
+        + UpdateActivity(now time.Time)
     }
 
     Session o-- EventRecorder : embeds
@@ -91,7 +100,7 @@ package "Role Aggregate" <<Rectangle>> {
         - permissions : []Permission
         __constructors__
         + {static} NewRole(id, name, description, permissions, now) : (*Role, error)
-        + {static} ReconstituteRoleAggregate(id, name, description, permissions) : *Role
+        + {static} ReconstituteRole(id, name, description, permissions) : *Role
         __getters__
         + ID() : RoleID
         + Name() : RoleName
@@ -99,8 +108,8 @@ package "Role Aggregate" <<Rectangle>> {
         + Permissions() : []Permission
         + PermissionStrings() : []string
         __business methods__
-        + AssignPermission(p Permission, now Timepoint)
-        + RevokePermission(p Permission, now Timepoint) : error
+        + AssignPermission(p Permission, now time.Time)
+        + RevokePermission(p Permission, now time.Time) : error
         + HasPermission(p Permission) : bool
     }
 
@@ -114,7 +123,7 @@ package "RecoveryToken Aggregate" <<Rectangle>> {
         - id : RecoveryTokenID
         - userID : UserID
         - hashedToken : RecoveryTokenHash
-        - expiresAt : Timepoint
+        - expiresAt : time.Time
         - isUsed : bool
         __constructors__
         + {static} NewRecoveryToken(id, uid, hash, expiresAt, now) : (*RecoveryToken, error)
@@ -123,12 +132,12 @@ package "RecoveryToken Aggregate" <<Rectangle>> {
         + ID() : RecoveryTokenID
         + UserID() : UserID
         + HashedToken() : RecoveryTokenHash
-        + ExpiresAt() : Timepoint
+        + ExpiresAt() : time.Time
         __business methods__
-        + IsValid(now Timepoint) : bool
-        + IsExpired(now Timepoint) : bool
+        + IsValid(now time.Time) : bool
+        + IsExpired(now time.Time) : bool
         + IsUsed() : bool
-        + MarkAsUsed(now Timepoint) : error
+        + MarkAsUsed(now time.Time) : error
     }
 
     RecoveryToken o-- EventRecorder : embeds
@@ -141,7 +150,7 @@ package "ActivationToken Aggregate" <<Rectangle>> {
         - id : ActivationTokenID
         - userID : UserID
         - hashedToken : ActivationTokenHash
-        - expiresAt : Timepoint
+        - expiresAt : time.Time
         - isUsed : bool
         __constructors__
         + {static} NewActivationToken(id, uid, hash, expiresAt, now) : (*ActivationToken, error)
@@ -150,12 +159,12 @@ package "ActivationToken Aggregate" <<Rectangle>> {
         + ID() : ActivationTokenID
         + UserID() : UserID
         + HashedToken() : ActivationTokenHash
-        + ExpiresAt() : Timepoint
+        + ExpiresAt() : time.Time
         __business methods__
-        + IsValid(now Timepoint) : bool
-        + IsExpired(now Timepoint) : bool
+        + IsValid(now time.Time) : bool
+        + IsExpired(now time.Time) : bool
         + IsUsed() : bool
-        + MarkAsUsed(now Timepoint) : error
+        + MarkAsUsed(now time.Time) : error
     }
 
     ActivationToken o-- EventRecorder : embeds

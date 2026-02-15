@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"go_auth/internal/application"
+	"go_auth/internal/application/command"
 )
 
 func (c *container) run() {
@@ -13,11 +13,11 @@ func (c *container) run() {
 	seedCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := c.application.seedRoles.Execute(seedCtx); err != nil {
+	if err := c.application.seedRoles.Handle(seedCtx); err != nil {
 		c.logger.Warn("seed_roles_skipped", slog.Any("error", err))
 	}
 
-	err := c.application.seedSA.Execute(seedCtx, application.RegisterUserCommand{
+	err := c.application.seedSA.Handle(seedCtx, command.RegisterUserCommand{
 		Email:    c.config.Seed.AdminEmail,
 		Password: c.config.Seed.AdminPassword,
 	})

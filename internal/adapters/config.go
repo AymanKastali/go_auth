@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -20,9 +21,11 @@ type Config struct {
 	HTTP           HTTPConfig
 	JWT            JWTConfig
 	Password       PasswordConfig
+	Token          TokenConfig
 	PasswordPolicy PasswordPolicyConfig
 	SessionPolicy  SessionPolicyConfig
 	RegisterPolicy RegisterPolicyConfig
+	LoginPolicy    LoginPolicyConfig
 	Database       DatabaseConfig
 	Seed           SeedConfig
 	Email          EmailConfig
@@ -62,11 +65,12 @@ type SeedConfig struct {
 }
 
 type HTTPConfig struct {
-	Port string
+	Port        string
+	CORSOrigins []string
 }
 
 type JWTConfig struct {
-	Secret    string
+	Secret    []byte
 	Issuer    string
 	Audience  string
 	AccessTTL time.Duration
@@ -74,6 +78,15 @@ type JWTConfig struct {
 
 type PasswordConfig struct {
 	BcryptCost int
+}
+
+type TokenConfig struct {
+	Length int
+}
+
+type LoginPolicyConfig struct {
+	MaxAttempts     int
+	LockoutDuration time.Duration
 }
 
 type RecoveryPolicyConfig struct {
@@ -113,6 +126,11 @@ func Load() (*Config, error) {
 	}
 
 	pass, err := loadPassword()
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := loadToken()
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +175,11 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	loginPolicy, err := loadLoginPolicy()
+	if err != nil {
+		return nil, err
+	}
+
 	// If activation requires email, ActivationBaseURL is required
 	if activation.RequireEmail && email.ActivationBaseURL == "" {
 		return nil, fmt.Errorf("config: GA_EMAIL_ACTIVATION_BASE_URL is required when GA_ACTIVATION_REQUIRE_EMAIL=true")
@@ -167,11 +190,13 @@ func Load() (*Config, error) {
 		HTTP:           http,
 		JWT:            jwt,
 		Password:       pass,
+		Token:          token,
 		PasswordPolicy: passwordPolicy,
 		SessionPolicy:  sessionPolicy,
+		RegisterPolicy: registerPolicy,
+		LoginPolicy:    loginPolicy,
 		Database:       db,
 		Seed:           seed,
-		RegisterPolicy: registerPolicy,
 		Email:          email,
 		RecoveryPolicy: recoveryPolicy,
 		Activation:     activation,
@@ -195,22 +220,36 @@ func loadApp() (AppConfig, error) {
 }
 
 func loadHTTP() HTTPConfig {
+	raw := getEnv("CORS_ORIGINS", "*")
+	origins := strings.Split(raw, ",")
+	for i := range origins {
+		origins[i] = strings.TrimSpace(origins[i])
+	}
+
 	return HTTPConfig{
-		Port: getEnv("HTTP_PORT", "8080"),
+		Port:        getEnv("HTTP_PORT", "8080"),
+		CORSOrigins: origins,
 	}
 }
 
 func loadJWT() (JWTConfig, error) {
-	secret, err := getRequiredEnv("JWT_SECRET")
+	secretStr, err := getRequiredEnv("JWT_SECRET")
 	if err != nil {
 		return JWTConfig{}, err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(secretStr)
+	if err != nil {
+		return JWTConfig{}, fmt.Errorf("config: GA_JWT_SECRET must be valid base64: %w", err)
+	}
+	if len(decoded) < 32 {
+		return JWTConfig{}, fmt.Errorf("config: GA_JWT_SECRET must decode to at least 32 bytes (256 bits) for HS256")
 	}
 	ttl, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
 	if err != nil {
 		return JWTConfig{}, fmt.Errorf("config: invalid GA_JWT_ACCESS_TTL: %w", err)
 	}
 	return JWTConfig{
-		Secret:    secret,
+		Secret:    decoded,
 		Issuer:    getEnv("JWT_ISSUER", "go-auth-service"),
 		Audience:  getEnv("JWT_AUDIENCE", "go-auth-client"),
 		AccessTTL: ttl,
@@ -223,6 +262,14 @@ func loadPassword() (PasswordConfig, error) {
 		return PasswordConfig{}, fmt.Errorf("config: invalid GA_PASSWORD_BCRYPT_COST: %w", err)
 	}
 	return PasswordConfig{BcryptCost: cost}, nil
+}
+
+func loadToken() (TokenConfig, error) {
+	length, err := strconv.Atoi(getEnv("TOKEN_LENGTH", "32"))
+	if err != nil {
+		return TokenConfig{}, fmt.Errorf("config: invalid GA_TOKEN_LENGTH: %w", err)
+	}
+	return TokenConfig{Length: length}, nil
 }
 
 func loadPasswordPolicy() (PasswordPolicyConfig, error) {
@@ -369,6 +416,21 @@ func loadActivation() (ActivationConfig, error) {
 	return ActivationConfig{
 		RequireEmail:  requireEmail,
 		TokenLifetime: tokenLifetime,
+	}, nil
+}
+
+func loadLoginPolicy() (LoginPolicyConfig, error) {
+	maxAttempts, err := strconv.Atoi(getEnv("LOGIN_MAX_ATTEMPTS", "5"))
+	if err != nil {
+		return LoginPolicyConfig{}, fmt.Errorf("config: invalid GA_LOGIN_MAX_ATTEMPTS: %w", err)
+	}
+	lockoutDuration, err := time.ParseDuration(getEnv("LOGIN_LOCKOUT_DURATION", "15m"))
+	if err != nil {
+		return LoginPolicyConfig{}, fmt.Errorf("config: invalid GA_LOGIN_LOCKOUT_DURATION: %w", err)
+	}
+	return LoginPolicyConfig{
+		MaxAttempts:     maxAttempts,
+		LockoutDuration: lockoutDuration,
 	}, nil
 }
 

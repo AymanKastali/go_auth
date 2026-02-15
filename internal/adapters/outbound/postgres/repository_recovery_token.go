@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Revoked Tokens
 type postgresRecoveryTokenRepository struct {
 	db *gorm.DB
 }
@@ -18,12 +17,24 @@ func NewPostgresRecoveryTokenRepository(db *gorm.DB) domain.IRecoveryTokenReposi
 }
 
 func (r *postgresRecoveryTokenRepository) Save(ctx context.Context, token *domain.RecoveryToken) error {
-	// 1. Map to DB Model
 	model := toRecoveryTokenModel(token)
+	db := getDB(r.db, ctx)
 
-	// 2. Execute SQL with Transaction Support
-	err := getDB(r.db, ctx).Save(&model).Error
+	// Resolve own PK
+	pk, err := resolvePK(db, &RecoveryTokenModel{}, model.ULID)
 	if err != nil {
+		return err
+	}
+	model.ID = pk
+
+	// Resolve cross-aggregate FK: User
+	userPK, err := resolveUserPK(db, model.UserULID)
+	if err != nil {
+		return err
+	}
+	model.UserID = userPK
+
+	if err := db.Save(&model).Error; err != nil {
 		return domain.ErrInternal
 	}
 	return nil
@@ -43,16 +54,14 @@ func (r *postgresRecoveryTokenRepository) FindByHash(ctx context.Context, hash d
 		return nil, domain.ErrInternal
 	}
 
-	// 3. Map back to Domain Entity
 	return toRecoveryTokenDomain(model), nil
 }
 
-func (r *postgresRecoveryTokenRepository) RevokeAllForUser(ctx context.Context, uid domain.UserID, now domain.Timepoint) error {
-	t := now.Time()
+func (r *postgresRecoveryTokenRepository) RevokeAllForUser(ctx context.Context, uid domain.UserID) error {
 	err := getDB(r.db, ctx).
 		Model(&RecoveryTokenModel{}).
-		Where("user_id = ? AND used_at IS NULL", uid.String()).
-		Update("used_at", t).Error
+		Where("user_ulid = ? AND is_used = false", uid.String()).
+		Update("is_used", true).Error
 
 	if err != nil {
 		return domain.ErrInternal

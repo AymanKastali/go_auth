@@ -3,7 +3,7 @@ package main
 import "log"
 
 // @title Auth Service API
-// @version 1.0
+// @version 0.1.0
 // @description Authentication service using Hexagonal Architecture and Fiber v3.
 // @termsOfService http://swagger.io/terms/
 
@@ -15,7 +15,7 @@ import "log"
 
 // @host localhost:8080
 // @BasePath /
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey AccessToken
 // @in header
 // @name Authorization
 func main() {

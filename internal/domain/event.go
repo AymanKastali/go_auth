@@ -1,9 +1,11 @@
 package domain
 
+import "time"
+
 // DomainEvent is the marker interface for all domain events.
 type DomainEvent interface {
 	EventName() string
-	OccurredAt() Timepoint
+	OccurredAt() time.Time
 	AggregateID() string
 }
 

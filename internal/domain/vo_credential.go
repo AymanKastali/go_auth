@@ -1,8 +1,8 @@
 package domain
 
 var (
-	ZeroHashedPassword = HashedPassword{}
-	ZeroRawPassword    = RawPassword{}
+	ZeroHashedPassword     = HashedPassword{}
+	ZeroValidatedPassword  = ValidatedPassword{}
 )
 
 // --- HashedPassword ---
@@ -18,14 +18,9 @@ func ReconstituteHashedPassword(value string) HashedPassword { return HashedPass
 func (vo HashedPassword) String() string                     { return vo.value }
 func (vo HashedPassword) IsEmpty() bool                      { return vo.value == "" }
 
-// --- RawPassword ---
-type RawPassword struct{ value string }
+// --- ValidatedPassword ---
+type ValidatedPassword struct{ value string }
 
-func NewRawPassword(value string) (RawPassword, error) {
-	if value == "" {
-		return ZeroRawPassword, ErrUserPasswordRequired
-	}
-	return RawPassword{value: value}, nil
-}
-func (vo RawPassword) String() string { return vo.value }
-func (vo RawPassword) IsEmpty() bool  { return vo.value == "" }
+func ReconstituteValidatedPassword(value string) ValidatedPassword { return ValidatedPassword{value: value} }
+func (vo ValidatedPassword) String() string                        { return vo.value }
+func (vo ValidatedPassword) IsEmpty() bool                         { return vo.value == "" }

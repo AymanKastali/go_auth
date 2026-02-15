@@ -1,12 +1,14 @@
 package domain
 
+import "time"
+
 // ActivationToken is the Aggregate Root for the account activation context.
 type ActivationToken struct {
 	EventRecorder
 	id          ActivationTokenID
 	userID      UserID
 	hashedToken ActivationTokenHash
-	expiresAt   Timepoint
+	expiresAt   time.Time
 	isUsed      bool
 }
 
@@ -15,14 +17,14 @@ func NewActivationToken(
 	id ActivationTokenID,
 	uid UserID,
 	hash ActivationTokenHash,
-	expiresAt Timepoint,
-	now Timepoint,
+	expiresAt time.Time,
+	now time.Time,
 ) (*ActivationToken, error) {
 	if uid.IsEmpty() {
 		return nil, ErrUserIDRequired
 	}
-	if expiresAt.IsBefore(now) {
-		return nil, ErrSessionExpiryInPast
+	if expiresAt.Before(now) {
+		return nil, ErrTokenExpiryInPast
 	}
 	at := &ActivationToken{
 		id:          id,
@@ -40,7 +42,7 @@ func ReconstituteActivationToken(
 	id ActivationTokenID,
 	userID UserID,
 	hashedToken ActivationTokenHash,
-	expiresAt Timepoint,
+	expiresAt time.Time,
 	isUsed bool,
 ) *ActivationToken {
 	return &ActivationToken{
@@ -54,19 +56,19 @@ func ReconstituteActivationToken(
 
 // --- Business Logic ---
 
-func (a *ActivationToken) IsValid(now Timepoint) bool {
+func (a *ActivationToken) IsValid(now time.Time) bool {
 	return !a.IsUsed() && !a.IsExpired(now)
 }
 
-func (a *ActivationToken) IsExpired(now Timepoint) bool {
-	return now.IsAfter(a.expiresAt)
+func (a *ActivationToken) IsExpired(now time.Time) bool {
+	return now.After(a.expiresAt)
 }
 
 func (a *ActivationToken) IsUsed() bool {
 	return a.isUsed
 }
 
-func (a *ActivationToken) MarkAsUsed(now Timepoint) error {
+func (a *ActivationToken) MarkAsUsed(now time.Time) error {
 	if a.IsUsed() {
 		return ErrActivationTokenAlreadyUsed
 	}
@@ -79,4 +81,4 @@ func (a *ActivationToken) MarkAsUsed(now Timepoint) error {
 func (a *ActivationToken) ID() ActivationTokenID          { return a.id }
 func (a *ActivationToken) UserID() UserID                  { return a.userID }
 func (a *ActivationToken) HashedToken() ActivationTokenHash { return a.hashedToken }
-func (a *ActivationToken) ExpiresAt() Timepoint            { return a.expiresAt }
+func (a *ActivationToken) ExpiresAt() time.Time            { return a.expiresAt }

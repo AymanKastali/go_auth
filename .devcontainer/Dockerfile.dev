@@ -5,4 +5,19 @@ RUN go install github.com/go-delve/delve/cmd/dlv@latest \
     && go install github.com/air-verse/air@latest \
     && curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
 
+RUN apt-get update && apt-get install -y --no-install-recommends sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
+    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+RUN mkdir -p /home/$USERNAME/.cache \
+    && chown -R $USERNAME:$USERNAME /home/$USERNAME/.cache
+
+USER $USERNAME
 WORKDIR /app

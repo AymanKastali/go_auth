@@ -2,141 +2,159 @@ package main
 
 import (
 	"go_auth/internal/adapters"
-	"go_auth/internal/application"
+	"go_auth/internal/application/command"
+	"go_auth/internal/application/query"
 	"go_auth/internal/domain"
 )
 
 type applicationLayer struct {
 	// auth
-	seedSA             application.ISeedSuperAdminUseCase
-	register           application.IRegisterUseCase
-	login              application.ILoginUseCase
-	refresh            application.IRefreshTokenUseCase
-	logout             application.ILogoutUseCase
-	validate           application.IValidateAccessUseCase
-	confirmActivation  application.IConfirmActivationUseCase
-	resendActivation   application.IResendActivationUseCase
+	seedSA            command.ISeedSuperAdminHandler
+	register          command.IRegisterHandler
+	login             command.ILoginHandler
+	refresh           command.IRefreshTokenHandler
+	logout            command.ILogoutHandler
+	validate          query.IValidateAccessHandler
+	confirmActivation command.IConfirmActivationHandler
+	resendActivation  command.IResendActivationHandler
 
 	// user
-	findByEmail    application.IFindUserByEmailUseCase
-	getByID        application.IGetUserByIDUseCase
-	getMe          application.IGetMeUseCase
-	updateMe       application.IUpdateMeUseCase
-	changePassword application.IChangePasswordUseCase
-	forgotPassword application.IForgotPasswordUseCase
-	resetPassword  application.IResetPasswordUseCase
+	findByEmail    query.IFindUserByEmailHandler
+	getByID        query.IGetUserByIDHandler
+	getMe          query.IGetMeHandler
+	updateMe       command.IUpdateMeHandler
+	changePassword command.IChangePasswordHandler
+	forgotPassword command.IForgotPasswordHandler
+	resetPassword  command.IResetPasswordHandler
 
 	// seeding
-	seedRoles application.ISeedRolesUseCase
+	seedRoles command.ISeedRolesHandler
 
 	// policies
-	publicPolicies application.IGetPublicPoliciesUseCase
+	publicPolicies query.IGetPublicPoliciesHandler
 
 	// admin - roles
-	listRoles        application.IListRolesUseCase
-	getRole          application.IGetRoleUseCase
-	createRole       application.ICreateRoleUseCase
-	assignPermission application.IAssignPermissionUseCase
-	revokePermission application.IRevokePermissionUseCase
+	listRoles        query.IListRolesHandler
+	getRole          query.IGetRoleHandler
+	createRole       command.ICreateRoleHandler
+	assignPermission command.IAssignPermissionHandler
+	revokePermission command.IRevokePermissionHandler
 
 	// admin - users
-	listUsers       application.IListUsersUseCase
-	assignUserRole  application.IAssignUserRoleUseCase
-	revokeUserRole  application.IRevokeUserRoleUseCase
-	adminActivate   application.IAdminActivateUserUseCase
-	adminDeactivate application.IAdminDeactivateUserUseCase
-	adminDelete     application.IAdminDeleteUserUseCase
+	listUsers       query.IListUsersHandler
+	assignUserRole  command.IAssignUserRoleHandler
+	revokeUserRole  command.IRevokeUserRoleHandler
+	adminActivate   command.IAdminActivateUserHandler
+	adminDeactivate command.IAdminDeactivateUserHandler
+	adminDelete     command.IAdminDeleteUserHandler
 }
 
 func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Config) applicationLayer {
 	return applicationLayer{
-		register: application.NewRegisterUseCase(
+		register: command.NewRegisterHandler(
 			d.userRepo,
-			d.registrationSvc,
-			d.passwordManager,
+			d.registerMember,
+			d.roleProvider,
+			d.passwordPolicy,
+			d.passwordSvc,
 			d.idGen,
 			d.clock,
 			out.dispatcher,
-			d.accountManager,
+			d.initiateActivation,
 			d.activationRepo,
 			out.emailSvc,
+			out.txManager,
 		),
-		seedSA: application.NewSeedSuperAdminUseCase(
+		seedSA: command.NewSeedSuperAdminHandler(
 			d.userRepo,
-			d.registrationSvc,
-			d.passwordManager,
+			d.registerAdmin,
+			d.roleProvider,
+			d.passwordPolicy,
+			d.passwordSvc,
 			d.idGen,
 			d.clock,
 			out.dispatcher,
 		),
-		login: application.NewLoginUseCase(
+		login: command.NewLoginHandler(
 			d.userRepo,
 			d.sessionRepo,
-			d.authenticationSvc,
-			d.accessManager,
+			d.roleRepo,
+			d.verifyCredentials,
+			d.openSession,
+			d.grantAccess,
+			d.clock,
+			out.dispatcher,
+			out.txManager,
+			d.loginPolicy,
+		),
+		refresh: command.NewRefreshTokenHandler(
+			d.userRepo,
+			d.sessionRepo,
+			d.roleRepo,
+			d.refreshSession,
+			d.grantAccess,
+			d.tokenSvc,
 			d.clock,
 			out.dispatcher,
 		),
-		refresh: application.NewRefreshTokenUseCase(
+		validate: query.NewValidateAccessHandler(
+			d.accessSvc,
 			d.userRepo,
 			d.sessionRepo,
-			d.authenticationSvc,
-			d.accessManager,
-			d.clock,
-			out.dispatcher,
-		),
-		validate: application.NewValidateAccessUseCase(
-			d.accessManager,
+			d.roleRepo,
+			d.resolvePermissions,
 			d.clock,
 		),
-		logout: application.NewLogoutUseCase(
+		logout: command.NewLogoutHandler(
 			d.sessionRepo, d.clock, out.dispatcher,
 		),
 
 		// user
-		findByEmail: application.NewFindUserByEmailUseCase(out.userQuery),
-		getByID:     application.NewGetUserByIDUseCase(out.userQuery),
-		getMe:       application.NewGetMeUseCase(out.userQuery),
-		updateMe:    application.NewUpdateMeUseCase(d.userRepo, d.clock, out.dispatcher),
-		forgotPassword: application.NewForgotPasswordUseCase(
+		findByEmail: query.NewFindUserByEmailHandler(out.userQuery),
+		getByID:     query.NewGetUserByIDHandler(out.userQuery),
+		getMe:       query.NewGetMeHandler(out.userQuery),
+		updateMe:    command.NewUpdateMeHandler(d.userRepo, d.clock, out.dispatcher),
+		forgotPassword: command.NewForgotPasswordHandler(
 			d.userRepo,
 			d.recoveryRepo,
-			d.accountManager,
+			d.initiateRecovery,
 			out.emailSvc,
 			out.txManager,
 			d.clock,
 			out.dispatcher,
 		),
-		changePassword: application.NewChangePasswordUseCase(
+		changePassword: command.NewChangePasswordHandler(
 			d.userRepo,
 			d.sessionRepo,
-			d.accountManager,
+			d.passwordPolicy,
+			d.changePassword,
 			d.clock,
 			out.dispatcher,
 		),
-		resetPassword: application.NewResetPasswordUseCase(
+		resetPassword: command.NewResetPasswordHandler(
 			d.userRepo,
 			d.sessionRepo,
 			d.recoveryRepo,
 			d.tokenSvc,
-			d.accountManager,
+			d.passwordPolicy,
+			d.resetPassword,
 			out.txManager,
 			d.clock,
 			out.dispatcher,
 		),
-		confirmActivation: application.NewConfirmActivationUseCase(
+		confirmActivation: command.NewConfirmActivationHandler(
 			d.userRepo,
 			d.activationRepo,
 			d.tokenSvc,
-			d.accountManager,
+			d.confirmActivation,
 			out.txManager,
 			d.clock,
 			out.dispatcher,
 		),
-		resendActivation: application.NewResendActivationUseCase(
+		resendActivation: command.NewResendActivationHandler(
 			d.userRepo,
 			d.activationRepo,
-			d.accountManager,
+			d.initiateActivation,
 			out.emailSvc,
 			out.txManager,
 			d.clock,
@@ -144,7 +162,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		),
 
 		// seeding
-		seedRoles: application.NewSeedRolesUseCase(
+		seedRoles: command.NewSeedRolesHandler(
 			d.roleRepo,
 			d.idGen,
 			d.clock,
@@ -153,7 +171,7 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		),
 
 		// policies
-		publicPolicies: application.NewGetPublicPoliciesUseCase(
+		publicPolicies: query.NewGetPublicPoliciesHandler(
 			domain.PasswordPolicyConfig{
 				MinLength:      cfg.PasswordPolicy.MinLength,
 				MaxLength:      cfg.PasswordPolicy.MaxLength,
@@ -169,33 +187,33 @@ func newApplicationLayer(d domainLayer, out outboundAdapters, cfg *adapters.Conf
 		),
 
 		// admin - roles
-		listRoles: application.NewListRolesUseCase(d.roleRepo),
-		getRole:   application.NewGetRoleUseCase(d.roleRepo),
-		createRole: application.NewCreateRoleUseCase(
+		listRoles: query.NewListRolesHandler(out.roleQuery),
+		getRole:   query.NewGetRoleHandler(out.roleQuery),
+		createRole: command.NewCreateRoleHandler(
 			d.roleRepo, d.idGen, d.clock, out.dispatcher,
 		),
-		assignPermission: application.NewAssignPermissionUseCase(
+		assignPermission: command.NewAssignPermissionHandler(
 			d.roleRepo, d.clock, out.dispatcher,
 		),
-		revokePermission: application.NewRevokePermissionUseCase(
+		revokePermission: command.NewRevokePermissionHandler(
 			d.roleRepo, d.clock, out.dispatcher,
 		),
 
 		// admin - users
-		listUsers: application.NewListUsersUseCase(out.userQuery),
-		assignUserRole: application.NewAssignUserRoleUseCase(
+		listUsers: query.NewListUsersHandler(out.userQuery),
+		assignUserRole: command.NewAssignUserRoleHandler(
 			d.userRepo, d.roleRepo, d.clock, out.dispatcher,
 		),
-		revokeUserRole: application.NewRevokeUserRoleUseCase(
+		revokeUserRole: command.NewRevokeUserRoleHandler(
 			d.userRepo, d.clock, out.dispatcher,
 		),
-		adminActivate: application.NewAdminActivateUserUseCase(
+		adminActivate: command.NewAdminActivateUserHandler(
 			d.userRepo, d.clock, out.dispatcher,
 		),
-		adminDeactivate: application.NewAdminDeactivateUserUseCase(
+		adminDeactivate: command.NewAdminDeactivateUserHandler(
 			d.userRepo, d.clock, out.dispatcher,
 		),
-		adminDelete: application.NewAdminDeleteUserUseCase(
+		adminDelete: command.NewAdminDeleteUserHandler(
 			d.userRepo, d.sessionRepo, d.clock, out.dispatcher,
 		),
 	}

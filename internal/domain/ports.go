@@ -2,16 +2,17 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 // Infrastructure ports (adapter-implemented)
 
 type IClock interface {
-	Now() Timepoint
+	Now() time.Time
 }
 type IPasswordService interface {
-	Hash(raw RawPassword) (HashedPassword, error)
-	Compare(raw RawPassword, hashed HashedPassword) bool
+	Hash(pwd ValidatedPassword) (HashedPassword, error)
+	Compare(raw string, hashed HashedPassword) bool
 }
 type IIDGenerator interface {
 	GenerateUserID() (UserID, error)
@@ -21,15 +22,15 @@ type IIDGenerator interface {
 	GenerateRoleID() (RoleID, error)
 }
 type ITokenService interface {
-	Generate() (RawToken, error)
+	Generate() (string, error)
 
-	HashSessionToken(raw RawToken) (HashedToken, error)
-	HashRecoveryToken(raw RawToken) (RecoveryTokenHash, error)
-	HashActivationToken(raw RawToken) (ActivationTokenHash, error)
+	HashSessionToken(raw string) (HashedToken, error)
+	HashRecoveryToken(raw string) (RecoveryTokenHash, error)
+	HashActivationToken(raw string) (ActivationTokenHash, error)
 
-	CompareSession(raw RawToken, hashed HashedToken) bool
-	CompareRecovery(raw RawToken, hashed RecoveryTokenHash) bool
-	CompareActivation(raw RawToken, hashed ActivationTokenHash) bool
+	CompareSession(raw string, hashed HashedToken) bool
+	CompareRecovery(raw string, hashed RecoveryTokenHash) bool
+	CompareActivation(raw string, hashed ActivationTokenHash) bool
 }
 type IAccessService interface {
 	Issue(
@@ -38,10 +39,10 @@ type IAccessService interface {
 		sessionID SessionID,
 		roles []RoleName,
 		permissions []Permission,
-		IssuedAt Timepoint,
-		expiresAt Timepoint,
-		notBefore Timepoint,
-	) (AccessToken, Timepoint, error)
+		IssuedAt time.Time,
+		expiresAt time.Time,
+		notBefore time.Time,
+	) (AccessToken, time.Time, error)
 	Validate(token AccessToken) (AccessIdentity, error)
 }
 
@@ -66,10 +67,11 @@ type IUserRepository interface {
 type ISessionRepository interface {
 	FindByID(ctx context.Context, id SessionID) (*Session, error)
 	FindByToken(ctx context.Context, token HashedToken) (*Session, error)
+	FindByPreviousToken(ctx context.Context, token HashedToken) (*Session, error)
 	FindActiveByUserAndFingerprint(ctx context.Context, userID UserID, fp DeviceFingerprint) (*Session, error)
 	FindActiveByUserID(ctx context.Context, userID UserID) ([]*Session, error)
 	Save(ctx context.Context, session *Session) error
-	RevokeAllForUser(ctx context.Context, userID UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, userID UserID, now time.Time) error
 }
 
 type IRoleRepository interface {
@@ -82,11 +84,11 @@ type IRoleRepository interface {
 type IRecoveryTokenRepository interface {
 	FindByHash(ctx context.Context, hash RecoveryTokenHash) (*RecoveryToken, error)
 	Save(ctx context.Context, token *RecoveryToken) error
-	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, uid UserID) error
 }
 
 type IActivationTokenRepository interface {
 	FindByHash(ctx context.Context, hash ActivationTokenHash) (*ActivationToken, error)
 	Save(ctx context.Context, token *ActivationToken) error
-	RevokeAllForUser(ctx context.Context, uid UserID, now Timepoint) error
+	RevokeAllForUser(ctx context.Context, uid UserID) error
 }

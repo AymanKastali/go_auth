@@ -3,6 +3,7 @@ package outbound
 import (
 	"errors"
 	"go_auth/internal/domain"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -15,12 +16,12 @@ type jwtService struct {
 }
 
 func NewJWTService(
-	secret string,
+	secret []byte,
 	issuer string,
 	audience string,
 ) domain.IAccessService {
 	return &jwtService{
-		secretKey: []byte(secret),
+		secretKey: secret,
 		issuer:    issuer,
 		audience:  audience,
 	}
@@ -40,10 +41,10 @@ func (p *jwtService) Issue(
 	sessionID domain.SessionID,
 	roles []domain.RoleName,
 	permissions []domain.Permission,
-	IssuedAt domain.Timepoint,
-	expiresAt domain.Timepoint,
-	notBefore domain.Timepoint,
-) (domain.AccessToken, domain.Timepoint, error) {
+	IssuedAt time.Time,
+	expiresAt time.Time,
+	notBefore time.Time,
+) (domain.AccessToken, time.Time, error) {
 	roleNames := make([]string, len(roles))
 	for i, r := range roles {
 		roleNames[i] = r.Name()
@@ -61,9 +62,9 @@ func (p *jwtService) Issue(
 		SID:         sessionID.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
-			IssuedAt:  jwt.NewNumericDate(IssuedAt.Time()),
-			ExpiresAt: jwt.NewNumericDate(expiresAt.Time()),
-			NotBefore: jwt.NewNumericDate(notBefore.Time()),
+			IssuedAt:  jwt.NewNumericDate(IssuedAt),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			NotBefore: jwt.NewNumericDate(notBefore),
 			Issuer:    p.issuer,
 			Audience:  jwt.ClaimStrings{p.audience},
 		},
@@ -72,12 +73,12 @@ func (p *jwtService) Issue(
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedStr, err := token.SignedString(p.secretKey)
 	if err != nil {
-		return domain.ZeroAccessToken, domain.ZeroTimepoint, domain.ErrInternal
+		return domain.ZeroAccessToken, time.Time{}, domain.ErrInternal
 	}
 
 	accessToken, err := domain.NewAccessToken(signedStr)
 	if err != nil {
-		return domain.ZeroAccessToken, domain.ZeroTimepoint, err
+		return domain.ZeroAccessToken, time.Time{}, err
 	}
 
 	return accessToken, expiresAt, nil

@@ -4,23 +4,22 @@ import (
 	"go_auth/internal/domain"
 )
 
-// Recovery Token
 func toRecoveryTokenModel(t *domain.RecoveryToken) RecoveryTokenModel {
 	return RecoveryTokenModel{
-		ID:          t.ID().String(),
-		UserID:      t.UserID().String(),
+		ULID:        t.ID().String(),
+		UserULID:    t.UserID().String(),
 		HashedToken: t.HashedToken().String(),
-		ExpiresAt:   t.ExpiresAt().Time(),
+		ExpiresAt:   t.ExpiresAt(),
 		IsUsed:      t.IsUsed(),
 	}
 }
 
 func toRecoveryTokenDomain(m RecoveryTokenModel) *domain.RecoveryToken {
 	return domain.ReconstituteRecoveryToken(
-		domain.ReconstituteRecoveryTokenID(m.ID),
-		domain.ReconstituteUserID(m.UserID),
+		domain.ReconstituteRecoveryTokenID(m.ULID),
+		domain.ReconstituteUserID(m.UserULID),
 		domain.ReconstituteRecoveryTokenHash(m.HashedToken),
-		domain.NewTimepoint(m.ExpiresAt),
+		m.ExpiresAt,
 		m.IsUsed,
 	)
 }

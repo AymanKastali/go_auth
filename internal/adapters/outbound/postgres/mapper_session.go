@@ -8,33 +8,35 @@ func toSessionModel(s *domain.Session) SessionModel {
 	identity := s.Identity()
 
 	return SessionModel{
-		ID:             s.ID().String(),
-		UserID:         s.UserID().String(),
-		HashedToken:    s.HashedToken().String(),
-		Fingerprint:    identity.Fingerprint().String(),
-		IPAddress:      identity.IPAddress(),
-		UserAgent:      identity.UserAgent(),
-		OS:             identity.OS(),
-		Browser:        identity.Browser(),
-		Model:          identity.Model(),
-		AcceptLanguage: identity.Language(),
-		IsMobile:       identity.IsMobile(),
-		ExpiresAt:      s.ExpiresAt().Time(),
-		LastActiveAt:   s.LastActiveAt().Time(),
-		IsRevoked:      s.IsRevoked(),
+		ULID:                s.ID().String(),
+		UserULID:            s.UserID().String(),
+		HashedToken:         s.HashedToken().String(),
+		PreviousHashedToken: s.PreviousHashedToken().String(),
+		Fingerprint:         identity.Fingerprint().String(),
+		IPAddress:           identity.IPAddress(),
+		UserAgent:           identity.UserAgent(),
+		OS:                  identity.OS(),
+		Browser:             identity.Browser(),
+		DeviceModel:         identity.Model(),
+		AcceptLanguage:      identity.Language(),
+		IsMobile:            identity.IsMobile(),
+		ExpiresAt:           s.Expiry().Time(),
+		LastActiveAt:        s.LastActiveAt(),
+		IsRevoked:           s.IsRevoked(),
 	}
 }
 
 func toSessionDomain(m SessionModel) *domain.Session {
-	sid := domain.ReconstituteSessionID(m.ID)
-	userID := domain.ReconstituteUserID(m.UserID)
+	sid := domain.ReconstituteSessionID(m.ULID)
+	userID := domain.ReconstituteUserID(m.UserULID)
 	token := domain.ReconstituteHashedToken(m.HashedToken)
+	previousToken := domain.ReconstituteHashedToken(m.PreviousHashedToken)
 
 	identity := domain.ReconstituteDeviceIdentity(
 		m.IPAddress,
 		m.OS,
 		m.Browser,
-		m.Model,
+		m.DeviceModel,
 		m.AcceptLanguage,
 		m.UserAgent,
 		m.IsMobile,
@@ -44,9 +46,10 @@ func toSessionDomain(m SessionModel) *domain.Session {
 		sid,
 		userID,
 		token,
+		previousToken,
 		identity,
-		domain.ReconstituteTimepoint(m.ExpiresAt),
-		domain.ReconstituteTimepoint(m.LastActiveAt),
+		m.ExpiresAt,
+		m.LastActiveAt,
 		m.IsRevoked,
 	)
 }

@@ -1,15 +1,18 @@
 package domain
 
+import "time"
+
 // Session is the Aggregate Root for session lifecycle management.
 type Session struct {
 	EventRecorder
-	id           SessionID
-	userID       UserID
-	hashedToken  HashedToken
-	identity     DeviceIdentity
-	expiresAt    Timepoint
-	lastActiveAt Timepoint
-	isRevoked    bool
+	id                  SessionID
+	userID              UserID
+	hashedToken         HashedToken
+	previousHashedToken HashedToken
+	identity            DeviceIdentity
+	expiry              SessionExpiry
+	lastActiveAt        time.Time
+	isRevoked           bool
 }
 
 // NewSession enforces business invariants during initial creation.
@@ -18,8 +21,8 @@ func NewSession(
 	userID UserID,
 	hashedToken HashedToken,
 	identity DeviceIdentity,
-	expiresAt Timepoint,
-	now Timepoint,
+	expiry SessionExpiry,
+	now time.Time,
 ) (*Session, error) {
 	if id.IsEmpty() {
 		return nil, ErrSessionIDRequired
@@ -27,16 +30,13 @@ func NewSession(
 	if userID.IsEmpty() {
 		return nil, ErrSessionUserIDRequired
 	}
-	if expiresAt.IsBefore(now) {
-		return nil, ErrSessionExpiryInPast
-	}
 
 	s := &Session{
 		id:           id,
 		userID:       userID,
 		hashedToken:  hashedToken,
 		identity:     identity,
-		expiresAt:    expiresAt,
+		expiry:       expiry,
 		lastActiveAt: now,
 		isRevoked:    false,
 	}
@@ -49,43 +49,46 @@ func ReconstituteSession(
 	id SessionID,
 	userID UserID,
 	hashedToken HashedToken,
+	previousHashedToken HashedToken,
 	identity DeviceIdentity,
-	expiresAt Timepoint,
-	lastActiveAt Timepoint,
+	expiresAt time.Time,
+	lastActiveAt time.Time,
 	isRevoked bool,
 ) *Session {
 	return &Session{
-		id:           id,
-		userID:       userID,
-		hashedToken:  hashedToken,
-		identity:     identity,
-		expiresAt:    expiresAt,
-		lastActiveAt: lastActiveAt,
-		isRevoked:    isRevoked,
+		id:                  id,
+		userID:              userID,
+		hashedToken:         hashedToken,
+		previousHashedToken: previousHashedToken,
+		identity:            identity,
+		expiry:              ReconstituteSessionExpiry(expiresAt),
+		lastActiveAt:        lastActiveAt,
+		isRevoked:           isRevoked,
 	}
 }
 
 // --- Behavior ---
 
-func (s *Session) IsValid(now Timepoint) bool {
+func (s *Session) IsValid(now time.Time) bool {
 	if s.IsRevoked() {
 		return false
 	}
-	return now.IsBefore(s.expiresAt)
+	return !s.expiry.IsExpired(now)
 }
 
 func (s *Session) ValidateFingerprint(currentFingerprint DeviceFingerprint) bool {
 	return s.identity.Fingerprint().Equal(currentFingerprint)
 }
 
-func (s *Session) UpdateLogin(newToken HashedToken, newExpiry, now Timepoint) {
+func (s *Session) UpdateLogin(newToken HashedToken, newExpiry SessionExpiry, now time.Time) {
 	s.hashedToken = newToken
-	s.expiresAt = newExpiry
+	s.previousHashedToken = ZeroHashedToken
+	s.expiry = newExpiry
 	s.lastActiveAt = now
-	s.RecordEvent(NewSessionEstablished(s.id, s.userID, now))
+	s.RecordEvent(NewSessionLoginRenewed(s.id, s.userID, now))
 }
 
-func (s *Session) Revoke(now Timepoint) error {
+func (s *Session) Revoke(now time.Time) error {
 	if s.IsRevoked() {
 		return ErrSessionAlreadyRevoked
 	}
@@ -95,7 +98,7 @@ func (s *Session) Revoke(now Timepoint) error {
 	return nil
 }
 
-func (s *Session) Refresh(currentFP DeviceFingerprint, now Timepoint) error {
+func (s *Session) Refresh(newHashedToken HashedToken, currentFP DeviceFingerprint, newExpiry SessionExpiry, now time.Time) error {
 	if !s.ValidateFingerprint(currentFP) {
 		s.isRevoked = true
 		s.RecordEvent(NewSessionHijackDetected(s.id, s.userID, now))
@@ -106,22 +109,41 @@ func (s *Session) Refresh(currentFP DeviceFingerprint, now Timepoint) error {
 		return ErrSessionExpired
 	}
 
+	// Rotate token
+	s.previousHashedToken = s.hashedToken
+	s.hashedToken = newHashedToken
+
+	// Slide expiry
+	s.expiry = newExpiry
+
 	s.lastActiveAt = now
+	s.RecordEvent(NewSessionTokenRotated(s.id, s.userID, now))
 	s.RecordEvent(NewSessionRefreshed(s.id, s.userID, now))
 	return nil
 }
 
-func (s *Session) UpdateActivity(now Timepoint) {
+func (s *Session) RevokeForTokenReuse(now time.Time) error {
+	if s.IsRevoked() {
+		return ErrSessionAlreadyRevoked
+	}
+	s.isRevoked = true
+	s.RecordEvent(NewSessionTokenReuseDetected(s.id, s.userID, now))
+	s.RecordEvent(NewSessionRevoked(s.id, s.userID, now))
+	return nil
+}
+
+func (s *Session) UpdateActivity(now time.Time) {
 	s.lastActiveAt = now
 }
 
 // --- Getters ---
 
-func (s *Session) ID() SessionID            { return s.id }
-func (s *Session) UserID() UserID           { return s.userID }
-func (s *Session) HashedToken() HashedToken { return s.hashedToken }
-func (s *Session) ExpiresAt() Timepoint     { return s.expiresAt }
-func (s *Session) LastActiveAt() Timepoint  { return s.lastActiveAt }
-func (s *Session) IsRevoked() bool          { return s.isRevoked }
-func (s *Session) Identity() DeviceIdentity { return s.identity }
-func (s *Session) DisplayName() string      { return s.identity.DisplayName() }
+func (s *Session) ID() SessionID                    { return s.id }
+func (s *Session) UserID() UserID                   { return s.userID }
+func (s *Session) HashedToken() HashedToken          { return s.hashedToken }
+func (s *Session) PreviousHashedToken() HashedToken  { return s.previousHashedToken }
+func (s *Session) Expiry() SessionExpiry             { return s.expiry }
+func (s *Session) LastActiveAt() time.Time           { return s.lastActiveAt }
+func (s *Session) IsRevoked() bool                   { return s.isRevoked }
+func (s *Session) Identity() DeviceIdentity          { return s.identity }
+func (s *Session) DisplayName() string               { return s.identity.DisplayName() }

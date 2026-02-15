@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,28 +62,6 @@ func TestNewHashedToken(t *testing.T) {
 	}
 }
 
-func TestNewRawToken(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantErr error
-	}{
-		{"valid", "raw-token-abc", nil},
-		{"empty", "", ErrTokenInvalid},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rt, err := NewRawToken(tt.input)
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.input, rt.String())
-			}
-		})
-	}
-}
-
 func TestNewAccessToken(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -103,6 +82,40 @@ func TestNewAccessToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewSessionExpiry(t *testing.T) {
+	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+
+	t.Run("valid_future", func(t *testing.T) {
+		future := now.Add(24 * time.Hour)
+		exp, err := NewSessionExpiry(future, now)
+		require.NoError(t, err)
+		assert.Equal(t, future, exp.Time())
+		assert.False(t, exp.IsZero())
+		assert.False(t, exp.IsExpired(now))
+	})
+
+	t.Run("expired_in_past", func(t *testing.T) {
+		past := now.Add(-1 * time.Hour)
+		exp, err := NewSessionExpiry(past, now)
+		assert.ErrorIs(t, err, ErrSessionExpiryInvalid)
+		assert.Equal(t, ZeroSessionExpiry, exp)
+	})
+
+	t.Run("equal_to_now", func(t *testing.T) {
+		exp, err := NewSessionExpiry(now, now)
+		assert.ErrorIs(t, err, ErrSessionExpiryInvalid)
+		assert.Equal(t, ZeroSessionExpiry, exp)
+	})
+
+	t.Run("is_expired_check", func(t *testing.T) {
+		future := now.Add(1 * time.Hour)
+		exp, _ := NewSessionExpiry(future, now)
+		assert.False(t, exp.IsExpired(now))
+		assert.True(t, exp.IsExpired(future))
+		assert.True(t, exp.IsExpired(future.Add(1*time.Second)))
+	})
 }
 
 func TestNewAccessIdentity(t *testing.T) {

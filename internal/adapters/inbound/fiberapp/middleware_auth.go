@@ -2,13 +2,14 @@ package fiberapp
 
 import (
 	"go_auth/internal/application"
+	"go_auth/internal/application/query"
 	"log/slog"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
+func Protected(validateAccess query.IValidateAccessHandler) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		logger := application.GetLogger(c.Context())
 
@@ -18,12 +19,11 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 			return fiber.NewError(fiber.StatusUnauthorized, "missing authorization header")
 		}
 
-		access, err := validateUC.Execute(c.Context(), application.ValidateAccessQuery{
+		access, err := validateAccess.Handle(c.Context(), query.ValidateAccessQuery{
 			AccessToken: token,
 			Fingerprint: c.Get("X-Fingerprint"),
 		})
 		if err != nil {
-			// UseCase already logs internal details, so we just return
 			return err
 		}
 
@@ -40,7 +40,6 @@ func Protected(validateUC application.IValidateAccessUseCase) fiber.Handler {
 
 		c.SetContext(application.WithAppContext(c.Context(), rc.AppContext()))
 
-		logger.Debug("request_authenticated", slog.String("user_id", access.UserID))
 		return c.Next()
 	}
 }
@@ -51,11 +50,8 @@ func extractToken(authHeader string) string {
 		return ""
 	}
 
-	// Standard Bearer token format: "Bearer <token>"
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		// If it doesn't follow Bearer format, return as is or return empty
-		// depending on your strictness. Here we stay strict:
 		return ""
 	}
 

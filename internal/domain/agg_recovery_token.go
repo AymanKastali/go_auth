@@ -1,12 +1,14 @@
 package domain
 
+import "time"
+
 // RecoveryToken is the Aggregate Root for the recovery context.
 type RecoveryToken struct {
 	EventRecorder
 	id          RecoveryTokenID
 	userID      UserID
 	hashedToken RecoveryTokenHash
-	expiresAt   Timepoint
+	expiresAt   time.Time
 	isUsed      bool
 }
 
@@ -15,14 +17,14 @@ func NewRecoveryToken(
 	id RecoveryTokenID,
 	uid UserID,
 	hash RecoveryTokenHash,
-	expiresAt Timepoint,
-	now Timepoint,
+	expiresAt time.Time,
+	now time.Time,
 ) (*RecoveryToken, error) {
 	if uid.IsEmpty() {
 		return nil, ErrUserIDRequired
 	}
-	if expiresAt.IsBefore(now) {
-		return nil, ErrSessionExpiryInPast
+	if expiresAt.Before(now) {
+		return nil, ErrTokenExpiryInPast
 	}
 	rt := &RecoveryToken{
 		id:          id,
@@ -40,7 +42,7 @@ func ReconstituteRecoveryToken(
 	id RecoveryTokenID,
 	userID UserID,
 	hashedToken RecoveryTokenHash,
-	expiresAt Timepoint,
+	expiresAt time.Time,
 	isUsed bool,
 ) *RecoveryToken {
 	return &RecoveryToken{
@@ -54,19 +56,19 @@ func ReconstituteRecoveryToken(
 
 // --- Business Logic ---
 
-func (r *RecoveryToken) IsValid(now Timepoint) bool {
+func (r *RecoveryToken) IsValid(now time.Time) bool {
 	return !r.IsUsed() && !r.IsExpired(now)
 }
 
-func (r *RecoveryToken) IsExpired(now Timepoint) bool {
-	return now.IsAfter(r.expiresAt)
+func (r *RecoveryToken) IsExpired(now time.Time) bool {
+	return now.After(r.expiresAt)
 }
 
 func (r *RecoveryToken) IsUsed() bool {
 	return r.isUsed
 }
 
-func (r *RecoveryToken) MarkAsUsed(now Timepoint) error {
+func (r *RecoveryToken) MarkAsUsed(now time.Time) error {
 	if r.IsUsed() {
 		return ErrRecoveryTokenRevoked
 	}
@@ -79,4 +81,4 @@ func (r *RecoveryToken) MarkAsUsed(now Timepoint) error {
 func (r *RecoveryToken) ID() RecoveryTokenID            { return r.id }
 func (r *RecoveryToken) UserID() UserID                 { return r.userID }
 func (r *RecoveryToken) HashedToken() RecoveryTokenHash { return r.hashedToken }
-func (r *RecoveryToken) ExpiresAt() Timepoint           { return r.expiresAt }
+func (r *RecoveryToken) ExpiresAt() time.Time           { return r.expiresAt }

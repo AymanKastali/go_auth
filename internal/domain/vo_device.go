@@ -1,6 +1,10 @@
 package domain
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+)
 
 var (
 	ZeroDeviceIdentity    = DeviceIdentity{}
@@ -49,7 +53,7 @@ func ReconstituteDeviceIdentity(ip, os, browser, model, lang, ua string, isMobil
 }
 
 func (d DeviceIdentity) Fingerprint() DeviceFingerprint {
-	return NewDeviceFingerprintFromIdentity(d.userAgent, d.ipAddress, d.language)
+	return NewDeviceFingerprintFromIdentity(d.userAgent, d.os, d.browser, d.isMobile)
 }
 
 func (d DeviceIdentity) DisplayName() string {
@@ -72,9 +76,14 @@ func (d DeviceIdentity) IsMobile() bool    { return d.isMobile }
 // --- DeviceFingerprint ---
 type DeviceFingerprint struct{ value string }
 
-func NewDeviceFingerprintFromIdentity(ua, ip, lang string) DeviceFingerprint {
-	val := fmt.Sprintf("%s|%s|%s", ua, ip, lang)
-	return DeviceFingerprint{value: val}
+func NewDeviceFingerprintFromIdentity(ua, os, browser string, isMobile bool) DeviceFingerprint {
+	mobile := "0"
+	if isMobile {
+		mobile = "1"
+	}
+	raw := fmt.Sprintf("%s|%s|%s|%s", ua, os, browser, mobile)
+	hash := sha256.Sum256([]byte(raw))
+	return DeviceFingerprint{value: hex.EncodeToString(hash[:])}
 }
 
 func NewDeviceFingerprint(value string) (DeviceFingerprint, error) {

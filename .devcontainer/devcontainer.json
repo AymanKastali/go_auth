@@ -55,7 +55,6 @@
                 },
                 "editor.formatOnSave": true,
                 "[go]": {
-                    "editor.defaultFormatter": "golang.go",
                     "editor.codeActionsOnSave": {
                         "source.organizeImports": "explicit"
                     }
@@ -71,6 +70,7 @@
         }
     },
     "postCreateCommand": "go mod download && bash scripts/install-hooks.sh",
-    "postStartCommand": "swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs 2>/dev/null; air",
+    "postStartCommand": "swag init -g cmd/auth/main.go --parseDependency --parseInternal -o ./docs && air",
+    "remoteUser": "vscode",
     "shutdownAction": "stopCompose"
 }

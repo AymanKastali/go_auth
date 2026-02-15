@@ -1,6 +1,5 @@
 @startuml DomainEvents
-!theme plain
-skinparam classAttributeIconSize 0
+!include _style.puml
 
 title Domain Events
 
@@ -8,7 +7,7 @@ package "Event Infrastructure" {
 
     interface DomainEvent {
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
     }
 
@@ -24,92 +23,118 @@ package "Event Infrastructure" {
 package "User Events" {
 
     class UserRegistered <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - email : string
         __
         + {static} NewUserRegistered(userID, email, now) : UserRegistered
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + Email() : string
     }
 
     class UserActivated <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         __
         + {static} NewUserActivated(userID, now) : UserActivated
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
     }
 
     class UserDeactivated <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         __
         + {static} NewUserDeactivated(userID, now) : UserDeactivated
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
     }
 
     class RoleAssigned <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - roleName : string
         __
         + {static} NewRoleAssigned(userID, role, now) : RoleAssigned
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + RoleName() : string
     }
 
     class RoleRevokedFromUser <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - roleName : string
         __
         + {static} NewRoleRevokedFromUser(userID, role, now) : RoleRevokedFromUser
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + RoleName() : string
     }
 
     class EmailUpdated <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - oldEmail : string
         - newEmail : string
         __
         + {static} NewEmailUpdated(userID, oldEmail, newEmail, now) : EmailUpdated
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + OldEmail() : string
         + NewEmail() : string
     }
 
     class PasswordChanged <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         __
         + {static} NewPasswordChanged(userID, now) : PasswordChanged
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
     }
 
+    class UserLoginFailed <<Domain Event>> {
+        - occurredAt : time.Time
+        - aggregateID : string
+        - email : string
+        - attemptNumber : int
+        __
+        + {static} NewUserLoginFailed(userID, email, attemptNumber, now) : UserLoginFailed
+        + EventName() : string
+        + OccurredAt() : time.Time
+        + AggregateID() : string
+        + Email() : string
+        + AttemptNumber() : int
+    }
+
+    class UserAccountLocked <<Domain Event>> {
+        - occurredAt : time.Time
+        - aggregateID : string
+        - lockedUntil : time.Time
+        __
+        + {static} NewUserAccountLocked(userID, lockedUntil, now) : UserAccountLocked
+        + EventName() : string
+        + OccurredAt() : time.Time
+        + AggregateID() : string
+        + LockedUntil() : time.Time
+    }
+
     class UserDeleted <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         __
         + {static} NewUserDeleted(userID, now) : UserDeleted
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
     }
 
@@ -120,91 +145,135 @@ package "User Events" {
     DomainEvent <|.. RoleRevokedFromUser
     DomainEvent <|.. EmailUpdated
     DomainEvent <|.. PasswordChanged
+    DomainEvent <|.. UserLoginFailed
+    DomainEvent <|.. UserAccountLocked
     DomainEvent <|.. UserDeleted
 }
 
 package "Session Events" {
 
     class SessionEstablished <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewSessionEstablished(sessionID, userID, now) : SessionEstablished
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
+        + AggregateID() : string
+        + SessionID() : string
+        + UserID() : string
+    }
+
+    class SessionLoginRenewed <<Domain Event>> {
+        - occurredAt : time.Time
+        - aggregateID : string
+        - userID : string
+        __
+        + {static} NewSessionLoginRenewed(sessionID, userID, now) : SessionLoginRenewed
+        + EventName() : string
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + SessionID() : string
         + UserID() : string
     }
 
     class SessionRefreshed <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewSessionRefreshed(sessionID, userID, now) : SessionRefreshed
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + SessionID() : string
         + UserID() : string
     }
 
     class SessionRevoked <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewSessionRevoked(sessionID, userID, now) : SessionRevoked
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + SessionID() : string
         + UserID() : string
     }
 
     class SessionHijackDetected <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewSessionHijackDetected(sessionID, userID, now) : SessionHijackDetected
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
+        + AggregateID() : string
+        + SessionID() : string
+        + UserID() : string
+    }
+
+    class SessionTokenRotated <<Domain Event>> {
+        - occurredAt : time.Time
+        - aggregateID : string
+        - userID : string
+        __
+        + {static} NewSessionTokenRotated(sessionID, userID, now) : SessionTokenRotated
+        + EventName() : string
+        + OccurredAt() : time.Time
+        + AggregateID() : string
+        + SessionID() : string
+        + UserID() : string
+    }
+
+    class SessionTokenReuseDetected <<Domain Event>> {
+        - occurredAt : time.Time
+        - aggregateID : string
+        - userID : string
+        __
+        + {static} NewSessionTokenReuseDetected(sessionID, userID, now) : SessionTokenReuseDetected
+        + EventName() : string
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + SessionID() : string
         + UserID() : string
     }
 
     DomainEvent <|.. SessionEstablished
+    DomainEvent <|.. SessionLoginRenewed
     DomainEvent <|.. SessionRefreshed
     DomainEvent <|.. SessionRevoked
     DomainEvent <|.. SessionHijackDetected
+    DomainEvent <|.. SessionTokenRotated
+    DomainEvent <|.. SessionTokenReuseDetected
 }
 
 package "Recovery Events" {
 
     class PasswordResetRequested <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewPasswordResetRequested(tokenID, userID, now) : PasswordResetRequested
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + UserID() : string
     }
 
     class RecoveryTokenUsed <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewRecoveryTokenUsed(tokenID, userID, now) : RecoveryTokenUsed
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + UserID() : string
     }
@@ -216,25 +285,25 @@ package "Recovery Events" {
 package "Activation Events" {
 
     class ActivationRequested <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewActivationRequested(tokenID, userID, now) : ActivationRequested
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + UserID() : string
     }
 
     class ActivationTokenUsed <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - userID : string
         __
         + {static} NewActivationTokenUsed(tokenID, userID, now) : ActivationTokenUsed
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + UserID() : string
     }
@@ -246,37 +315,37 @@ package "Activation Events" {
 package "Role Events" {
 
     class RoleCreated <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - roleName : string
         __
         + {static} NewRoleCreated(roleID, name, now) : RoleCreated
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + RoleName() : string
     }
 
     class PermissionAssigned <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - permission : string
         __
         + {static} NewPermissionAssigned(roleID, permission, now) : PermissionAssigned
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + Permission() : string
     }
 
     class PermissionRevoked <<Domain Event>> {
-        - occurredAt : Timepoint
+        - occurredAt : time.Time
         - aggregateID : string
         - permission : string
         __
         + {static} NewPermissionRevoked(roleID, permission, now) : PermissionRevoked
         + EventName() : string
-        + OccurredAt() : Timepoint
+        + OccurredAt() : time.Time
         + AggregateID() : string
         + Permission() : string
     }

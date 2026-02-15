@@ -1,14 +1,12 @@
 @startuml Policies
-!theme plain
-skinparam classAttributeIconSize 0
-skinparam linetype ortho
+!include _style.puml
 
 title Policies — Interfaces, Config Structs & Implementations
 
 package "Password Policy" {
 
     interface IPasswordPolicy {
-        + Validate(rawPassword RawPassword) : error
+        + Validate(rawPassword string) : (ValidatedPassword, error)
     }
 
     class PasswordPolicyConfig <<Config>> {
@@ -27,7 +25,7 @@ package "Password Policy" {
         - requireSpecial : bool
         __
         + {static} NewPasswordPolicy(cfg PasswordPolicyConfig) : IPasswordPolicy
-        + Validate(password RawPassword) : error
+        + Validate(password string) : (ValidatedPassword, error)
     }
 
     IPasswordPolicy <|.. passwordPolicy
@@ -147,6 +145,31 @@ package "Activation Policy" {
 
     IActivationPolicy <|.. activationPolicy
     ActivationPolicyConfig ..> activationPolicy : configures
+}
+
+package "Login Policy" {
+
+    interface ILoginPolicy {
+        + GetMaxAttempts() : int
+        + GetLockoutDuration() : time.Duration
+    }
+
+    class LoginPolicyConfig <<Config>> {
+        + MaxAttempts : int
+        + LockoutDuration : time.Duration
+    }
+
+    class loginPolicy <<Policy>> {
+        - maxAttempts : int
+        - lockoutDuration : time.Duration
+        __
+        + {static} NewLoginPolicy(cfg LoginPolicyConfig) : ILoginPolicy
+        + GetMaxAttempts() : int
+        + GetLockoutDuration() : time.Duration
+    }
+
+    ILoginPolicy <|.. loginPolicy
+    LoginPolicyConfig ..> loginPolicy : configures
 }
 
 @enduml
