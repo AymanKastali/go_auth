@@ -1,0 +1,212 @@
+
+' ============================================================
+' Dark Theme Style — Go Auth Domain Diagrams
+' Include via: !include _style.puml
+'
+' DDD Building Block Color Legend:
+'   Aggregate Root  → Blue    (#89B4FA)
+'   Value Object    → Mauve   (#CBA6F7)
+'   Domain Service  → Green   (#A6E3A1)
+'   Domain Event    → Yellow  (#F9E2AF)
+'   Policy          → Teal    (#94E2D5)
+'   Config          → Sky     (#74C7EC)
+'   Port            → Peach   (#FAB387)
+'   Mixin           → Pink    (#F5C2E7)
+' ============================================================
+
+' --- Global Skin Parameters ---
+
+skinparam backgroundColor #1E1E2E
+skinparam defaultFontColor #CDD6F4
+skinparam defaultFontName "JetBrains Mono, Fira Code, Consolas, monospace"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam roundCorner 8
+skinparam wrapWidth 300
+
+' --- Title ---
+
+skinparam titleFontColor #CDD6F4
+skinparam titleFontSize 18
+skinparam titleFontStyle bold
+skinparam titleBorderThickness 0
+
+' --- Class (default fallback) ---
+
+skinparam class {
+    BackgroundColor #313244
+    BorderColor #585B70
+    FontColor #CDD6F4
+    HeaderBackgroundColor #45475A
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #A6ADC8
+    BorderThickness 1
+}
+
+' --- Interface (default fallback) ---
+
+skinparam interface {
+    BackgroundColor #313244
+    BorderColor #585B70
+    FontColor #CDD6F4
+    StereotypeFontColor #A6ADC8
+}
+
+' =============================================================
+' DDD BUILDING BLOCK COLORS
+' =============================================================
+
+' --- Aggregate Root (Blue) ---
+
+skinparam class<<Aggregate Root>> {
+    BackgroundColor #1E2A40
+    BorderColor #89B4FA
+    HeaderBackgroundColor #273550
+    FontColor #89B4FA
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #89B4FA
+}
+
+' --- Value Object (Mauve / Purple) ---
+
+skinparam class<<Value Object>> {
+    BackgroundColor #2A1E40
+    BorderColor #CBA6F7
+    HeaderBackgroundColor #352850
+    FontColor #CBA6F7
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #CBA6F7
+}
+
+' --- Domain Service (Green) ---
+' Used on implementation classes in domain_services.puml
+
+skinparam class<<Domain Service>> {
+    BackgroundColor #1E3328
+    BorderColor #A6E3A1
+    HeaderBackgroundColor #254035
+    FontColor #A6E3A1
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #A6E3A1
+}
+
+' <<service>> is the compact variant used in aggregate_boundaries.puml
+skinparam class<<service>> {
+    BackgroundColor #1E3328
+    BorderColor #A6E3A1
+    HeaderBackgroundColor #254035
+    FontColor #A6E3A1
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #A6E3A1
+}
+
+' --- Domain Event (Yellow / Amber) ---
+
+skinparam class<<Domain Event>> {
+    BackgroundColor #302A1E
+    BorderColor #F9E2AF
+    HeaderBackgroundColor #3D3525
+    FontColor #F9E2AF
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #F9E2AF
+}
+
+' --- Policy (Teal) ---
+
+skinparam class<<Policy>> {
+    BackgroundColor #1E3332
+    BorderColor #94E2D5
+    HeaderBackgroundColor #254040
+    FontColor #94E2D5
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #94E2D5
+}
+
+skinparam interface<<policy>> {
+    BackgroundColor #1E3332
+    BorderColor #94E2D5
+    FontColor #94E2D5
+    StereotypeFontColor #94E2D5
+}
+
+' --- Config (Sky Blue) ---
+
+skinparam class<<Config>> {
+    BackgroundColor #1E2B33
+    BorderColor #74C7EC
+    HeaderBackgroundColor #253540
+    FontColor #74C7EC
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #74C7EC
+}
+
+' --- Port (Peach) ---
+' Contracts with the outside world (repos, infra services)
+
+skinparam class<<port>> {
+    BackgroundColor #332A1E
+    BorderColor #FAB387
+    HeaderBackgroundColor #403525
+    FontColor #FAB387
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #FAB387
+}
+
+skinparam interface<<port>> {
+    BackgroundColor #332A1E
+    BorderColor #FAB387
+    FontColor #FAB387
+    StereotypeFontColor #FAB387
+}
+
+' --- Mixin (Pink) ---
+
+skinparam class<<Mixin>> {
+    BackgroundColor #301E2E
+    BorderColor #F5C2E7
+    HeaderBackgroundColor #3D2540
+    FontColor #F5C2E7
+    AttributeFontColor #BAC2DE
+    StereotypeFontColor #F5C2E7
+}
+
+' =============================================================
+' LAYOUT ELEMENTS
+' =============================================================
+
+' --- Package ---
+
+skinparam package {
+    BackgroundColor #181825
+    BorderColor #45475A
+    FontColor #CDD6F4
+    StereotypeFontColor #A6ADC8
+    BorderThickness 1
+    Style rectangle
+}
+
+' --- Arrow / Relationship ---
+
+skinparam arrow {
+    Color #7F849C
+    FontColor #A6ADC8
+    FontSize 11
+}
+
+' --- Note ---
+
+skinparam note {
+    BackgroundColor #313244
+    BorderColor #585B70
+    FontColor #BAC2DE
+}
+
+' --- Legend ---
+
+skinparam legend {
+    BackgroundColor #313244
+    BorderColor #585B70
+    FontColor #CDD6F4
+}

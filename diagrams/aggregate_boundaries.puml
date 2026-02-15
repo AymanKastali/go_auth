@@ -1,12 +1,10 @@
 @startuml AggregateBoundaries
-!theme plain
-skinparam classAttributeIconSize 0
-skinparam linetype ortho
+!include _style.puml
 skinparam packageStyle rectangle
 
 title Aggregate Boundaries & Cross-Aggregate References
 
-package "User Aggregate Boundary" #E8F4FD {
+package "User Aggregate Boundary" {
 
     class User <<Aggregate Root>> {
         id : UserID
@@ -15,14 +13,16 @@ package "User Aggregate Boundary" #E8F4FD {
         isActive : bool
         roles : []RoleName
         isDeleted : bool
-        registeredAt : Timepoint
+        registeredAt : time.Time
+        failedLoginAttempts : int
+        lockedUntil : *time.Time
     }
 
     together {
-        class UserID <<VO>>
-        class Email <<VO>>
-        class HashedPassword <<VO>>
-        class RoleName <<VO>>
+        class UserID <<Value Object>>
+        class Email <<Value Object>>
+        class HashedPassword <<Value Object>>
+        class RoleName <<Value Object>>
     }
 
     User *-- UserID
@@ -31,32 +31,35 @@ package "User Aggregate Boundary" #E8F4FD {
     User *-- "0..*" RoleName : has
 }
 
-package "Session Aggregate Boundary" #E8FDE8 {
+package "Session Aggregate Boundary" {
 
     class Session <<Aggregate Root>> {
         id : SessionID
         userID : UserID
         hashedToken : HashedToken
+        previousHashedToken : HashedToken
         identity : DeviceIdentity
-        expiresAt : Timepoint
-        lastActiveAt : Timepoint
+        expiry : SessionExpiry
+        lastActiveAt : time.Time
         isRevoked : bool
     }
 
     together {
-        class SessionID <<VO>>
-        class HashedToken <<VO>>
-        class DeviceIdentity <<VO>>
-        class DeviceFingerprint <<VO>>
+        class SessionID <<Value Object>>
+        class HashedToken <<Value Object>>
+        class SessionExpiry <<Value Object>>
+        class DeviceIdentity <<Value Object>>
+        class DeviceFingerprint <<Value Object>>
     }
 
     Session *-- SessionID
     Session *-- HashedToken
+    Session *-- SessionExpiry
     Session *-- DeviceIdentity
     DeviceIdentity ..> DeviceFingerprint : derives
 }
 
-package "Role Aggregate Boundary" #FDE8E8 {
+package "Role Aggregate Boundary" {
 
     class Role <<Aggregate Root>> {
         id : RoleID
@@ -66,100 +69,103 @@ package "Role Aggregate Boundary" #FDE8E8 {
     }
 
     together {
-        class RoleID <<VO>>
-        class Permission <<VO>>
+        class RoleID <<Value Object>>
+        class Permission <<Value Object>>
     }
 
     Role *-- RoleID
     Role *-- "0..*" Permission : has
 }
 
-package "RecoveryToken Aggregate Boundary" #F3E8FD {
+package "RecoveryToken Aggregate Boundary" {
 
     class RecoveryToken <<Aggregate Root>> {
         id : RecoveryTokenID
         userID : UserID
         hashedToken : RecoveryTokenHash
-        expiresAt : Timepoint
+        expiresAt : time.Time
         isUsed : bool
     }
 
     together {
-        class RecoveryTokenID <<VO>>
-        class RecoveryTokenHash <<VO>>
+        class RecoveryTokenID <<Value Object>>
+        class RecoveryTokenHash <<Value Object>>
     }
 
     RecoveryToken *-- RecoveryTokenID
     RecoveryToken *-- RecoveryTokenHash
 }
 
-package "ActivationToken Aggregate Boundary" #FDF3E8 {
+package "ActivationToken Aggregate Boundary" {
 
     class ActivationToken <<Aggregate Root>> {
         id : ActivationTokenID
         userID : UserID
         hashedToken : ActivationTokenHash
-        expiresAt : Timepoint
+        expiresAt : time.Time
         isUsed : bool
     }
 
     together {
-        class ActivationTokenID <<VO>>
-        class ActivationTokenHash <<VO>>
+        class ActivationTokenID <<Value Object>>
+        class ActivationTokenHash <<Value Object>>
     }
 
     ActivationToken *-- ActivationTokenID
     ActivationToken *-- ActivationTokenHash
 }
 
-Session -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
-RecoveryToken -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
-ActivationToken -[#red,dashed]-> User : <color:red>cross-aggregate\nreference via UserID</color>
+Session -[#F38BA8,dashed]-> User : <color:#F38BA8>cross-aggregate\nreference via UserID</color>
+RecoveryToken -[#F38BA8,dashed]-> User : <color:#F38BA8>cross-aggregate\nreference via UserID</color>
+ActivationToken -[#F38BA8,dashed]-> User : <color:#F38BA8>cross-aggregate\nreference via UserID</color>
 
-package "Shared Value Objects (not owned by aggregates)" #FFFFF0 {
-    class AccessToken <<VO>>
-    class AccessIdentity <<VO>>
-    class RawToken <<VO>>
-    class RawPassword <<VO>>
-    class Timepoint <<VO>>
+package "Shared Value Objects (not owned by aggregates)" {
+    class AccessToken <<Value Object>>
+    class AccessIdentity <<Value Object>>
+    class ValidatedPassword <<Value Object>>
 }
 
-package "Domain Services (bridge aggregates)" #F0FFF0 {
+package "Domain Services (bridge aggregates)" {
 
-    class IRegistrationService <<service>> {
-    }
-    class IAuthenticationService <<service>> {
-    }
-    class IAccessManager <<service>> {
-    }
-    class IUserAccountManager <<service>> {
-    }
-    class IPasswordManager <<service>> {
-    }
+    class IRegisterMember <<service>>
+    class IRegisterAdmin <<service>>
+    class IVerifyCredentials <<service>>
+    class IChangePassword <<service>>
+    class IResetPassword <<service>>
+    class IOpenSession <<service>>
+    class IRefreshSession <<service>>
+    class IGrantAccess <<service>>
+    class IResolvePermissions <<service>>
+    class IInitiateRecovery <<service>>
+    class IInitiateActivation <<service>>
+    class IConfirmActivation <<service>>
 
-    IRegistrationService --> User
-    IAuthenticationService --> User
-    IAuthenticationService --> Session
-    IAccessManager --> User
-    IAccessManager --> Session
-    IAccessManager --> Role
-    IUserAccountManager --> User
-    IUserAccountManager --> RecoveryToken
-    IUserAccountManager --> ActivationToken
+    IRegisterMember --> User
+    IRegisterAdmin --> User
+    IVerifyCredentials --> User
+    IChangePassword --> User
+    IResetPassword --> User
+    IResetPassword --> RecoveryToken
+    IOpenSession --> Session
+    IRefreshSession --> Session
+    IGrantAccess --> User
+    IGrantAccess --> Role
+    IResolvePermissions --> Role
+    IInitiateRecovery --> User
+    IInitiateRecovery --> RecoveryToken
+    IInitiateActivation --> User
+    IInitiateActivation --> ActivationToken
+    IConfirmActivation --> User
+    IConfirmActivation --> ActivationToken
 }
 
-package "Repository Ports" #FFF0F0 {
+package "Repository Ports" {
 
-    interface IUserRepository <<port>> {
-    }
-    interface ISessionRepository <<port>> {
-    }
-    interface IRoleRepository <<port>> {
-    }
-    interface IRecoveryTokenRepository <<port>> {
-    }
-    interface IActivationTokenRepository <<port>> {
-    }
+    interface IUserRepository <<port>>
+    interface ISessionRepository <<port>>
+    interface IRoleRepository <<port>>
+    interface IRecoveryTokenRepository <<port>>
+    interface IActivationTokenRepository <<port>>
 
     IUserRepository --> User : persists
     ISessionRepository --> Session : persists

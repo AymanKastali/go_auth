@@ -1,152 +1,223 @@
 @startuml DomainServices
-!theme plain
-skinparam classAttributeIconSize 0
-skinparam linetype ortho
+!include _style.puml
 
 title Domain Services — Interfaces, Implementations & Dependency Wiring
 
-package "Domain Services" {
+package "Registration Services" {
 
-    interface IRegistrationService {
-        + RegisterNewMember(ctx, id, email, pwd, now) : (*User, error)
-        + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
+    interface IRegisterMember {
+        + Register(id, email, pwd, defaultRole, now) : (*User, error)
     }
 
-    class registrationService <<Domain Service>> {
-        - userRepo : IUserRepository
-        - roleProvider : IRegistrationRoleProvider
+    class registerMember <<Domain Service>> {
         - registerPolicy : IRegisterPolicy
         - activationPolicy : IActivationPolicy
         __
-        + {static} NewRegistrationService(userRepo, roleProvider, registerPolicy, activationPolicy) : *registrationService
-        + RegisterNewMember(ctx, id, email, pwd, now) : (*User, error)
-        + RegisterNewSuperAdmin(ctx, id, email, pwd, now) : (*User, error)
+        + {static} NewRegisterMember(registerPolicy, activationPolicy) : IRegisterMember
+        + Register(id, email, pwd, defaultRole, now) : (*User, error)
     }
 
-    interface IAuthenticationService {
-        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, *Session, error)
-        + RefreshSession(ctx, rawToken, fp, now) : (*User, *Session, error)
+    interface IRegisterAdmin {
+        + Register(id, email, pwd, defaultRole, now) : (*User, error)
     }
 
-    class authenticationService <<Domain Service>> {
-        - userRepo : IUserRepository
-        - sessionRepo : ISessionRepository
+    class registerAdmin <<Domain Service>> {
+        - registerPolicy : IRegisterPolicy
+        __
+        + {static} NewRegisterAdmin(registerPolicy) : IRegisterAdmin
+        + Register(id, email, pwd, defaultRole, now) : (*User, error)
+    }
+
+    IRegisterMember <|.. registerMember
+    IRegisterAdmin <|.. registerAdmin
+}
+
+package "Credential Services" {
+
+    interface IVerifyCredentials {
+        + Verify(user *User, rawPassword string) : error
+    }
+
+    class verifyCredentials <<Domain Service>> {
+        - passwordSvc : IPasswordService
+        __
+        + {static} NewVerifyCredentials(passwordSvc) : IVerifyCredentials
+        + Verify(user *User, rawPassword string) : error
+    }
+
+    interface IChangePassword {
+        + Change(user, oldPass, newPass ValidatedPassword, now) : error
+    }
+
+    class changePassword <<Domain Service>> {
+        - passwordSvc : IPasswordService
+        __
+        + {static} NewChangePassword(passwordSvc) : IChangePassword
+        + Change(user, oldPass, newPass ValidatedPassword, now) : error
+    }
+
+    interface IResetPassword {
+        + Reset(user, recovery, newPassword ValidatedPassword, now) : error
+    }
+
+    class resetPassword <<Domain Service>> {
+        - passwordSvc : IPasswordService
+        __
+        + {static} NewResetPassword(passwordSvc) : IResetPassword
+        + Reset(user, recovery, newPassword ValidatedPassword, now) : error
+    }
+
+    IVerifyCredentials <|.. verifyCredentials
+    IChangePassword <|.. changePassword
+    IResetPassword <|.. resetPassword
+}
+
+package "Session Services" {
+
+    interface IOpenSession {
+        + Open(existingSession, activeSessions, userID, identity, now) : (string, *Session, *Session, error)
+    }
+
+    class openSession <<Domain Service>> {
         - tokenSvc : ITokenService
         - idGen : IIDGenerator
         - sessionPolicy : ISessionPolicy
-        - passwordMgr : IPasswordManager
         __
-        + {static} NewAuthenticationService(userRepo, sessionRepo, tokenSvc, idGen, sessionPolicy, passwordMgr) : IAuthenticationService
-        + AuthenticateAndEstablishSession(ctx, user, rawPassword, identity, now) : (RawToken, *Session, error)
-        + RefreshSession(ctx, rawToken, fp, now) : (*User, *Session, error)
+        + {static} NewOpenSession(tokenSvc, idGen, sessionPolicy) : IOpenSession
+        + Open(existingSession, activeSessions, userID, identity, now) : (string, *Session, *Session, error)
     }
 
-    interface IAccessManager {
-        + GrantImmediateAccess(ctx, user, sid, now) : (AccessToken, Timepoint, error)
-        + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
+    interface IRefreshSession {
+        + Refresh(session, foundByPreviousToken, fp, now) : (string, error)
     }
 
-    class accessManager <<Domain Service>> {
-        - userRepo : IUserRepository
-        - sessionRepo : ISessionRepository
-        - roleRepo : IRoleRepository
+    class refreshSession <<Domain Service>> {
+        - tokenSvc : ITokenService
+        - sessionPolicy : ISessionPolicy
+        __
+        + {static} NewRefreshSession(tokenSvc, sessionPolicy) : IRefreshSession
+        + Refresh(session, foundByPreviousToken, fp, now) : (string, error)
+    }
+
+    IOpenSession <|.. openSession
+    IRefreshSession <|.. refreshSession
+}
+
+package "Access Services" {
+
+    interface IResolvePermissions {
+        + Resolve(roles []*Role) : []Permission
+    }
+
+    class resolvePermissions <<Domain Service>> {
+        __
+        + {static} NewResolvePermissions() : IResolvePermissions
+        + Resolve(roles []*Role) : []Permission
+    }
+
+    interface IGrantAccess {
+        + Grant(user, sid, roles []*Role, now) : (AccessToken, time.Time, error)
+    }
+
+    class grantAccess <<Domain Service>> {
+        - permResolver : IResolvePermissions
         - accessSvc : IAccessService
         - accessPolicy : IAccessPolicy
         __
-        + {static} NewAccessManager(userRepo, sessionRepo, roleRepo, accessSvc, accessPolicy) : IAccessManager
-        + GrantImmediateAccess(ctx, user, sid, now) : (AccessToken, Timepoint, error)
-        + VerifyAccess(ctx, token, now) : (*User, SessionID, error)
+        + {static} NewGrantAccess(permResolver, accessSvc, accessPolicy) : IGrantAccess
+        + Grant(user, sid, roles []*Role, now) : (AccessToken, time.Time, error)
     }
 
-    interface IUserAccountManager {
-        + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
-        + ChangePassword(user, oldPass, newPass, now) : error
-        + ResetPasswordByToken(user, recovery, newPassword, now) : error
-        + InitiateActivation(user, now) : (RawToken, *ActivationToken, error)
-        + ConfirmActivation(user, activation, now) : error
+    IResolvePermissions <|.. resolvePermissions
+    IGrantAccess <|.. grantAccess
+}
+
+package "Recovery & Activation Services" {
+
+    interface IInitiateRecovery {
+        + Initiate(user, now) : (string, *RecoveryToken, error)
     }
 
-    class userAccountManager <<Domain Service>> {
+    class initiateRecovery <<Domain Service>> {
         - tokenSvc : ITokenService
-        - passwordMgr : IPasswordManager
         - idGen : IIDGenerator
         - recoveryPolicy : IRecoveryPolicy
+        __
+        + {static} NewInitiateRecovery(tokenSvc, idGen, recoveryPolicy) : IInitiateRecovery
+        + Initiate(user, now) : (string, *RecoveryToken, error)
+    }
+
+    interface IInitiateActivation {
+        + Initiate(user, now) : (string, *ActivationToken, error)
+    }
+
+    class initiateActivation <<Domain Service>> {
+        - tokenSvc : ITokenService
+        - idGen : IIDGenerator
         - activationPolicy : IActivationPolicy
         __
-        + {static} NewUserAccountManager(tokenSvc, passwordMgr, idGen, recoveryPolicy, activationPolicy) : IUserAccountManager
-        + InitiatePasswordReset(user, now) : (RawToken, *RecoveryToken, error)
-        + ChangePassword(user, oldPass, newPass, now) : error
-        + ResetPasswordByToken(user, recovery, newPassword, now) : error
-        + InitiateActivation(user, now) : (RawToken, *ActivationToken, error)
-        + ConfirmActivation(user, activation, now) : error
+        + {static} NewInitiateActivation(tokenSvc, idGen, activationPolicy) : IInitiateActivation
+        + Initiate(user, now) : (string, *ActivationToken, error)
     }
 
-    interface IPasswordManager {
-        + ValidateAndHashNewPassword(raw RawPassword) : (HashedPassword, error)
-        + Compare(raw RawPassword, hashed HashedPassword) : bool
+    interface IConfirmActivation {
+        + Confirm(user, activation, now) : error
     }
 
-    class passwordManager <<Domain Service>> {
-        - svc : IPasswordService
-        - policy : IPasswordPolicy
+    class confirmActivation <<Domain Service>> {
         __
-        + {static} NewPasswordManager(svc, policy) : *passwordManager
-        + ValidateAndHashNewPassword(raw RawPassword) : (HashedPassword, error)
-        + Compare(raw RawPassword, hashed HashedPassword) : bool
+        + {static} NewConfirmActivation() : IConfirmActivation
+        + Confirm(user, activation, now) : error
     }
 
-    IRegistrationService <|.. registrationService
-    IAuthenticationService <|.. authenticationService
-    IAccessManager <|.. accessManager
-    IUserAccountManager <|.. userAccountManager
-    IPasswordManager <|.. passwordManager
+    IInitiateRecovery <|.. initiateRecovery
+    IInitiateActivation <|.. initiateActivation
+    IConfirmActivation <|.. confirmActivation
 }
 
 package "Ports" <<Cloud>> {
-    interface IUserRepository <<port>>
-    interface ISessionRepository <<port>>
-    interface IRoleRepository <<port>>
+    interface IPasswordService <<port>>
     interface ITokenService <<port>>
     interface IIDGenerator <<port>>
     interface IAccessService <<port>>
-    interface IPasswordService <<port>>
-    interface IRegistrationRoleProvider <<port>>
 }
 
 package "Policies" <<Cloud>> {
     interface IRegisterPolicy <<policy>>
+    interface IActivationPolicy <<policy>>
     interface ISessionPolicy <<policy>>
     interface IAccessPolicy <<policy>>
     interface IRecoveryPolicy <<policy>>
-    interface IActivationPolicy <<policy>>
-    interface IPasswordPolicy <<policy>>
 }
 
-registrationService --> IUserRepository
-registrationService --> IRegistrationRoleProvider
-registrationService --> IRegisterPolicy
-registrationService --> IActivationPolicy
+' --- Registration wiring ---
+registerMember --> IRegisterPolicy
+registerMember --> IActivationPolicy
+registerAdmin --> IRegisterPolicy
 
-authenticationService --> IUserRepository
-authenticationService --> ISessionRepository
-authenticationService --> ITokenService
-authenticationService --> IIDGenerator
-authenticationService --> ISessionPolicy
-authenticationService --> IPasswordManager
+' --- Credential wiring ---
+verifyCredentials --> IPasswordService
+changePassword --> IPasswordService
+resetPassword --> IPasswordService
 
-accessManager --> IUserRepository
-accessManager --> ISessionRepository
-accessManager --> IRoleRepository
-accessManager --> IAccessService
-accessManager --> IAccessPolicy
+' --- Session wiring ---
+openSession --> ITokenService
+openSession --> IIDGenerator
+openSession --> ISessionPolicy
+refreshSession --> ITokenService
+refreshSession --> ISessionPolicy
 
-userAccountManager --> ITokenService
-userAccountManager --> IPasswordManager
-userAccountManager --> IIDGenerator
-userAccountManager --> IRecoveryPolicy
-userAccountManager --> IActivationPolicy
+' --- Access wiring ---
+grantAccess --> IResolvePermissions
+grantAccess --> IAccessService
+grantAccess --> IAccessPolicy
 
-passwordManager --> IPasswordService
-passwordManager --> IPasswordPolicy
+' --- Recovery & Activation wiring ---
+initiateRecovery --> ITokenService
+initiateRecovery --> IIDGenerator
+initiateRecovery --> IRecoveryPolicy
+initiateActivation --> ITokenService
+initiateActivation --> IIDGenerator
+initiateActivation --> IActivationPolicy
 
 @enduml
