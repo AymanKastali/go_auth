@@ -28,7 +28,7 @@ docker pull ghcr.io/aymankastali/go_auth:latest
 Or a specific version:
 
 ```bash
-docker pull ghcr.io/aymankastali/go_auth:1.0.0
+docker pull ghcr.io/aymankastali/go_auth:0.1.0
 ```
 
 ### Run with Docker Compose
@@ -48,7 +48,7 @@ docker compose -f docker-compose.prod.yml up -d
 ### Override the image version
 
 ```bash
-GA_IMAGE=ghcr.io/aymankastali/go_auth:1.0.0 docker compose -f docker-compose.prod.yml up -d
+GA_IMAGE=ghcr.io/aymankastali/go_auth:0.1.0 docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## Environment Variables
@@ -212,7 +212,7 @@ Images are tagged using semantic versioning. Available tags:
 
 | Tag | Example | Description |
 |-----|---------|-------------|
-| `X.Y.Z` | `1.0.0` | Exact release |
+| `X.Y.Z` | `0.1.0` | Exact release |
 | `X.Y` | `1.0` | Latest patch for that minor |
 | `X` | `1` | Latest minor/patch for that major |
 | `main` | `main` | Latest build from main branch |
