@@ -218,7 +218,7 @@ Images are tagged using semantic versioning. Available tags:
 | `main` | `main` | Latest build from main branch |
 | `sha-*` | `sha-abc1234` | Specific commit |
 
-For production, pin to an exact version (`1.0.0`). For staging, `main` or a minor tag (`1.0`) works well.
+For production, pin to an exact version (`0.1.0`). For staging, `main` or a minor tag (`0.1`) works well.
 
 ## License
 

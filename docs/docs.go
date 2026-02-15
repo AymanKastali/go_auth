@@ -44,7 +44,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
@@ -52,7 +52,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse"
+                                                "$ref": "#/definitions/fiberapp.RoleHTTPResponse"
                                             }
                                         }
                                     }
@@ -63,7 +63,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -92,7 +92,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.CreateRoleRequest"
+                            "$ref": "#/definitions/fiberapp.CreateRoleRequest"
                         }
                     }
                 ],
@@ -102,13 +102,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse"
+                                            "$ref": "#/definitions/fiberapp.RoleHTTPResponse"
                                         }
                                     }
                                 }
@@ -118,13 +118,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -160,13 +160,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RoleHTTPResponse"
+                                            "$ref": "#/definitions/fiberapp.RoleHTTPResponse"
                                         }
                                     }
                                 }
@@ -176,7 +176,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -214,7 +214,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.AssignPermissionRequest"
+                            "$ref": "#/definitions/fiberapp.AssignPermissionRequest"
                         }
                     }
                 ],
@@ -225,13 +225,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -267,7 +267,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RevokePermissionRequest"
+                            "$ref": "#/definitions/fiberapp.RevokePermissionRequest"
                         }
                     }
                 ],
@@ -278,13 +278,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -312,7 +312,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -355,13 +355,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ListUsersHTTPResponse"
+                                            "$ref": "#/definitions/fiberapp.ListUsersHTTPResponse"
                                         }
                                     }
                                 }
@@ -371,7 +371,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -407,13 +407,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.AdminUserResponse"
+                                            "$ref": "#/definitions/fiberapp.AdminUserResponse"
                                         }
                                     }
                                 }
@@ -423,7 +423,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -458,7 +458,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -495,7 +495,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -532,7 +532,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -570,7 +570,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.AssignUserRoleRequest"
+                            "$ref": "#/definitions/fiberapp.AssignUserRoleRequest"
                         }
                     }
                 ],
@@ -581,13 +581,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -623,7 +623,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RevokeUserRoleRequest"
+                            "$ref": "#/definitions/fiberapp.RevokeUserRoleRequest"
                         }
                     }
                 ],
@@ -634,13 +634,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -666,7 +666,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ConfirmActivationRequest"
+                            "$ref": "#/definitions/fiberapp.ConfirmActivationRequest"
                         }
                     }
                 ],
@@ -677,13 +677,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -709,7 +709,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ForgotPasswordRequest"
+                            "$ref": "#/definitions/fiberapp.ForgotPasswordRequest"
                         }
                     }
                 ],
@@ -717,13 +717,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.MessageResponse"
+                            "$ref": "#/definitions/fiberapp.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -749,7 +749,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.LoginRequest"
+                            "$ref": "#/definitions/fiberapp.LoginRequest"
                         }
                     }
                 ],
@@ -759,13 +759,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.LoginResponse"
+                                            "$ref": "#/definitions/fiberapp.LoginResponse"
                                         }
                                     }
                                 }
@@ -775,7 +775,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -800,7 +800,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -826,7 +826,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RefreshRequest"
+                            "$ref": "#/definitions/fiberapp.RefreshRequest"
                         }
                     }
                 ],
@@ -836,13 +836,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.LoginResponse"
+                                            "$ref": "#/definitions/fiberapp.LoginResponse"
                                         }
                                     }
                                 }
@@ -852,7 +852,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -878,7 +878,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RegisterRequest"
+                            "$ref": "#/definitions/fiberapp.RegisterRequest"
                         }
                     }
                 ],
@@ -888,13 +888,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RegisterUserResponse"
+                                            "$ref": "#/definitions/fiberapp.RegisterUserResponse"
                                         }
                                     }
                                 }
@@ -904,7 +904,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -930,7 +930,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ResendActivationRequest"
+                            "$ref": "#/definitions/fiberapp.ResendActivationRequest"
                         }
                     }
                 ],
@@ -938,13 +938,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.MessageResponse"
+                            "$ref": "#/definitions/fiberapp.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -970,7 +970,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ResetPasswordRequest"
+                            "$ref": "#/definitions/fiberapp.ResetPasswordRequest"
                         }
                     }
                 ],
@@ -981,7 +981,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1007,7 +1007,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ValidateTokenRequest"
+                            "$ref": "#/definitions/fiberapp.ValidateTokenRequest"
                         }
                     }
                 ],
@@ -1017,13 +1017,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ValidateTokenResponse"
+                                            "$ref": "#/definitions/fiberapp.ValidateTokenResponse"
                                         }
                                     }
                                 }
@@ -1033,7 +1033,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1055,13 +1055,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.PolicyHTTPResponse"
+                                            "$ref": "#/definitions/fiberapp.PolicyHTTPResponse"
                                         }
                                     }
                                 }
@@ -1071,7 +1071,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1110,13 +1110,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.UserResponse"
+                                            "$ref": "#/definitions/fiberapp.UserResponse"
                                         }
                                     }
                                 }
@@ -1126,13 +1126,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1162,13 +1162,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.UserResponse"
+                                            "$ref": "#/definitions/fiberapp.UserResponse"
                                         }
                                     }
                                 }
@@ -1178,7 +1178,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1207,7 +1207,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.UpdateMeRequest"
+                            "$ref": "#/definitions/fiberapp.UpdateMeRequest"
                         }
                     }
                 ],
@@ -1218,7 +1218,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1249,7 +1249,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ChangePasswordRequest"
+                            "$ref": "#/definitions/fiberapp.ChangePasswordRequest"
                         }
                     }
                 ],
@@ -1260,7 +1260,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1299,13 +1299,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.UserResponse"
+                                            "$ref": "#/definitions/fiberapp.UserResponse"
                                         }
                                     }
                                 }
@@ -1315,13 +1315,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1343,13 +1343,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.HealthResponse"
+                                            "$ref": "#/definitions/fiberapp.HealthResponse"
                                         }
                                     }
                                 }
@@ -1375,13 +1375,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.DataResponse"
+                                    "$ref": "#/definitions/fiberapp.DataResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.HealthResponse"
+                                            "$ref": "#/definitions/fiberapp.HealthResponse"
                                         }
                                     }
                                 }
@@ -1391,7 +1391,7 @@ const docTemplate = `{
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorResponse"
+                            "$ref": "#/definitions/fiberapp.ErrorResponse"
                         }
                     }
                 }
@@ -1399,7 +1399,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_adapters_inbound_fiberapp.ActivationPolicyHTTPResponse": {
+        "fiberapp.ActivationPolicyHTTPResponse": {
             "type": "object",
             "properties": {
                 "require_email": {
@@ -1408,7 +1408,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.AdminUserResponse": {
+        "fiberapp.AdminUserResponse": {
             "type": "object",
             "properties": {
                 "email": {
@@ -1434,7 +1434,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.AssignPermissionRequest": {
+        "fiberapp.AssignPermissionRequest": {
             "type": "object",
             "required": [
                 "permission"
@@ -1445,7 +1445,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.AssignUserRoleRequest": {
+        "fiberapp.AssignUserRoleRequest": {
             "type": "object",
             "required": [
                 "role_name"
@@ -1456,7 +1456,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ChangePasswordRequest": {
+        "fiberapp.ChangePasswordRequest": {
             "type": "object",
             "required": [
                 "new_password",
@@ -1471,7 +1471,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ConfirmActivationRequest": {
+        "fiberapp.ConfirmActivationRequest": {
             "type": "object",
             "required": [
                 "token"
@@ -1482,7 +1482,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.CreateRoleRequest": {
+        "fiberapp.CreateRoleRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -1502,13 +1502,13 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.DataResponse": {
+        "fiberapp.DataResponse": {
             "type": "object",
             "properties": {
                 "data": {}
             }
         },
-        "internal_adapters_inbound_fiberapp.ErrorBody": {
+        "fiberapp.ErrorBody": {
             "type": "object",
             "properties": {
                 "code": {
@@ -1529,15 +1529,15 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ErrorResponse": {
+        "fiberapp.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
-                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ErrorBody"
+                    "$ref": "#/definitions/fiberapp.ErrorBody"
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ForgotPasswordRequest": {
+        "fiberapp.ForgotPasswordRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -1548,7 +1548,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.HealthResponse": {
+        "fiberapp.HealthResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -1557,7 +1557,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ListUsersHTTPResponse": {
+        "fiberapp.ListUsersHTTPResponse": {
             "type": "object",
             "properties": {
                 "limit": {
@@ -1572,12 +1572,12 @@ const docTemplate = `{
                 "users": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_adapters_inbound_fiberapp.AdminUserResponse"
+                        "$ref": "#/definitions/fiberapp.AdminUserResponse"
                     }
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.LoginRequest": {
+        "fiberapp.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1592,7 +1592,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.LoginResponse": {
+        "fiberapp.LoginResponse": {
             "type": "object",
             "properties": {
                 "access_exp": {
@@ -1609,7 +1609,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.MessageResponse": {
+        "fiberapp.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -1618,7 +1618,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.PasswordPolicyHTTPResponse": {
+        "fiberapp.PasswordPolicyHTTPResponse": {
             "type": "object",
             "properties": {
                 "max_length": {
@@ -1643,21 +1643,21 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.PolicyHTTPResponse": {
+        "fiberapp.PolicyHTTPResponse": {
             "type": "object",
             "properties": {
                 "activation": {
-                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.ActivationPolicyHTTPResponse"
+                    "$ref": "#/definitions/fiberapp.ActivationPolicyHTTPResponse"
                 },
                 "password": {
-                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.PasswordPolicyHTTPResponse"
+                    "$ref": "#/definitions/fiberapp.PasswordPolicyHTTPResponse"
                 },
                 "registration": {
-                    "$ref": "#/definitions/internal_adapters_inbound_fiberapp.RegisterPolicyHTTPResponse"
+                    "$ref": "#/definitions/fiberapp.RegisterPolicyHTTPResponse"
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RefreshRequest": {
+        "fiberapp.RefreshRequest": {
             "type": "object",
             "required": [
                 "refresh_token"
@@ -1668,7 +1668,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RegisterPolicyHTTPResponse": {
+        "fiberapp.RegisterPolicyHTTPResponse": {
             "type": "object",
             "properties": {
                 "allow_public": {
@@ -1683,7 +1683,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RegisterRequest": {
+        "fiberapp.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1698,7 +1698,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RegisterUserResponse": {
+        "fiberapp.RegisterUserResponse": {
             "type": "object",
             "properties": {
                 "email": {
@@ -1709,7 +1709,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ResendActivationRequest": {
+        "fiberapp.ResendActivationRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -1720,7 +1720,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ResetPasswordRequest": {
+        "fiberapp.ResetPasswordRequest": {
             "type": "object",
             "required": [
                 "new_password",
@@ -1735,7 +1735,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RevokePermissionRequest": {
+        "fiberapp.RevokePermissionRequest": {
             "type": "object",
             "required": [
                 "permission"
@@ -1746,7 +1746,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RevokeUserRoleRequest": {
+        "fiberapp.RevokeUserRoleRequest": {
             "type": "object",
             "required": [
                 "role_name"
@@ -1757,7 +1757,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.RoleHTTPResponse": {
+        "fiberapp.RoleHTTPResponse": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1777,7 +1777,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.UpdateMeRequest": {
+        "fiberapp.UpdateMeRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -1788,7 +1788,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.UserResponse": {
+        "fiberapp.UserResponse": {
             "type": "object",
             "properties": {
                 "email": {
@@ -1805,7 +1805,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ValidateTokenRequest": {
+        "fiberapp.ValidateTokenRequest": {
             "type": "object",
             "required": [
                 "access_token"
@@ -1816,7 +1816,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_adapters_inbound_fiberapp.ValidateTokenResponse": {
+        "fiberapp.ValidateTokenResponse": {
             "type": "object",
             "properties": {
                 "permissions": {
@@ -1851,7 +1851,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "0.1.0",
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},

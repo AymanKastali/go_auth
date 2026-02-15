@@ -3,7 +3,7 @@ package main
 import "log"
 
 // @title Auth Service API
-// @version 1.0
+// @version 0.1.0
 // @description Authentication service using Hexagonal Architecture and Fiber v3.
 // @termsOfService http://swagger.io/terms/
 
